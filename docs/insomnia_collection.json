@@ -1,0 +1,294 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2024-06-09T00:00:00.000Z",
+  "__export_source": "insomnia.desktop.app:v2023.5.8",
+  "resources": [
+    {
+      "_id": "wrk_tutorias_api",
+      "_type": "workspace",
+      "name": "Tutorias API",
+      "scope": "collection"
+    },
+    {
+      "_id": "env_tutorias_base",
+      "_type": "environment",
+      "parentId": "wrk_tutorias_api",
+      "name": "Base Environment",
+      "data": {
+        "base_url": "http://localhost:8080"
+      }
+    },
+    {
+      "_id": "fld_alumnos",
+      "_type": "request_group",
+      "parentId": "wrk_tutorias_api",
+      "name": "Alumnos"
+    },
+    {
+      "_id": "req_alumnos_list",
+      "_type": "request",
+      "parentId": "fld_alumnos",
+      "name": "List Students",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/alumnos",
+      "parameters": [
+        { "name": "page", "value": "1" },
+        { "name": "limit", "value": "20" },
+        { "name": "estado", "value": "ACTIVO" },
+        { "name": "carrera", "value": "Software" },
+        { "name": "semestre", "value": "7" }
+      ],
+      "headers": [
+        { "name": "Accept", "value": "application/json" }
+      ],
+      "body": {
+        "mimeType": "application/json"
+      }
+    },
+    {
+      "_id": "req_alumnos_get",
+      "_type": "request",
+      "parentId": "fld_alumnos",
+      "name": "Get Student by ID",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/alumnos/1",
+      "headers": [
+        { "name": "Accept", "value": "application/json" }
+      ],
+      "body": {
+        "mimeType": "application/json"
+      }
+    },
+    {
+      "_id": "req_alumnos_create",
+      "_type": "request",
+      "parentId": "fld_alumnos",
+      "name": "Create Student",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/alumnos",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Accept", "value": "application/json" }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"matricula\": \"A0123456\",\n  \"nombre\": \"Juan Perez\",\n  \"carrera\": \"Ingenieria de Software\",\n  \"semestre\": 7,\n  \"estado\": \"ACTIVO\",\n  \"tutorId\": 5\n}"
+      }
+    },
+    {
+      "_id": "req_alumnos_put",
+      "_type": "request",
+      "parentId": "fld_alumnos",
+      "name": "Replace Student",
+      "method": "PUT",
+      "url": "{{ _.base_url }}/api/alumnos/1",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Accept", "value": "application/json" }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"nombre\": \"Juan Perez\",\n  \"carrera\": \"Ingenieria de Software\",\n  \"semestre\": 8,\n  \"estado\": \"ACTIVO\",\n  \"tutorId\": 7\n}"
+      }
+    },
+    {
+      "_id": "req_alumnos_patch",
+      "_type": "request",
+      "parentId": "fld_alumnos",
+      "name": "Patch Student",
+      "method": "PATCH",
+      "url": "{{ _.base_url }}/api/alumnos/1",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Accept", "value": "application/json" }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"semestre\": 9,\n  \"estado\": \"INACTIVO\"\n}"
+      }
+    },
+    {
+      "_id": "req_alumnos_delete",
+      "_type": "request",
+      "parentId": "fld_alumnos",
+      "name": "Delete Student",
+      "method": "DELETE",
+      "url": "{{ _.base_url }}/api/alumnos/1",
+      "headers": [
+        { "name": "Accept", "value": "application/json" }
+      ],
+      "body": {
+        "mimeType": "application/json"
+      }
+    },
+    {
+      "_id": "fld_tutores",
+      "_type": "request_group",
+      "parentId": "wrk_tutorias_api",
+      "name": "Tutores"
+    },
+    {
+      "_id": "req_tutores_list",
+      "_type": "request",
+      "parentId": "fld_tutores",
+      "name": "List Tutors",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/tutores",
+      "parameters": [
+        { "name": "carrera", "value": "Ingenieria de Software" },
+        { "name": "disponibles", "value": "true" },
+        { "name": "sobrecargados", "value": "false" },
+        { "name": "activos", "value": "true" }
+      ],
+      "headers": [
+        { "name": "Accept", "value": "application/json" }
+      ],
+      "body": {
+        "mimeType": "application/json"
+      }
+    },
+    {
+      "_id": "req_tutores_get",
+      "_type": "request",
+      "parentId": "fld_tutores",
+      "name": "Get Tutor by ID",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/tutores/5",
+      "headers": [
+        { "name": "Accept", "value": "application/json" }
+      ],
+      "body": {
+        "mimeType": "application/json"
+      }
+    },
+    {
+      "_id": "req_tutores_create",
+      "_type": "request",
+      "parentId": "fld_tutores",
+      "name": "Create Tutor",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/tutores",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Accept", "value": "application/json" }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"nombre\": \"Ana Rodriguez\",\n  \"carrera\": \"Ingenieria de Software\",\n  \"capacidadMax\": 25,\n  \"areaAtencion\": \"Software Engineering\",\n  \"letraEdificio\": \"B\",\n  \"activo\": true\n}"
+      }
+    },
+    {
+      "_id": "req_tutores_put",
+      "_type": "request",
+      "parentId": "fld_tutores",
+      "name": "Update Tutor",
+      "method": "PUT",
+      "url": "{{ _.base_url }}/api/tutores/5",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Accept", "value": "application/json" }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"nombre\": \"Ana Rodriguez\",\n  \"carrera\": \"Ingenieria de Software\",\n  \"capacidadMax\": 28,\n  \"areaAtencion\": \"Software Architecture\",\n  \"letraEdificio\": \"C\",\n  \"activo\": true\n}"
+      }
+    },
+    {
+      "_id": "req_tutores_delete",
+      "_type": "request",
+      "parentId": "fld_tutores",
+      "name": "Delete Tutor",
+      "method": "DELETE",
+      "url": "{{ _.base_url }}/api/tutores/5",
+      "headers": [
+        { "name": "Accept", "value": "application/json" }
+      ],
+      "body": {
+        "mimeType": "application/json"
+      }
+    },
+    {
+      "_id": "fld_inactivos",
+      "_type": "request_group",
+      "parentId": "wrk_tutorias_api",
+      "name": "Alumnos Inactivos"
+    },
+    {
+      "_id": "req_inactivos_pendientes",
+      "_type": "request",
+      "parentId": "fld_inactivos",
+      "name": "List Pending Inactive Students",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/alumnos-inactivos/pendientes",
+      "parameters": [
+        { "name": "carrera", "value": "Ingenieria de Software" },
+        { "name": "semestre", "value": "7" },
+        { "name": "motivo", "value": "BAJA_TEMPORAL" }
+      ],
+      "headers": [
+        { "name": "Accept", "value": "application/json" }
+      ],
+      "body": {
+        "mimeType": "application/json"
+      }
+    },
+    {
+      "_id": "req_inactivos_list",
+      "_type": "request",
+      "parentId": "fld_inactivos",
+      "name": "List All Inactive Students",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/alumnos-inactivos",
+      "parameters": [
+        { "name": "carrera", "value": "Ingenieria de Software" }
+      ],
+      "headers": [
+        { "name": "Accept", "value": "application/json" }
+      ],
+      "body": {
+        "mimeType": "application/json"
+      }
+    },
+    {
+      "_id": "req_inactivos_put_motivo",
+      "_type": "request",
+      "parentId": "fld_inactivos",
+      "name": "Assign Inactive Motive",
+      "method": "PUT",
+      "url": "{{ _.base_url }}/api/alumnos-inactivos/10/motivo",
+      "parameters": [
+        { "name": "motivo", "value": "BAJA_TEMPORAL" },
+        { "name": "usuario", "value": "coordinador.academico" }
+      ],
+      "headers": [
+        { "name": "Accept", "value": "application/json" }
+      ],
+      "body": {
+        "mimeType": "application/json"
+      }
+    },
+    {
+      "_id": "fld_asignaciones",
+      "_type": "request_group",
+      "parentId": "wrk_tutorias_api",
+      "name": "Asignaciones"
+    },
+    {
+      "_id": "req_asignaciones_cambio_tutor",
+      "_type": "request",
+      "parentId": "fld_asignaciones",
+      "name": "Manual Tutor Reassignment",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/asignaciones/cambio-tutor",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Accept", "value": "application/json" }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"alumnoId\": 101,\n  \"tutorOrigenId\": 5,\n  \"tutorDestinoId\": 12,\n  \"motivo\": \"Student request\",\n  \"usuario\": \"coordinador.academico\"\n}"
+      }
+    }
+  ]
+}

@@ -13,8 +13,32 @@ import java.util.Optional;
 @Repository
 public interface AlumnoInactivoRepository extends JpaRepository<AlumnoInactivo, Long> {
 
-    @Query("SELECT ai FROM AlumnoInactivo ai JOIN FETCH ai.alumno WHERE ai.motivoInactividad = 'SIN_DEFINIR'")
-    List<AlumnoInactivo> findPendientesDeResolucion();
+    @Query("""
+            SELECT ai FROM AlumnoInactivo ai
+            JOIN FETCH ai.alumno a
+            LEFT JOIN FETCH ai.tutorPreservado tp
+            WHERE ai.motivoInactividad = 'SIN_DEFINIR'
+              AND (:carrera IS NULL OR a.carrera = :carrera)
+              AND (:semestre IS NULL OR a.semestre = :semestre)
+              AND (:motivo IS NULL OR ai.motivoInactividad = :motivo)
+            ORDER BY ai.fechaInactividad DESC
+            """)
+    List<AlumnoInactivo> findPendientesDeResolucion(@Param("carrera") String carrera,
+                                                    @Param("semestre") Integer semestre,
+                                                    @Param("motivo") MotivoInactividad motivo);
+
+    @Query("""
+            SELECT ai FROM AlumnoInactivo ai
+            JOIN FETCH ai.alumno a
+            LEFT JOIN FETCH ai.tutorPreservado tp
+            WHERE (:motivo IS NULL OR ai.motivoInactividad = :motivo)
+              AND (:carrera IS NULL OR a.carrera = :carrera)
+              AND (:semestre IS NULL OR a.semestre = :semestre)
+            ORDER BY ai.fechaInactividad DESC
+            """)
+    List<AlumnoInactivo> findAllWithFilters(@Param("carrera") String carrera,
+                                            @Param("semestre") Integer semestre,
+                                            @Param("motivo") MotivoInactividad motivo);
 
     @Query("SELECT ai FROM AlumnoInactivo ai WHERE ai.alumno.id = :alumnoId")
     Optional<AlumnoInactivo> findByAlumnoId(@Param("alumnoId") Long alumnoId);

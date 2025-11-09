@@ -3,6 +3,7 @@ package com.universidad.tutorias.domain.repository;
 import com.universidad.tutorias.domain.entity.Tutor;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -12,7 +13,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface TutorRepository extends JpaRepository<Tutor, Long> {
+public interface TutorRepository extends JpaRepository<Tutor, Long>, JpaSpecificationExecutor<Tutor> {
 
     @Query("SELECT t FROM Tutor t WHERE t.activo = true AND t.cargaActual < t.capacidadMax ORDER BY t.cargaActual ASC")
     List<Tutor> findDisponibles();
