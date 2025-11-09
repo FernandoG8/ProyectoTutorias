@@ -1,5 +1,8 @@
 package com.universidad.tutorias.domain.enums;
 
+import lombok.Getter;
+
+@Getter
 public enum TipoAlerta {
     ERROR_FORMATO("Error de Formato"),
     ASIGNACION_CRUZADA("Asignación Cruzada"),
@@ -12,7 +15,4 @@ public enum TipoAlerta {
         this.descripcion = descripcion;
     }
 
-    public String getDescripcion() {
-        return descripcion;
-    }
 }
