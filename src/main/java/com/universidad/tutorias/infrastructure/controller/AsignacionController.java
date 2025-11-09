@@ -6,16 +6,20 @@ package com.universidad.tutorias.infrastructure.controller;
 
 import com.universidad.tutorias.application.dto.*;
 import com.universidad.tutorias.application.service.ProcesoOrchestrator;
-import com.universidad.tutorias.domain.entity.ProcesoAsignacion;
+import com.universidad.tutorias.application.service.TutorReasignacionService;
 import com.universidad.tutorias.domain.entity.AlertaProceso;
+import com.universidad.tutorias.domain.entity.ProcesoAsignacion;
 import com.universidad.tutorias.domain.enums.EstadoProceso;
 import com.universidad.tutorias.domain.enums.SeveridadAlerta;
 import com.universidad.tutorias.domain.repository.AlertaProcesoRepository;
 import com.universidad.tutorias.domain.repository.ProcesoAsignacionRepository;
+import com.universidad.tutorias.infrastructure.controller.response.ApiResponse;
+import com.universidad.tutorias.infrastructure.exception.ProcesoAsignacionException;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -38,9 +42,10 @@ public class AsignacionController {
     private final ProcesoOrchestrator orchestrator;
     private final ProcesoAsignacionRepository procesoRepository;
     private final AlertaProcesoRepository alertaRepository;
+    private final TutorReasignacionService tutorReasignacionService;
 
     @PostMapping("/iniciar")
-    public ResponseEntity<IniciarProcesoResponse> iniciarProceso(
+    public ResponseEntity<ApiResponse<IniciarProcesoResponse>> iniciarProceso(
             @Valid @ModelAttribute IniciarProcesoRequest request) {
 
         log.info("Iniciando proceso de asignación para semestre {} por usuario {}",
@@ -57,35 +62,35 @@ public class AsignacionController {
             try {
                 Long procesoId = futuro.get(3, TimeUnit.SECONDS);
 
-                return ResponseEntity.ok(IniciarProcesoResponse.builder()
+                IniciarProcesoResponse response = IniciarProcesoResponse.builder()
                         .procesoId(procesoId)
                         .estado(EstadoProceso.INICIADO)
                         .mensaje("Proceso de asignación iniciado correctamente")
                         .timestamp(LocalDateTime.now())
-                        .build());
+                        .build();
+
+                return ResponseEntity.ok(ApiResponse.success(response));
 
             } catch (TimeoutException e) {
                 // El proceso sigue corriendo en background
                 log.info("Proceso iniciado en segundo plano");
-                return ResponseEntity.accepted()
-                        .body(IniciarProcesoResponse.builder()
-                                .mensaje("Proceso iniciado en segundo plano. Consulte el estado posteriormente.")
-                                .timestamp(LocalDateTime.now())
-                                .build());
+                IniciarProcesoResponse response = IniciarProcesoResponse.builder()
+                        .mensaje("Proceso iniciado en segundo plano. Consulte el estado posteriormente.")
+                        .timestamp(LocalDateTime.now())
+                        .build();
+
+                return ResponseEntity.status(HttpStatus.ACCEPTED)
+                        .body(ApiResponse.success(response));
             }
 
         } catch (Exception e) {
             log.error("Error al iniciar proceso", e);
-            return ResponseEntity.internalServerError()
-                    .body(IniciarProcesoResponse.builder()
-                            .mensaje("Error al iniciar el proceso: " + e.getMessage())
-                            .timestamp(LocalDateTime.now())
-                            .build());
+            throw new ProcesoAsignacionException("Error al iniciar el proceso: " + e.getMessage());
         }
     }
 
     @GetMapping("/proceso/{procesoId}")
-    public ResponseEntity<EstadoProcesoResponse> consultarEstado(@PathVariable Long procesoId) {
+    public ResponseEntity<ApiResponse<EstadoProcesoResponse>> consultarEstado(@PathVariable Long procesoId) {
 
         log.debug("Consultando estado del proceso {}", procesoId);
 
@@ -119,11 +124,11 @@ public class AsignacionController {
                 .tiempoTranscurridoMs(proceso.getTiempoTranscurridoMs())
                 .build();
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @GetMapping("/proceso/{procesoId}/alertas")
-    public ResponseEntity<Map<String, Object>> obtenerAlertas(
+    public ResponseEntity<ApiResponse<Map<String, Object>>> obtenerAlertas(
             @PathVariable Long procesoId,
             @RequestParam(required = false) SeveridadAlerta severidad,
             @RequestParam(required = false) Boolean resuelta) {
@@ -156,11 +161,11 @@ public class AsignacionController {
         response.put("total_alertas", alertasDTO.size());
         response.put("alertas", alertasDTO);
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @GetMapping("/procesos")
-    public ResponseEntity<List<Map<String, Object>>> listarProcesos() {
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> listarProcesos() {
         log.info("Listando todos los procesos");
 
         List<ProcesoAsignacion> procesos = procesoRepository.findAllOrderByFechaDesc();
@@ -183,7 +188,16 @@ public class AsignacionController {
                 })
                 .collect(Collectors.toList());
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @PostMapping("/cambio-tutor")
+    public ResponseEntity<ApiResponse<CambioTutorResponseDTO>> cambioManualTutor(
+            @Valid @RequestBody CambioTutorRequestDTO request) {
+        log.info("Solicitud de cambio de tutor para alumno {} de {} a {}", request.getAlumnoId(),
+                request.getTutorOrigenId(), request.getTutorDestinoId());
+        CambioTutorResponseDTO resultado = tutorReasignacionService.reasignarTutor(request);
+        return ResponseEntity.ok(ApiResponse.success(resultado, "Reasignación de tutor completada"));
     }
 
     private AlertaDTO convertirAlertaDTO(AlertaProceso alerta) {

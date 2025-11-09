@@ -5,6 +5,7 @@ import com.universidad.tutorias.domain.entity.Alumno;
 import com.universidad.tutorias.domain.enums.EstadoAlumno;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -14,7 +15,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface AlumnoRepository extends JpaRepository<Alumno, Long> {
+public interface AlumnoRepository extends JpaRepository<Alumno, Long>, JpaSpecificationExecutor<Alumno> {
 
     @Query("SELECT a FROM Alumno a LEFT JOIN FETCH a.tutorActual WHERE a.estado = :estado")
     List<Alumno> findByEstadoWithTutor(@Param("estado") EstadoAlumno estado);

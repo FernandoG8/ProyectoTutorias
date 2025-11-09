@@ -32,7 +32,7 @@ public class ResolucionMotivoServiceImpl implements ResolucionMotivoService {
 
     @Override
     @Transactional
-    public void asignarMotivo(Long alumnoInactivoId, MotivoInactividad motivo, String usuario) {
+    public AlumnoInactivo asignarMotivo(Long alumnoInactivoId, MotivoInactividad motivo, String usuario) {
 
         log.info("Asignando motivo {} a alumno inactivo ID: {}", motivo, alumnoInactivoId);
 
@@ -73,7 +73,7 @@ public class ResolucionMotivoServiceImpl implements ResolucionMotivoService {
             }
         }
 
-        alumnoInactivoRepository.save(alumnoInactivo);
+        AlumnoInactivo actualizado = alumnoInactivoRepository.save(alumnoInactivo);
 
         auditoriaService.registrarLog(
                 null,
@@ -89,14 +89,23 @@ public class ResolucionMotivoServiceImpl implements ResolucionMotivoService {
 
         log.info("Motivo asignado exitosamente para alumno {}: {}",
                 alumnoInactivo.getAlumno().getMatricula(), motivo);
+        return actualizado;
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<AlumnoInactivo> obtenerPendientesDeResolucion() {
-        log.info("Obteniendo alumnos inactivos pendientes de resolución");
-        List<AlumnoInactivo> pendientes = alumnoInactivoRepository.findPendientesDeResolucion();
+    public List<AlumnoInactivo> obtenerPendientesDeResolucion(String carrera, Integer semestre, MotivoInactividad motivo) {
+        log.info("Obteniendo alumnos inactivos pendientes de resolución. Carrera: {}, Semestre: {}, Motivo: {}",
+                carrera, semestre, motivo);
+        List<AlumnoInactivo> pendientes = alumnoInactivoRepository.findPendientesDeResolucion(carrera, semestre, motivo);
         log.info("Encontrados {} alumnos pendientes de resolución", pendientes.size());
         return pendientes;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AlumnoInactivo> listarInactivos(String carrera, Integer semestre, MotivoInactividad motivo) {
+        log.info("Listando alumnos inactivos. Carrera: {}, Semestre: {}, Motivo: {}", carrera, semestre, motivo);
+        return alumnoInactivoRepository.findAllWithFilters(carrera, semestre, motivo);
     }
 }
