@@ -9,10 +9,12 @@ public interface ResolucionMotivoService {
     /**
      * Asigna motivo de inactividad a un alumno inactivo
      */
-    void asignarMotivo(Long alumnoInactivoId, MotivoInactividad motivo, String usuario);
+    AlumnoInactivo asignarMotivo(Long alumnoInactivoId, MotivoInactividad motivo, String usuario);
 
     /**
      * Obtiene lista de alumnos inactivos pendientes de resolución
      */
-    List<AlumnoInactivo> obtenerPendientesDeResolucion();
+    List<AlumnoInactivo> obtenerPendientesDeResolucion(String carrera, Integer semestre, MotivoInactividad motivo);
+
+    List<AlumnoInactivo> listarInactivos(String carrera, Integer semestre, MotivoInactividad motivo);
 }
