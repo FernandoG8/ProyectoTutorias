@@ -1,5 +1,8 @@
 package com.universidad.tutorias.domain.enums;
 
+import lombok.Getter;
+
+@Getter
 public enum TipoAsignacion {
     INICIAL("Asignación Inicial"),
     REASIGNACION("Reasignación"),
@@ -11,7 +14,4 @@ public enum TipoAsignacion {
         this.descripcion = descripcion;
     }
 
-    public String getDescripcion() {
-        return descripcion;
-    }
 }

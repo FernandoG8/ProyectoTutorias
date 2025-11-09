@@ -1,5 +1,8 @@
 package com.universidad.tutorias.domain.enums;
 
+import lombok.Getter;
+
+@Getter
 public enum EstadoProceso {
     INICIADO("Iniciado"),
     COMPARANDO("Comparando Alumnos"),
@@ -12,10 +15,6 @@ public enum EstadoProceso {
 
     EstadoProceso(String descripcion) {
         this.descripcion = descripcion;
-    }
-
-    public String getDescripcion() {
-        return descripcion;
     }
 
     public boolean esEstadoFinal() {

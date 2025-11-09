@@ -1,0 +1,152 @@
+// ============================================
+// INACTIVACION SERVICE IMPLEMENTATION
+// ============================================
+
+package com.universidad.tutorias.application.service.impl;
+
+import com.universidad.tutorias.application.service.AuditoriaService;
+import com.universidad.tutorias.application.service.InactivacionService;
+import com.universidad.tutorias.domain.entity.Alumno;
+import com.universidad.tutorias.domain.entity.AlumnoInactivo;
+import com.universidad.tutorias.domain.entity.Tutor;
+import com.universidad.tutorias.domain.enums.EstadoAlumno;
+import com.universidad.tutorias.domain.enums.MotivoInactividad;
+import com.universidad.tutorias.domain.enums.TipoAccion;
+import com.universidad.tutorias.domain.repository.AlumnoInactivoRepository;
+import com.universidad.tutorias.domain.repository.AlumnoRepository;
+import com.universidad.tutorias.domain.repository.TutorRepository;
+import jakarta.persistence.EntityNotFoundException;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+@Service
+@Slf4j
+@RequiredArgsConstructor
+public class InactivacionServiceImpl implements InactivacionService {
+
+    private final AlumnoRepository alumnoRepository;
+    private final AlumnoInactivoRepository alumnoInactivoRepository;
+    private final TutorRepository tutorRepository;
+    private final AuditoriaService auditoriaService;
+
+    @Override
+    @Transactional
+    public void marcarInactivos(List<Alumno> alumnos, Long procesoId) {
+        log.info("Marcando {} alumnos como inactivos", alumnos.size());
+
+        int contador = 0;
+        for (Alumno alumno : alumnos) {
+            try {
+                String datosAntes = String.format(
+                        "{\"estado\":\"%s\",\"tutor_id\":%s}",
+                        alumno.getEstado(),
+                        alumno.getTutorActual() != null ? alumno.getTutorActual().getId() : "null"
+                );
+
+                // Cambiar estado
+                alumno.setEstado(EstadoAlumno.INACTIVO);
+                alumnoRepository.save(alumno);
+
+                // Crear registro de inactivo
+                AlumnoInactivo inactivo = AlumnoInactivo.builder()
+                        .alumno(alumno)
+                        .motivoInactividad(MotivoInactividad.SIN_DEFINIR)
+                        .tutorPreservado(alumno.getTutorActual())
+                        .cupoLiberado(true)
+                        .build();
+                alumnoInactivoRepository.save(inactivo);
+
+                String datosDespues = String.format(
+                        "{\"estado\":\"%s\",\"motivo\":\"%s\",\"tutor_preservado_id\":%s}",
+                        EstadoAlumno.INACTIVO,
+                        MotivoInactividad.SIN_DEFINIR,
+                        alumno.getTutorActual() != null ? alumno.getTutorActual().getId() : "null"
+                );
+
+                // Auditoría
+                auditoriaService.registrarLog(
+                        procesoId,
+                        TipoAccion.MARCADO_INACTIVOS,
+                        "ALUMNO",
+                        alumno.getId(),
+                        String.format("Alumno %s marcado como inactivo", alumno.getMatricula()),
+                        datosAntes,
+                        datosDespues,
+                        "SISTEMA"
+                );
+
+                contador++;
+
+            } catch (Exception e) {
+                log.error("Error al marcar inactivo alumno {}: {}", alumno.getMatricula(), e.getMessage());
+            }
+        }
+
+        log.info("Marcados {} alumnos como inactivos exitosamente", contador);
+    }
+
+    @Override
+    @Transactional
+    public void liberarCupos(Long procesoId) {
+        log.info("Iniciando liberación de cupos de tutores");
+
+        List<AlumnoInactivo> inactivos = alumnoInactivoRepository.findConCupoLiberado();
+
+        if (inactivos.isEmpty()) {
+            log.info("No hay cupos que liberar");
+            return;
+        }
+
+        Map<Long, Integer> cuposPorTutor = new HashMap<>();
+
+        // Contar cupos a liberar por tutor
+        for (AlumnoInactivo inactivo : inactivos) {
+            if (inactivo.getTutorPreservado() != null) {
+                Long tutorId = inactivo.getTutorPreservado().getId();
+                cuposPorTutor.put(tutorId, cuposPorTutor.getOrDefault(tutorId, 0) + 1);
+            }
+        }
+
+        // Liberar cupos
+        int tutoresActualizados = 0;
+        int cuposTotalesLiberados = 0;
+
+        for (Map.Entry<Long, Integer> entry : cuposPorTutor.entrySet()) {
+            try {
+                Tutor tutor = tutorRepository.findByIdForUpdate(entry.getKey())
+                        .orElseThrow(() -> new EntityNotFoundException("Tutor no encontrado: " + entry.getKey()));
+
+                int cuposALiberar = entry.getValue();
+                int cargaAntes = tutor.getCargaActual();
+
+                tutor.setCargaActual(Math.max(0, tutor.getCargaActual() - cuposALiberar));
+                tutorRepository.save(tutor);
+
+                auditoriaService.registrarLog(
+                        procesoId,
+                        TipoAccion.LIBERACION_CUPOS,
+                        "TUTOR",
+                        tutor.getId(),
+                        String.format("Liberados %d cupos del tutor %s", cuposALiberar, tutor.getNombre()),
+                        String.format("{\"carga_actual\":%d}", cargaAntes),
+                        String.format("{\"carga_actual\":%d}", tutor.getCargaActual()),
+                        "SISTEMA"
+                );
+
+                tutoresActualizados++;
+                cuposTotalesLiberados += cuposALiberar;
+
+            } catch (Exception e) {
+                log.error("Error al liberar cupos del tutor {}: {}", entry.getKey(), e.getMessage());
+            }
+        }
+
+        log.info("Liberados {} cupos de {} tutores", cuposTotalesLiberados, tutoresActualizados);
+    }
+}

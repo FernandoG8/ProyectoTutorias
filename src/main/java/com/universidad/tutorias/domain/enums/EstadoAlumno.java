@@ -1,5 +1,8 @@
 package com.universidad.tutorias.domain.enums;
 
+import lombok.Getter;
+
+@Getter
 public enum EstadoAlumno {
     ACTIVO("Activo"),
     INACTIVO("Inactivo");
@@ -10,7 +13,4 @@ public enum EstadoAlumno {
         this.descripcion = descripcion;
     }
 
-    public String getDescripcion() {
-        return descripcion;
-    }
 }
