@@ -60,4 +60,7 @@ public class LogAuditoria {
             fechaRegistro = LocalDateTime.now();
         }
     }
+
+    public void error(String s, String message) {
+    }
 }
