@@ -19,13 +19,27 @@ public interface AsignacionRepository extends JpaRepository<Asignacion, Long> {
                                             @Param("semestre") String semestre);
 
     @Query("SELECT a FROM Asignacion a JOIN FETCH a.alumno JOIN FETCH a.tutor " +
-            "WHERE a.alumno.carrera = :carrera AND a.semestreAcademico = :semestre " +
+            "WHERE a.tutor.id = :tutorId " +
+            "ORDER BY a.alumno.matricula")
+    List<Asignacion> findByTutorIdWithDetalles(@Param("tutorId") Long tutorId);
+
+    @Query("SELECT a FROM Asignacion a JOIN FETCH a.alumno JOIN FETCH a.tutor " +
+            "WHERE UPPER(a.alumno.carrera) = :carrera AND a.semestreAcademico = :semestre " +
             "ORDER BY a.tutor.nombre, a.alumno.matricula")
     List<Asignacion> findByCarreraAndSemestre(@Param("carrera") String carrera,
                                               @Param("semestre") String semestre);
 
     @Query("SELECT a FROM Asignacion a JOIN FETCH a.alumno JOIN FETCH a.tutor " +
+            "WHERE UPPER(a.alumno.carrera) = :carrera " +
+            "ORDER BY a.semestreAcademico DESC, a.tutor.nombre, a.alumno.matricula")
+    List<Asignacion> findByCarrera(@Param("carrera") String carrera);
+
+    @Query("SELECT a FROM Asignacion a JOIN FETCH a.alumno JOIN FETCH a.tutor " +
             "WHERE a.semestreAcademico = :semestre " +
             "ORDER BY a.alumno.carrera, a.tutor.nombre, a.alumno.matricula")
     List<Asignacion> findBySemestre(@Param("semestre") String semestre);
+
+    @Query("SELECT DISTINCT UPPER(a.alumno.carrera) FROM Asignacion a " +
+            "WHERE (:semestre IS NULL OR a.semestreAcademico = :semestre)")
+    List<String> findCarrerasDisponibles(@Param("semestre") String semestre);
 }

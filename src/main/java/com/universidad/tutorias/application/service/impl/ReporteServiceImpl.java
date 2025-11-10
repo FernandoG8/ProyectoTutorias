@@ -121,7 +121,7 @@ public class ReporteServiceImpl implements ReporteService {
             asignaciones = asignacionRepository.findByTutorAndSemestre(tutorId, semestreAcademico);
         } else {
             // Obtener todas las asignaciones del tutor
-            asignaciones = asignacionRepository.findByAlumnoId(tutorId);
+            asignaciones = asignacionRepository.findByTutorIdWithDetalles(tutorId);
         }
 
         List<AlumnoDetalleDTO> alumnosDTO = asignaciones.stream()
