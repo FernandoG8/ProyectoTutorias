@@ -16,8 +16,16 @@
       "parentId": "wrk_tutorias_api",
       "name": "Base Environment",
       "data": {
-        "base_url": "http://localhost:8080"
+        "base_url": "http://localhost:8080",
+        "access_token": "",
+        "refresh_token": ""
       }
+    },
+    {
+      "_id": "fld_auth",
+      "_type": "request_group",
+      "parentId": "wrk_tutorias_api",
+      "name": "Autenticación"
     },
     {
       "_id": "fld_alumnos",
@@ -33,14 +41,36 @@
       "method": "GET",
       "url": "{{ _.base_url }}/api/alumnos",
       "parameters": [
-        { "name": "page", "value": "1" },
-        { "name": "limit", "value": "20" },
-        { "name": "estado", "value": "ACTIVO" },
-        { "name": "carrera", "value": "Software" },
-        { "name": "semestre", "value": "7" }
+        {
+          "name": "page",
+          "value": "1"
+        },
+        {
+          "name": "limit",
+          "value": "20"
+        },
+        {
+          "name": "estado",
+          "value": "ACTIVO"
+        },
+        {
+          "name": "carrera",
+          "value": "Software"
+        },
+        {
+          "name": "semestre",
+          "value": "7"
+        }
       ],
       "headers": [
-        { "name": "Accept", "value": "application/json" }
+        {
+          "name": "Accept",
+          "value": "application/json"
+        },
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        }
       ],
       "body": {
         "mimeType": "application/json"
@@ -54,7 +84,14 @@
       "method": "GET",
       "url": "{{ _.base_url }}/api/alumnos/1",
       "headers": [
-        { "name": "Accept", "value": "application/json" }
+        {
+          "name": "Accept",
+          "value": "application/json"
+        },
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        }
       ],
       "body": {
         "mimeType": "application/json"
@@ -68,8 +105,18 @@
       "method": "POST",
       "url": "{{ _.base_url }}/api/alumnos",
       "headers": [
-        { "name": "Content-Type", "value": "application/json" },
-        { "name": "Accept", "value": "application/json" }
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        },
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        }
       ],
       "body": {
         "mimeType": "application/json",
@@ -84,8 +131,18 @@
       "method": "PUT",
       "url": "{{ _.base_url }}/api/alumnos/1",
       "headers": [
-        { "name": "Content-Type", "value": "application/json" },
-        { "name": "Accept", "value": "application/json" }
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        },
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        }
       ],
       "body": {
         "mimeType": "application/json",
@@ -100,8 +157,18 @@
       "method": "PATCH",
       "url": "{{ _.base_url }}/api/alumnos/1",
       "headers": [
-        { "name": "Content-Type", "value": "application/json" },
-        { "name": "Accept", "value": "application/json" }
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        },
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        }
       ],
       "body": {
         "mimeType": "application/json",
@@ -116,7 +183,14 @@
       "method": "DELETE",
       "url": "{{ _.base_url }}/api/alumnos/1",
       "headers": [
-        { "name": "Accept", "value": "application/json" }
+        {
+          "name": "Accept",
+          "value": "application/json"
+        },
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        }
       ],
       "body": {
         "mimeType": "application/json"
@@ -136,13 +210,32 @@
       "method": "GET",
       "url": "{{ _.base_url }}/api/tutores",
       "parameters": [
-        { "name": "carrera", "value": "Ingenieria de Software" },
-        { "name": "disponibles", "value": "true" },
-        { "name": "sobrecargados", "value": "false" },
-        { "name": "activos", "value": "true" }
+        {
+          "name": "carrera",
+          "value": "Ingenieria de Software"
+        },
+        {
+          "name": "disponibles",
+          "value": "true"
+        },
+        {
+          "name": "sobrecargados",
+          "value": "false"
+        },
+        {
+          "name": "activos",
+          "value": "true"
+        }
       ],
       "headers": [
-        { "name": "Accept", "value": "application/json" }
+        {
+          "name": "Accept",
+          "value": "application/json"
+        },
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        }
       ],
       "body": {
         "mimeType": "application/json"
@@ -156,7 +249,14 @@
       "method": "GET",
       "url": "{{ _.base_url }}/api/tutores/5",
       "headers": [
-        { "name": "Accept", "value": "application/json" }
+        {
+          "name": "Accept",
+          "value": "application/json"
+        },
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        }
       ],
       "body": {
         "mimeType": "application/json"
@@ -170,8 +270,18 @@
       "method": "POST",
       "url": "{{ _.base_url }}/api/tutores",
       "headers": [
-        { "name": "Content-Type", "value": "application/json" },
-        { "name": "Accept", "value": "application/json" }
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        },
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        }
       ],
       "body": {
         "mimeType": "application/json",
@@ -186,8 +296,18 @@
       "method": "PUT",
       "url": "{{ _.base_url }}/api/tutores/5",
       "headers": [
-        { "name": "Content-Type", "value": "application/json" },
-        { "name": "Accept", "value": "application/json" }
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        },
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        }
       ],
       "body": {
         "mimeType": "application/json",
@@ -202,7 +322,14 @@
       "method": "DELETE",
       "url": "{{ _.base_url }}/api/tutores/5",
       "headers": [
-        { "name": "Accept", "value": "application/json" }
+        {
+          "name": "Accept",
+          "value": "application/json"
+        },
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        }
       ],
       "body": {
         "mimeType": "application/json"
@@ -222,12 +349,28 @@
       "method": "GET",
       "url": "{{ _.base_url }}/api/alumnos-inactivos/pendientes",
       "parameters": [
-        { "name": "carrera", "value": "Ingenieria de Software" },
-        { "name": "semestre", "value": "7" },
-        { "name": "motivo", "value": "BAJA_TEMPORAL" }
+        {
+          "name": "carrera",
+          "value": "Ingenieria de Software"
+        },
+        {
+          "name": "semestre",
+          "value": "7"
+        },
+        {
+          "name": "motivo",
+          "value": "BAJA_TEMPORAL"
+        }
       ],
       "headers": [
-        { "name": "Accept", "value": "application/json" }
+        {
+          "name": "Accept",
+          "value": "application/json"
+        },
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        }
       ],
       "body": {
         "mimeType": "application/json"
@@ -241,10 +384,20 @@
       "method": "GET",
       "url": "{{ _.base_url }}/api/alumnos-inactivos",
       "parameters": [
-        { "name": "carrera", "value": "Ingenieria de Software" }
+        {
+          "name": "carrera",
+          "value": "Ingenieria de Software"
+        }
       ],
       "headers": [
-        { "name": "Accept", "value": "application/json" }
+        {
+          "name": "Accept",
+          "value": "application/json"
+        },
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        }
       ],
       "body": {
         "mimeType": "application/json"
@@ -258,11 +411,24 @@
       "method": "PUT",
       "url": "{{ _.base_url }}/api/alumnos-inactivos/10/motivo",
       "parameters": [
-        { "name": "motivo", "value": "BAJA_TEMPORAL" },
-        { "name": "usuario", "value": "coordinador.academico" }
+        {
+          "name": "motivo",
+          "value": "BAJA_TEMPORAL"
+        },
+        {
+          "name": "usuario",
+          "value": "coordinador.academico"
+        }
       ],
       "headers": [
-        { "name": "Accept", "value": "application/json" }
+        {
+          "name": "Accept",
+          "value": "application/json"
+        },
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        }
       ],
       "body": {
         "mimeType": "application/json"
@@ -282,12 +448,113 @@
       "method": "POST",
       "url": "{{ _.base_url }}/api/asignaciones/cambio-tutor",
       "headers": [
-        { "name": "Content-Type", "value": "application/json" },
-        { "name": "Accept", "value": "application/json" }
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        },
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        }
       ],
       "body": {
         "mimeType": "application/json",
         "text": "{\n  \"alumnoId\": 101,\n  \"tutorOrigenId\": 5,\n  \"tutorDestinoId\": 12,\n  \"motivo\": \"Student request\",\n  \"usuario\": \"coordinador.academico\"\n}"
+      }
+    },
+    {
+      "_id": "req_auth_login",
+      "_type": "request",
+      "parentId": "fld_auth",
+      "name": "Login",
+      "method": "POST",
+      "url": "{{ _.base_url }}/auth/login",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"username\": \"coord_tutorias\",\n  \"password\": \"123456\"\n}"
+      }
+    },
+    {
+      "_id": "req_auth_register",
+      "_type": "request",
+      "parentId": "fld_auth",
+      "name": "Register User",
+      "method": "POST",
+      "url": "{{ _.base_url }}/auth/register",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        },
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"username\": \"secretario1\",\n  \"password\": \"123456\",\n  \"role\": \"ROLE_SECRETARIO_ACADEMICO\"\n}"
+      }
+    },
+    {
+      "_id": "req_auth_refresh",
+      "_type": "request",
+      "parentId": "fld_auth",
+      "name": "Refresh Token",
+      "method": "POST",
+      "url": "{{ _.base_url }}/auth/refresh",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"refresh_token\": \"{{ _.refresh_token }}\"\n}"
+      }
+    },
+    {
+      "_id": "req_auth_me",
+      "_type": "request",
+      "parentId": "fld_auth",
+      "name": "Current User",
+      "method": "GET",
+      "url": "{{ _.base_url }}/auth/me",
+      "headers": [
+        {
+          "name": "Accept",
+          "value": "application/json"
+        },
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.access_token }}"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json"
       }
     }
   ]
