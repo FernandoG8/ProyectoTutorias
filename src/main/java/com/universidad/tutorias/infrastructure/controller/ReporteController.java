@@ -4,11 +4,11 @@
 
 package com.universidad.tutorias.infrastructure.controller;
 
-import com.universidad.tutorias.application.dto.ReporteArchivoDTO;
+import com.universidad.tutorias.application.service.reportes.dto.ReporteArchivoDTO;
 import com.universidad.tutorias.application.dto.ReporteCarreraDTO;
 import com.universidad.tutorias.application.enums.FormatoReporte;
-import com.universidad.tutorias.application.service.ReporteExportService;
 import com.universidad.tutorias.application.service.ReporteService;
+import com.universidad.tutorias.application.service.reportes.ReporteExportService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ContentDisposition;
@@ -50,11 +50,14 @@ public class ReporteController {
     @GetMapping("/tutores/{tutorId}/alumnos/exportar")
     @PreAuthorize("hasAnyRole('COORDINADOR_TUTORIAS','SECRETARIO_ACADEMICO')")
     public ResponseEntity<byte[]> exportarAlumnosPorTutor(@PathVariable Long tutorId,
+                                                          @RequestParam(value = "formato", required = false) String formato,
                                                           @RequestParam(value = "periodo", required = false) String periodo) {
 
-        log.info("Exportando alumnos del tutor {} para el periodo {}", tutorId, periodo);
+        FormatoReporte formatoReporte = FormatoReporte.from(formato);
 
-        ReporteArchivoDTO archivo = reporteExportService.generarExcelAlumnosPorTutor(tutorId, periodo);
+        log.info("Exportando alumnos del tutor {} en formato {} para el periodo {}", tutorId, formatoReporte, periodo);
+
+        ReporteArchivoDTO archivo = reporteExportService.generarReporteTutor(tutorId, periodo, formatoReporte);
 
         return construirRespuestaArchivo(archivo);
     }
