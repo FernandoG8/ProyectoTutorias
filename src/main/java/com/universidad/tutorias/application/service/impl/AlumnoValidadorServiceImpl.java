@@ -26,7 +26,7 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class AlumnoValidadorServiceImpl implements AlumnoValidadorService {
 
-    private static final Pattern MATRICULA_PATTERN = Pattern.compile("^[A-Z0-9]{6,20}$");
+    private static final Pattern MATRICULA_PATTERN = Pattern.compile("^[A-Z0-9]{5,20}$");
     private static final List<String> CARRERAS_VALIDAS = Arrays.asList(
             "ICA", "Ingeniería Civil y Administración",
             "IE", "Ingeniería en Energía",
@@ -117,7 +117,7 @@ public class AlumnoValidadorServiceImpl implements AlumnoValidadorService {
         String matricula = alumno.getMatricula().toUpperCase().trim();
         if (!MATRICULA_PATTERN.matcher(matricula).matches()) {
             errores.add(crearError(proceso, alumno, TipoError.MATRICULA_INVALIDA,
-                    "Formato de matrícula inválido. Debe tener entre 6-20 caracteres alfanuméricos",
+                    "Formato de matrícula inválido. Debe tener entre 5-20 caracteres alfanuméricos",
                     alumno.getMatricula()));
         }
     }

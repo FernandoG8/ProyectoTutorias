@@ -102,10 +102,20 @@ public class TutorReasignacionServiceImpl implements TutorReasignacionService {
                                     CambioTutorRequestDTO request,
                                     int cargaOrigenAntes,
                                     int cargaDestinoAntes) {
-        String datosAntes = String.format("{\\"tutor_actual\\":%d,\\"carga_tutor_origen\\":%d,\\"carga_tutor_destino\\":%d}",
-                tutorOrigen.getId(), cargaOrigenAntes, cargaDestinoAntes);
-        String datosDespues = String.format("{\\"tutor_actual\\":%d,\\"carga_tutor_origen\\":%d,\\"carga_tutor_destino\\":%d}",
-                tutorDestino.getId(), tutorOrigen.getCargaActual(), tutorDestino.getCargaActual());
+
+        String datosAntes = String.format(
+                "{\"tutor_actual\":%d,\"carga_tutor_origen\":%d,\"carga_tutor_destino\":%d}",
+                tutorOrigen.getId(),
+                cargaOrigenAntes,
+                cargaDestinoAntes
+        );
+
+        String datosDespues = String.format(
+                "{\"tutor_actual\":%d,\"carga_tutor_origen\":%d,\"carga_tutor_destino\":%d}",
+                tutorDestino.getId(),
+                tutorOrigen.getCargaActual(),
+                tutorDestino.getCargaActual()
+        );
 
         auditoriaService.registrarLog(
                 null,
