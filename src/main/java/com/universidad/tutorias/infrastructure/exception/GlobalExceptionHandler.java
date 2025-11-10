@@ -9,6 +9,10 @@ import jakarta.persistence.EntityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -58,6 +62,27 @@ public class GlobalExceptionHandler {
         ApiErrorResponse error = ApiErrorResponse.error("VALIDACION_FALLIDA", "Errores de validación", errores);
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+
+    @ExceptionHandler({BadCredentialsException.class, UsernameNotFoundException.class})
+    public ResponseEntity<ApiErrorResponse> handleBadCredentials(Exception ex) {
+        log.warn("Credenciales inválidas", ex);
+        ApiErrorResponse error = ApiErrorResponse.error("CREDENCIALES_INVALIDAS", "Usuario o contraseña incorrectos");
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiErrorResponse> handleAccessDenied(AccessDeniedException ex) {
+        log.warn("Acceso denegado", ex);
+        ApiErrorResponse error = ApiErrorResponse.error("ACCESO_DENEGADO", "No tiene permisos para realizar esta acción");
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ApiErrorResponse> handleAuthentication(AuthenticationException ex) {
+        log.warn("Error de autenticación", ex);
+        ApiErrorResponse error = ApiErrorResponse.error("AUTENTICACION_FALLIDA", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
