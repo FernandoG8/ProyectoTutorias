@@ -1,57 +1,46 @@
-package com.universidad.tutorias.application.service.impl;
+package com.universidad.tutorias.application.service.reportes.strategy;
 
 import com.universidad.tutorias.application.dto.ReporteAlumnoDTO;
-import com.universidad.tutorias.application.service.ReporteExcelService;
+import com.universidad.tutorias.application.service.reportes.dto.ReporteArchivoDTO;
+import com.universidad.tutorias.application.service.reportes.dto.ReporteContexto;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.WorkbookUtil;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.springframework.stereotype.Service;
+import org.springframework.http.MediaType;
+import org.springframework.stereotype.Component;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
 
-@Service
 @Slf4j
-public class ReporteExcelServiceImpl implements ReporteExcelService {
+@Component
+public class ExcelReporteStrategy implements ReporteStrategy {
+
+    private static final MediaType EXCEL_MEDIA_TYPE = MediaType.parseMediaType(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 
     @Override
-    public byte[] generarReporteAlumnosTutor(String nombreTutor, String periodo, List<ReporteAlumnoDTO> alumnos) {
-        String sheetName = sanitizeSheetName(nombreTutor, "Tutor");
-        String[] headers = new String[]{
-                "No",
-                "MATRICULA",
-                "NOMBRE DEL ALUMNO",
-                "CARRERA",
-                "SEMESTRE",
-                "PERIODO",
-                "TUTOR",
-                "AREA DE ATENCION",
-                "EDIFICIO"
-        };
+    public ReporteArchivoDTO generar(ReporteContexto contexto) {
+        String[] headers = contexto.esTutor()
+                ? new String[]{"No", "MATRICULA", "NOMBRE DEL ALUMNO", "CARRERA", "SEMESTRE", "PERIODO", "TUTOR", "AREA DE ATENCION", "EDIFICIO"}
+                : new String[]{"No", "MATRICULA", "NOMBRE DEL ALUMNO", "PERIODO SEMESTRAL", "LICENCIATURA", "TUTOR", "AREA DE ATENCION", "EDIFICIO"};
 
-        return crearExcel(sheetName, headers, alumnos, periodo);
+        String sheetName = WorkbookUtil.createSafeSheetName(contexto.esTutor()
+                ? obtenerValorSeguro(contexto.getNombreTutor(), "Tutor")
+                : obtenerValorSeguro(contexto.getCarrera(), "Carrera"));
+
+        byte[] contenido = crearExcel(sheetName, headers, contexto);
+
+        return ReporteArchivoDTO.builder()
+                .fileName(contexto.construirNombreArchivo(".xlsx"))
+                .mediaType(EXCEL_MEDIA_TYPE)
+                .contenido(contenido)
+                .build();
     }
 
-    @Override
-    public byte[] generarReporteCarrera(String codigoCarrera, String periodo, List<ReporteAlumnoDTO> alumnos) {
-        String sheetName = sanitizeSheetName(codigoCarrera, "Carrera");
-        String[] headers = new String[]{
-                "No",
-                "MATRICULA",
-                "NOMBRE DEL ALUMNO",
-                "PERIODO SEMESTRAL",
-                "LICENCIATURA",
-                "TUTOR",
-                "AREA DE ATENCION",
-                "EDIFICIO"
-        };
-
-        return crearExcel(sheetName, headers, alumnos, periodo);
-    }
-
-    private byte[] crearExcel(String sheetName, String[] headers, List<ReporteAlumnoDTO> alumnos, String periodo) {
+    private byte[] crearExcel(String sheetName, String[] headers, ReporteContexto contexto) {
         try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             Sheet sheet = workbook.createSheet(sheetName);
 
@@ -64,7 +53,8 @@ public class ReporteExcelServiceImpl implements ReporteExcelService {
                 cell.setCellStyle(headerStyle);
             }
 
-            boolean reporteTutor = headers.length == 9;
+            List<ReporteAlumnoDTO> alumnos = contexto.getAlumnos();
+            boolean reporteTutor = contexto.esTutor();
             int rowIndex = 1;
             int contador = 1;
             for (ReporteAlumnoDTO alumno : alumnos) {
@@ -78,9 +68,9 @@ public class ReporteExcelServiceImpl implements ReporteExcelService {
                 if (reporteTutor) {
                     crearCelda(row, columnIndex++, alumno.getCarrera());
                     crearCelda(row, columnIndex++, alumno.getSemestre() != null ? alumno.getSemestre().toString() : "");
-                    crearCelda(row, columnIndex++, alumno.getPeriodo() != null ? alumno.getPeriodo() : periodo);
+                    crearCelda(row, columnIndex++, alumno.getPeriodo() != null ? alumno.getPeriodo() : contexto.getPeriodo());
                 } else {
-                    crearCelda(row, columnIndex++, alumno.getPeriodo() != null ? alumno.getPeriodo() : periodo);
+                    crearCelda(row, columnIndex++, alumno.getPeriodo() != null ? alumno.getPeriodo() : contexto.getPeriodo());
                     crearCelda(row, columnIndex++, alumno.getCarrera());
                 }
 
@@ -126,8 +116,7 @@ public class ReporteExcelServiceImpl implements ReporteExcelService {
         cell.setCellValue(valor != null ? valor : "");
     }
 
-    private String sanitizeSheetName(String value, String defaultName) {
-        String baseName = (value != null && !value.isBlank()) ? value.trim() : defaultName;
-        return WorkbookUtil.createSafeSheetName(baseName);
+    private String obtenerValorSeguro(String valor, String defecto) {
+        return (valor != null && !valor.isBlank()) ? valor.trim() : defecto;
     }
 }
