@@ -1,6 +1,7 @@
 package com.universidad.tutorias.application.service.reportes.strategy;
 
 import com.lowagie.text.*;
+import com.lowagie.text.Font;
 import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
@@ -116,7 +117,7 @@ public class PdfReporteStrategy implements ReporteStrategy {
             PdfPCell cell = new PdfPCell(new Phrase(header, headerFont));
             cell.setHorizontalAlignment(Element.ALIGN_CENTER);
             cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
-            cell.setBackgroundColor(new Color(45, 68, 134));
+            cell.setBackgroundColor(new Color(49, 87, 98));
             cell.setPadding(6f);
             tabla.addCell(cell);
         }
@@ -146,7 +147,7 @@ public class PdfReporteStrategy implements ReporteStrategy {
             agregarCelda(tabla, String.valueOf(contador++), cellFont);
             agregarCelda(tabla, alumno.getMatricula(), cellFont);
             agregarCelda(tabla, alumno.getNombreAlumno(), cellFont);
-            agregarCelda(tabla, alumno.getPeriodo() != null ? alumno.getPeriodo() : periodoContexto, cellFont);
+            agregarCelda(tabla, alumno.getPeriodo() != null ? String.valueOf(alumno.getSemestre()) : periodoContexto, cellFont);
             agregarCelda(tabla, alumno.getCarrera(), cellFont);
             agregarCelda(tabla, alumno.getTutor(), cellFont);
             agregarCelda(tabla, alumno.getAreaAtencion(), cellFont);

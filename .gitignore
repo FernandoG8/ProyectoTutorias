@@ -1,10 +1,17 @@
+# Documentación / Archivos de ayuda 
 HELP.md
-target/
-.mvn/wrapper/maven-wrapper.jar
+
+#  Backend (Spring Boot / Maven / IntelliJ) 
+backend/target/
+backend/.mvn/wrapper/maven-wrapper.jar
+backend/.idea/
+backend/*.iml
+backend/mvnw
+backend/mvnw.cmd
 !**/src/main/**/target/
 !**/src/test/**/target/
 
-### STS ###
+#  STS (Spring Tool Suite) 
 .apt_generated
 .classpath
 .factorypath
@@ -13,13 +20,13 @@ target/
 .springBeans
 .sts4-cache
 
-### IntelliJ IDEA ###
-.idea
+# === IntelliJ IDEA ===
+.idea/
 *.iws
 *.iml
 *.ipr
 
-### NetBeans ###
+# === NetBeans ===
 /nbproject/private/
 /nbbuild/
 /dist/
@@ -29,5 +36,17 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
-### VS Code ###
-.vscode/
+#  Frontend (React / Vite / VSCode) 
+frontend/node_modules/
+frontend/dist/
+frontend/.vscode/
+frontend/.env
+frontend/.env.local
+frontend/.next/
+frontend/*.log
+
+#  Sistema / General 
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
