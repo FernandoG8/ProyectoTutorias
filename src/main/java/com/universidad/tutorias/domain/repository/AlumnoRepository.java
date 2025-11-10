@@ -37,4 +37,9 @@ public interface AlumnoRepository extends JpaRepository<Alumno, Long>, JpaSpecif
 
     @Query("SELECT a FROM Alumno a WHERE a.matricula IN :matriculas")
     List<Alumno> findByMatriculaIn(@Param("matriculas") List<String> matriculas);
+
+    boolean existsByCarreraIgnoreCase(String carrera);
+
+    @Query("SELECT DISTINCT UPPER(a.carrera) FROM Alumno a")
+    List<String> findDistinctCarreras();
 }
