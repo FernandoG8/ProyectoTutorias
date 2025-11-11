@@ -1,22 +1,36 @@
 export const API_URLS = {
   auth: {
-    login: "/api/auth/login",
-    me: "/api/auth/me",
+    login: "/auth/login",
+    register: "/auth/register",
+    refresh: "/auth/refresh",
+    me: "/auth/me",
+  },
+  alumnos: {
+    root: "/api/alumnos",
+    detail: (id: number | string) => `/api/alumnos/${id}`,
+  },
+  alumnosInactivos: {
+    root: "/api/alumnos-inactivos",
+    pendientes: "/api/alumnos-inactivos/pendientes",
+    motivo: (id: number | string) => `/api/alumnos-inactivos/${id}/motivo`,
   },
   tutores: {
     root: "/api/tutores",
-    detalle: (id: number | string) => `/api/tutores/${id}`,
+    detail: (id: number | string) => `/api/tutores/${id}`,
     alumnos: (id: number | string) => `/api/tutores/${id}/alumnos`,
-    reasignar: "/api/tutores/reasignar",
   },
-  asignacion: {
-    procesar: "/api/asignacion/procesar",
-    procesos: "/api/asignacion/procesos",
+  asignaciones: {
+    iniciar: "/api/asignaciones/iniciar",
+    procesos: "/api/asignaciones/procesos",
+    proceso: (id: number | string) => `/api/asignaciones/proceso/${id}`,
+    alertas: (id: number | string) => `/api/asignaciones/proceso/${id}/alertas`,
+    cambioTutor: "/api/asignaciones/cambio-tutor",
   },
   reportes: {
+    porCarrera: "/api/reportes/por-carrera",
     tutores: (tutorId: number | string) =>
       `/api/reportes/tutores/${tutorId}/alumnos/exportar`,
-    carreras: (codigo: string) =>
-      `/api/reportes/carreras/${codigo}/exportar`,
+    carreras: (codigo: string) => `/api/reportes/carreras/${codigo}/exportar`,
+    carrerasTodos: "/api/reportes/carreras/exportar-todos",
   },
 };

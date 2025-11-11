@@ -6,8 +6,9 @@ import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
-import { fetchProfile } from "@/services/auth-service";
+import { fetchCurrentUser } from "@/services/auth-service";
 import { useAuthStore } from "@/store/auth-store";
+import type { UserInfoResponse } from "@/types";
 
 const schema = z.object({
   correoAlternativo: z
@@ -24,9 +25,9 @@ export const SettingsPage = () => {
   const logout = useAuthStore((state) => state.logout);
   const [feedback, setFeedback] = useState<string | null>(null);
 
-  const { data: profile } = useQuery({
+  const { data: profile } = useQuery<UserInfoResponse>({
     queryKey: ["profile"],
-    queryFn: fetchProfile,
+    queryFn: fetchCurrentUser,
   });
 
   const {
@@ -62,15 +63,17 @@ export const SettingsPage = () => {
         <div className="mt-6 space-y-3 text-sm text-slate-600">
           <div>
             <p className="text-xs uppercase tracking-wide text-slate-400">Nombre</p>
-            <p className="text-base font-medium text-text">{profile?.nombre ?? "--"}</p>
+            <p className="text-base font-medium text-text">{profile?.username ?? "--"}</p>
           </div>
           <div>
             <p className="text-xs uppercase tracking-wide text-slate-400">Correo</p>
-            <p className="text-base font-medium text-text">{profile?.correo ?? "--"}</p>
+            <p className="text-base font-medium text-text">{profile ? `${profile.username}@tutorias.edu` : "--"}</p>
           </div>
           <div>
             <p className="text-xs uppercase tracking-wide text-slate-400">Rol asignado</p>
-            <p className="text-base font-medium text-text">{profile?.rol ?? "--"}</p>
+            <p className="text-base font-medium text-text">
+              {profile?.roles[0]?.replace("ROLE_", "") ?? "--"}
+            </p>
           </div>
           <Button type="button" variant="secondary" onClick={handleLogout}>
             Cerrar sesión

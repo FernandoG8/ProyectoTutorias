@@ -5,17 +5,20 @@ import { useMutation } from "@tanstack/react-query";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
-import { uploadAssignmentList } from "@/services/assignment-service";
+import { startAssignmentProcess } from "@/services/asignaciones-service";
 
 const schema = z.object({
-  tipoLista: z.string().min(1, "Selecciona un tipo de lista."),
-  periodo: z.string().min(1, "Indica el período académico."),
+  semestreAcademico: z
+    .string()
+    .min(1, "Indica el semestre académico.")
+    .regex(/\d{4}-[12]/, "Usa el formato YYYY-1 o YYYY-2."),
+  usuario: z.string().min(1, "Ingresa el usuario responsable."),
   archivo: z
     .custom<FileList>(
       (file) => file instanceof FileList && file.length > 0,
       "Selecciona un archivo en formato CSV o Excel.",
-    ),
+    )
+    .refine((files) => files?.item(0) instanceof File, "Selecciona un archivo válido."),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -29,60 +32,47 @@ export const ListUploadPage = () => {
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      tipoLista: "",
-      periodo: "",
+      semestreAcademico: "",
+      usuario: "",
     },
   });
 
   const { mutateAsync, isPending, isSuccess } = useMutation({
-    mutationFn: uploadAssignmentList,
+    mutationFn: startAssignmentProcess,
   });
 
   const onSubmit = async (values: FormValues) => {
-    const formData = new FormData();
-    formData.append("tipoLista", values.tipoLista);
-    formData.append("periodo", values.periodo);
-    formData.append("archivo", values.archivo[0]);
-    await mutateAsync(formData);
+    const file = values.archivo.item(0);
+    if (!file) return;
+    await mutateAsync({
+      archivo: file,
+      semestreAcademico: values.semestreAcademico,
+      usuario: values.usuario,
+    });
     reset();
   };
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <Card>
-        <h2 className="text-lg font-semibold text-text">
-          Cargar listas oficiales
-        </h2>
+        <h2 className="text-lg font-semibold text-text">Carga rápida de insumos</h2>
         <p className="text-sm text-slate-500">
-          Sube la lista de estudiantes o tutores para iniciar el proceso de asignación.
+          Utiliza esta opción para lanzar la asignación automática con un archivo prevalidado.
         </p>
 
         <form className="mt-6 space-y-5" onSubmit={handleSubmit(onSubmit)}>
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-text" htmlFor="tipoLista">
-              Tipo de lista
-            </label>
-            <Select id="tipoLista" defaultValue="" {...register("tipoLista")}>
-              <option value="" disabled>
-                Selecciona una opción
-              </option>
-              <option value="ESTUDIANTES">Estudiantes matriculados</option>
-              <option value="TUTORES">Tutores disponibles</option>
-              <option value="REASIGNACIONES">Solicitudes especiales</option>
-            </Select>
-            {errors.tipoLista && (
-              <p className="text-sm text-red-600">{errors.tipoLista.message}</p>
-            )}
-          </div>
-
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1">
-              <label className="text-sm font-medium text-text" htmlFor="periodo">
-                Período académico
+              <label className="text-sm font-medium text-text" htmlFor="semestreAcademico">
+                Semestre académico
               </label>
-              <Input id="periodo" placeholder="2025-1" {...register("periodo")} />
-              {errors.periodo && (
-                <p className="text-sm text-red-600">{errors.periodo.message}</p>
+              <Input
+                id="semestreAcademico"
+                placeholder="2025-1"
+                {...register("semestreAcademico")}
+              />
+              {errors.semestreAcademico && (
+                <p className="text-sm text-red-600">{errors.semestreAcademico.message}</p>
               )}
             </div>
             <div className="space-y-1">
@@ -94,6 +84,16 @@ export const ListUploadPage = () => {
                 <p className="text-sm text-red-600">{errors.archivo.message as string}</p>
               )}
             </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-text" htmlFor="usuario">
+              Usuario responsable
+            </label>
+            <Input id="usuario" placeholder="coord_tutorias" {...register("usuario")} />
+            {errors.usuario && (
+              <p className="text-sm text-red-600">{errors.usuario.message}</p>
+            )}
           </div>
 
           <Button loading={isPending} type="submit">

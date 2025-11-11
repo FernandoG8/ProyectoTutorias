@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, type Resolver, type SubmitHandler } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -10,58 +10,53 @@ import { Input } from "@/components/ui/Input";
 import { DataTable } from "@/components/ui/DataTable";
 import {
   createTutor,
-  fetchTutorStudents,
-  fetchTutors,
+  getTutorWithStudents,
+  listTutors,
   updateTutor,
 } from "@/services/tutors-service";
-import type { Tutor } from "@/types";
+import type { TutorConAlumnos, TutorResponse } from "@/types";
 
 const tutorSchema = z.object({
   nombre: z.string().min(1, "Ingresa el nombre completo."),
-  email: z.string().email("Ingresa un correo válido."),
-  telefono: z.string().optional(),
-  especialidad: z.string().optional(),
+  carrera: z.string().min(1, "Indica la carrera."),
+  capacidadMax: z.coerce.number().min(1, "Debe ser al menos 1."),
+  areaAtencion: z.string().optional(),
+  letraEdificio: z.string().optional(),
+  activo: z.boolean(),
 });
 
 type TutorForm = z.infer<typeof tutorSchema>;
 
 const columns = (
-  onEdit: (tutor: Tutor) => void,
-  onViewStudents: (tutor: Tutor) => void,
-): ColumnDef<Tutor>[] => [
+  onEdit: (tutor: TutorResponse) => void,
+  onViewStudents: (tutor: TutorResponse) => void,
+): ColumnDef<TutorResponse>[] => [
   { header: "Nombre", accessorKey: "nombre" },
-  { header: "Correo", accessorKey: "email" },
+  { header: "Carrera", accessorKey: "carrera" },
   {
-    header: "Teléfono",
-    accessorKey: "telefono",
-    cell: ({ getValue }) => getValue() ?? "Sin registrar",
+    header: "Capacidad",
+    accessorKey: "capacidadMax",
+    cell: ({ row }) => `${row.original.cargaActual}/${row.original.capacidadMax}`,
   },
+  { header: "Disponibles", accessorKey: "capacidadDisponible" },
   {
-    header: "Especialidad",
-    accessorKey: "especialidad",
+    header: "Área",
+    accessorKey: "areaAtencion",
     cell: ({ getValue }) => getValue() ?? "General",
   },
   {
-    header: "Alumnos",
-    accessorKey: "totalAlumnos",
-    cell: ({ getValue }) => getValue() ?? 0,
+    header: "Activo",
+    accessorKey: "activo",
+    cell: ({ getValue }) => (getValue() ? "Sí" : "No"),
   },
   {
     header: "Acciones",
     cell: ({ row }) => (
       <div className="flex flex-wrap gap-2">
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={() => onEdit(row.original)}
-        >
+        <Button type="button" variant="secondary" onClick={() => onEdit(row.original)}>
           Editar
         </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => onViewStudents(row.original)}
-        >
+        <Button type="button" variant="ghost" onClick={() => onViewStudents(row.original)}>
           Ver alumnos
         </Button>
       </div>
@@ -71,25 +66,28 @@ const columns = (
 
 export const TutorsPage = () => {
   const queryClient = useQueryClient();
-  const [editingTutor, setEditingTutor] = useState<Tutor | null>(null);
-  const [selectedTutor, setSelectedTutor] = useState<Tutor | null>(null);
+  const [editingTutor, setEditingTutor] = useState<TutorResponse | null>(null);
+  const [selectedTutor, setSelectedTutor] = useState<TutorResponse | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const {
     data: tutors = [],
     isLoading,
-  } = useQuery({
+  } = useQuery<TutorResponse[]>({
     queryKey: ["tutors"],
-    queryFn: fetchTutors,
+    queryFn: () => listTutors(),
   });
 
   const {
-    data: tutorStudents = [],
+    data: tutorDetail,
     isLoading: loadingStudents,
-  } = useQuery({
+  } = useQuery<TutorConAlumnos | null>({
     queryKey: ["tutor-students", selectedTutor?.id],
-    queryFn: () => fetchTutorStudents(selectedTutor!.id),
+    queryFn: async () => {
+      if (!selectedTutor) return null;
+      return getTutorWithStudents(selectedTutor.id);
+    },
     enabled: Boolean(selectedTutor?.id),
   });
 
@@ -99,12 +97,14 @@ export const TutorsPage = () => {
     reset,
     formState: { errors },
   } = useForm<TutorForm>({
-    resolver: zodResolver(tutorSchema),
+    resolver: zodResolver(tutorSchema) as Resolver<TutorForm>,
     defaultValues: {
       nombre: "",
-      email: "",
-      telefono: "",
-      especialidad: "",
+      carrera: "",
+      capacidadMax: 1,
+      areaAtencion: "",
+      letraEdificio: "",
+      activo: true,
     },
   });
 
@@ -116,14 +116,13 @@ export const TutorsPage = () => {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: TutorForm }) =>
-      updateTutor(id, data),
+    mutationFn: ({ id, data }: { id: number; data: TutorForm }) => updateTutor(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tutors"] });
     },
   });
 
-  const onSubmit = async (values: TutorForm) => {
+  const onSubmit: SubmitHandler<TutorForm> = async (values) => {
     setErrorMessage(null);
     try {
       if (editingTutor) {
@@ -142,20 +141,22 @@ export const TutorsPage = () => {
   };
 
   const startEdit = useCallback(
-    (tutor: Tutor) => {
+    (tutor: TutorResponse) => {
       setEditingTutor(tutor);
       reset({
         nombre: tutor.nombre,
-        email: tutor.email,
-        telefono: tutor.telefono ?? "",
-        especialidad: tutor.especialidad ?? "",
+        carrera: tutor.carrera,
+        capacidadMax: tutor.capacidadMax,
+        areaAtencion: tutor.areaAtencion ?? "",
+        letraEdificio: tutor.letraEdificio ?? "",
+        activo: tutor.activo,
       });
       setFeedback(null);
     },
     [reset],
   );
 
-  const handleViewStudents = useCallback((tutor: Tutor) => {
+  const handleViewStudents = useCallback((tutor: TutorResponse) => {
     setSelectedTutor(tutor);
   }, []);
 
@@ -166,7 +167,14 @@ export const TutorsPage = () => {
 
   const clearForm = () => {
     setEditingTutor(null);
-    reset({ nombre: "", email: "", telefono: "", especialidad: "" });
+    reset({
+      nombre: "",
+      carrera: "",
+      capacidadMax: 1,
+      areaAtencion: "",
+      letraEdificio: "",
+      activo: true,
+    });
     setFeedback(null);
   };
 
@@ -200,47 +208,62 @@ export const TutorsPage = () => {
             )}
           </div>
 
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-text" htmlFor="email">
-              Correo institucional
-            </label>
-            <Input id="email" placeholder="maria.perez@uni.edu" {...register("email")} />
-            {errors.email && (
-              <p className="text-sm text-red-600">{errors.email.message}</p>
-            )}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-text" htmlFor="carrera">
+                Carrera
+              </label>
+              <Input id="carrera" placeholder="Ingeniería" {...register("carrera")} />
+              {errors.carrera && (
+                <p className="text-sm text-red-600">{errors.carrera.message}</p>
+              )}
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-text" htmlFor="capacidadMax">
+                Capacidad máxima
+              </label>
+              <Input id="capacidadMax" type="number" min="1" {...register("capacidadMax")} />
+              {errors.capacidadMax && (
+                <p className="text-sm text-red-600">{errors.capacidadMax.message}</p>
+              )}
+            </div>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1">
-              <label className="text-sm font-medium text-text" htmlFor="telefono">
-                Teléfono de contacto
+              <label className="text-sm font-medium text-text" htmlFor="areaAtencion">
+                Área de atención
               </label>
-              <Input id="telefono" placeholder="987654321" {...register("telefono")} />
+              <Input
+                id="areaAtencion"
+                placeholder="Ciencias básicas"
+                {...register("areaAtencion")}
+              />
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium text-text" htmlFor="especialidad">
-                Especialidad
+              <label className="text-sm font-medium text-text" htmlFor="letraEdificio">
+                Letra de edificio
               </label>
-              <Input id="especialidad" placeholder="Ingeniería de software" {...register("especialidad")} />
+              <Input id="letraEdificio" placeholder="B" {...register("letraEdificio")} />
             </div>
           </div>
 
+          <div className="flex items-center gap-2">
+            <input id="activo" type="checkbox" {...register("activo")} />
+            <label className="text-sm font-medium text-text" htmlFor="activo">
+              Tutor activo
+            </label>
+          </div>
+
           {errorMessage && (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-              {errorMessage}
-            </p>
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p>
           )}
 
           {feedback && (
-            <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">
-              {feedback}
-            </p>
+            <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">{feedback}</p>
           )}
 
-          <Button
-            loading={createMutation.isPending || updateMutation.isPending}
-            type="submit"
-          >
+          <Button loading={createMutation.isPending || updateMutation.isPending} type="submit">
             {editingTutor ? "Guardar cambios" : "Registrar tutor"}
           </Button>
         </form>
@@ -260,7 +283,7 @@ export const TutorsPage = () => {
           emptyMessage="No hay tutores registrados aún."
         />
 
-        {selectedTutor && (
+        {selectedTutor && tutorDetail && (
           <Card>
             <div className="flex items-center justify-between">
               <div>
@@ -268,7 +291,7 @@ export const TutorsPage = () => {
                   Alumnos a cargo de {selectedTutor.nombre}
                 </h3>
                 <p className="text-sm text-slate-500">
-                  Total registrados: {selectedTutor.totalAlumnos ?? tutorStudents.length}
+                  Total registrados: {tutorDetail.alumnos.length}
                 </p>
               </div>
               <Button type="button" variant="ghost" onClick={() => setSelectedTutor(null)}>
@@ -277,18 +300,18 @@ export const TutorsPage = () => {
             </div>
             <div className="mt-4 space-y-2 text-sm text-slate-600">
               {loadingStudents && <p>Cargando alumnos asignados...</p>}
-              {!loadingStudents && tutorStudents.length === 0 && (
+              {!loadingStudents && !tutorDetail.alumnos.length && (
                 <p>No hay alumnos asignados para este tutor.</p>
               )}
               {!loadingStudents &&
-                tutorStudents.map((student) => (
+                tutorDetail.alumnos.map((student) => (
                   <div
                     key={student.id}
                     className="rounded-lg border border-border bg-white px-3 py-2"
                   >
                     <p className="font-medium text-text">{student.nombre}</p>
                     <p className="text-xs text-slate-500">
-                      Código {student.codigo} · {student.carrera}
+                      Matrícula {student.matricula} · Semestre {student.semestre}
                     </p>
                   </div>
                 ))}

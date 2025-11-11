@@ -8,7 +8,9 @@ import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
-import { reassignTutor, fetchTutors } from "@/services/tutors-service";
+import { listTutors } from "@/services/tutors-service";
+import { requestTutorChange } from "@/services/asignaciones-service";
+import type { TutorResponse } from "@/types";
 import { useAuthStore } from "@/store/auth-store";
 
 const schema = z
@@ -17,6 +19,7 @@ const schema = z
     tutorOrigenId: z.coerce.number().min(1, "Selecciona un tutor."),
     tutorDestinoId: z.coerce.number().min(1, "Selecciona un tutor."),
     motivo: z.string().min(5, "Describe el motivo de la reasignación."),
+    usuario: z.string().min(1, "Ingresa tu usuario."),
   })
   .refine((data) => data.tutorDestinoId !== data.tutorOrigenId, {
     message: "El tutor destino debe ser distinto al tutor origen.",
@@ -31,9 +34,9 @@ export const TutorChangePage = () => {
   const {
     data: tutors = [],
     isLoading: tutorsLoading,
-  } = useQuery({
+  } = useQuery<TutorResponse[]>({
     queryKey: ["tutors"],
-    queryFn: fetchTutors,
+    queryFn: () => listTutors(),
   });
 
   const {
@@ -48,16 +51,17 @@ export const TutorChangePage = () => {
       tutorOrigenId: 0,
       tutorDestinoId: 0,
       motivo: "",
+      usuario: "",
     },
   });
 
   const { mutateAsync, isPending, isSuccess, error } = useMutation({
-    mutationFn: reassignTutor,
+    mutationFn: requestTutorChange,
   });
 
   const onSubmit: SubmitHandler<FormValues> = async (values) => {
     await mutateAsync(values);
-    reset({ alumnoId: 0, tutorOrigenId: 0, tutorDestinoId: 0, motivo: "" });
+    reset({ alumnoId: 0, tutorOrigenId: 0, tutorDestinoId: 0, motivo: "", usuario: "" });
   };
 
   const tutorOptions = useMemo(
@@ -143,6 +147,16 @@ export const TutorChangePage = () => {
             />
             {errors.motivo && (
               <p className="text-sm text-red-600">{errors.motivo.message}</p>
+            )}
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-text" htmlFor="usuario">
+              Usuario responsable
+            </label>
+            <Input id="usuario" placeholder="coord_tutorias" {...register("usuario")} />
+            {errors.usuario && (
+              <p className="text-sm text-red-600">{errors.usuario.message}</p>
             )}
           </div>
 

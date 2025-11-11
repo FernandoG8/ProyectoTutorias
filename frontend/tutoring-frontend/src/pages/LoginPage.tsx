@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate, useLocation } from "react-router-dom";
 import { login } from "@/services/auth-service";
-import { useAuthStore } from "@/store/auth-store";
+import { useAuthStore, type Role } from "@/store/auth-store";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
@@ -39,7 +39,8 @@ export const LoginPage = () => {
   const onSubmit = async (values: LoginForm) => {
     try {
       const data = await mutateAsync(values);
-      setAuth(data.token, data.role);
+      const primaryRole = data.roles[0]?.replace("ROLE_", "") as Role | undefined;
+      setAuth(data.accessToken, primaryRole ?? null);
       const from =
         (location.state as { from?: { pathname: string } })?.from?.pathname ??
         "/dashboard";
