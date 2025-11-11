@@ -5,11 +5,13 @@ import com.universidad.tutorias.domain.entity.Usuario;
 
 public interface AuthService {
 
-    LoginResponse login(LoginRequest request);
+    AuthTokensResult login(LoginRequest request);
 
     RegisterResponse register(RegisterRequest request);
 
-    RefreshTokenResponse refresh(RefreshTokenRequest request);
+    AuthTokensResult refresh(String refreshToken);
+
+    void logout(String refreshToken);
 
     UserInfoResponse buildUserInfo(Usuario usuario);
 }

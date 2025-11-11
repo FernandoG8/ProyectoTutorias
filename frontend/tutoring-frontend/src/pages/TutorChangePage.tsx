@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useForm, type Resolver, type SubmitHandler } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -20,6 +20,9 @@ const schema = z
     tutorDestinoId: z.coerce.number().min(1, "Selecciona un tutor."),
     motivo: z.string().min(5, "Describe el motivo de la reasignación."),
     usuario: z.string().min(1, "Ingresa tu usuario."),
+    semestreAcademico: z
+      .string()
+      .regex(/^[0-9]{4}-[12]$/, "Ingresa un semestre válido en formato AAAA-1."),
   })
   .refine((data) => data.tutorDestinoId !== data.tutorOrigenId, {
     message: "El tutor destino debe ser distinto al tutor origen.",
@@ -29,7 +32,8 @@ const schema = z
 type FormValues = z.infer<typeof schema>;
 
 export const TutorChangePage = () => {
-  const canReassign = useAuthStore((state) => state.role === "COORDINADOR_TUTORIAS");
+  const user = useAuthStore((state) => state.user);
+  const canReassign = user?.roles.includes("ROLE_COORDINADOR_TUTORIAS") ?? false;
 
   const {
     data: tutors = [],
@@ -43,6 +47,7 @@ export const TutorChangePage = () => {
     register,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema) as Resolver<FormValues>,
@@ -52,8 +57,15 @@ export const TutorChangePage = () => {
       tutorDestinoId: 0,
       motivo: "",
       usuario: "",
+      semestreAcademico: "",
     },
   });
+
+  useEffect(() => {
+    if (user?.username) {
+      setValue("usuario", user.username);
+    }
+  }, [user?.username, setValue]);
 
   const { mutateAsync, isPending, isSuccess, error } = useMutation({
     mutationFn: requestTutorChange,
@@ -61,7 +73,14 @@ export const TutorChangePage = () => {
 
   const onSubmit: SubmitHandler<FormValues> = async (values) => {
     await mutateAsync(values);
-    reset({ alumnoId: 0, tutorOrigenId: 0, tutorDestinoId: 0, motivo: "", usuario: "" });
+    reset({
+      alumnoId: 0,
+      tutorOrigenId: 0,
+      tutorDestinoId: 0,
+      motivo: "",
+      usuario: values.usuario,
+      semestreAcademico: values.semestreAcademico,
+    });
   };
 
   const tutorOptions = useMemo(
@@ -132,6 +151,20 @@ export const TutorChangePage = () => {
             </Select>
             {errors.tutorDestinoId && (
               <p className="text-sm text-red-600">{errors.tutorDestinoId.message}</p>
+            )}
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-text" htmlFor="semestreAcademico">
+              Semestre académico
+            </label>
+            <Input
+              id="semestreAcademico"
+              placeholder="2025-1"
+              {...register("semestreAcademico")}
+            />
+            {errors.semestreAcademico && (
+              <p className="text-sm text-red-600">{errors.semestreAcademico.message}</p>
             )}
           </div>
 

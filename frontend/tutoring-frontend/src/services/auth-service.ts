@@ -24,10 +24,14 @@ export const register = async (
 };
 
 export const refreshToken = async (
-  payload: RefreshTokenRequest,
+  payload?: RefreshTokenRequest,
 ): Promise<RefreshTokenResponse> => {
   const { data } = await api.post<ApiResponse<RefreshTokenResponse>>(API_URLS.auth.refresh, payload);
   return data.data;
+};
+
+export const logout = async (payload?: RefreshTokenRequest): Promise<void> => {
+  await api.post<ApiResponse<null>>(API_URLS.auth.logout, payload);
 };
 
 export const fetchCurrentUser = async (): Promise<UserInfoResponse> => {

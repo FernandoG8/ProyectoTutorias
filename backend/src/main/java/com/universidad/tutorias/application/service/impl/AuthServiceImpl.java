@@ -17,6 +17,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.security.SecureRandom;
 import java.time.Instant;
@@ -39,7 +40,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
-    public LoginResponse login(LoginRequest request) {
+    public AuthTokensResult login(LoginRequest request) {
         try {
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.username(), request.password())
@@ -49,17 +50,18 @@ public class AuthServiceImpl implements AuthService {
 
             log.info("Usuario {} autenticado correctamente", usuario.getUsername());
 
-            refreshTokenRepository.deleteByUsuario(usuario);
+            refreshTokenRepository.revokeAllByUsuario(usuario);
             RefreshToken refreshToken = crearRefreshToken(usuario);
 
             String accessToken = jwtService.generateAccessToken(usuario);
+            UserInfoResponse userInfo = buildUserInfo(usuario);
 
-            return new LoginResponse(
+            return new AuthTokensResult(
                     accessToken,
-                    refreshToken.getToken(),
-                    "Bearer",
                     jwtService.getAccessTokenExpirationSeconds(),
-                    List.of(usuario.getRol().name())
+                    refreshToken.getToken(),
+                    refreshToken.getExpiryDate(),
+                    userInfo
             );
         } catch (AuthenticationException ex) {
             log.warn("Error de autenticación para el usuario {}", request.username());
@@ -96,29 +98,50 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
-    public RefreshTokenResponse refresh(RefreshTokenRequest request) {
-        RefreshToken refreshToken = refreshTokenRepository.findByToken(request.refreshToken())
+    public AuthTokensResult refresh(String refreshTokenValue) {
+        if (!StringUtils.hasText(refreshTokenValue)) {
+            throw new IllegalArgumentException("El token de refresco es obligatorio");
+        }
+
+        RefreshToken refreshToken = refreshTokenRepository.findByTokenAndRevokedFalse(refreshTokenValue)
                 .orElseThrow(() -> new IllegalArgumentException("Token de refresco inválido"));
 
         if (refreshToken.getExpiryDate().isBefore(Instant.now())) {
-            refreshTokenRepository.delete(refreshToken);
+            refreshToken.setRevoked(true);
+            refreshTokenRepository.save(refreshToken);
             throw new IllegalArgumentException("El token de refresco ha expirado");
         }
 
         Usuario usuario = refreshToken.getUsuario();
 
-        refreshTokenRepository.delete(refreshToken);
+        refreshToken.setRevoked(true);
+        refreshTokenRepository.save(refreshToken);
+
         RefreshToken nuevoRefreshToken = crearRefreshToken(usuario);
-
         String accessToken = jwtService.generateAccessToken(usuario);
+        UserInfoResponse userInfo = buildUserInfo(usuario);
 
-        return new RefreshTokenResponse(
+        return new AuthTokensResult(
                 accessToken,
-                nuevoRefreshToken.getToken(),
-                "Bearer",
                 jwtService.getAccessTokenExpirationSeconds(),
-                List.of(usuario.getRol().name())
+                nuevoRefreshToken.getToken(),
+                nuevoRefreshToken.getExpiryDate(),
+                userInfo
         );
+    }
+
+    @Override
+    @Transactional
+    public void logout(String refreshTokenValue) {
+        if (!StringUtils.hasText(refreshTokenValue)) {
+            return;
+        }
+
+        refreshTokenRepository.findByToken(refreshTokenValue).ifPresent(token -> {
+            token.setRevoked(true);
+            refreshTokenRepository.save(token);
+            log.info("Token de refresco revocado para el usuario {}", token.getUsuario().getUsername());
+        });
     }
 
     @Override
@@ -141,6 +164,7 @@ public class AuthServiceImpl implements AuthService {
                 .usuario(usuario)
                 .token(token)
                 .expiryDate(expiracion)
+                .revoked(false)
                 .build();
 
         return refreshTokenRepository.save(refreshToken);

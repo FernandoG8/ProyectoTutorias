@@ -20,4 +20,7 @@ public class CambioTutorRequestDTO {
 
     @NotBlank
     private String usuario;
+
+    @NotBlank(message = "El semestre académico es obligatorio")
+    private String semestreAcademico;
 }

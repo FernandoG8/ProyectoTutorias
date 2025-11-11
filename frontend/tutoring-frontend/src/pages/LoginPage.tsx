@@ -3,8 +3,8 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate, useLocation } from "react-router-dom";
-import { login } from "@/services/auth-service";
-import { useAuthStore, type Role } from "@/store/auth-store";
+import { login, fetchCurrentUser } from "@/services/auth-service";
+import { useAuthStore } from "@/store/auth-store";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
@@ -18,7 +18,7 @@ type LoginForm = z.infer<typeof loginSchema>;
 export const LoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const setAuth = useAuthStore((state) => state.setAuth);
+  const setUser = useAuthStore((state) => state.setUser);
 
   const {
     register,
@@ -38,9 +38,9 @@ export const LoginPage = () => {
 
   const onSubmit = async (values: LoginForm) => {
     try {
-      const data = await mutateAsync(values);
-      const primaryRole = data.roles[0]?.replace("ROLE_", "") as Role | undefined;
-      setAuth(data.accessToken, primaryRole ?? null);
+      await mutateAsync(values);
+      const profile = await fetchCurrentUser();
+      setUser(profile);
       const from =
         (location.state as { from?: { pathname: string } })?.from?.pathname ??
         "/dashboard";
@@ -70,7 +70,7 @@ export const LoginPage = () => {
             <label className="text-sm font-medium text-text" htmlFor="username">
               Usuario
             </label>
-            <Input id="username" placeholder="usuario@universidad.edu" {...register("username")}/>
+            <Input id="username" placeholder="usuario@universidad.edu" {...register("username")} />
             {errors.username && (
               <p className="text-sm text-red-600">{errors.username.message}</p>
             )}
@@ -80,7 +80,7 @@ export const LoginPage = () => {
             <label className="text-sm font-medium text-text" htmlFor="password">
               Contraseña
             </label>
-            <Input id="password" type="password" placeholder="********" {...register("password")}/>
+            <Input id="password" type="password" placeholder="********" {...register("password")} />
             {errors.password && (
               <p className="text-sm text-red-600">{errors.password.message}</p>
             )}

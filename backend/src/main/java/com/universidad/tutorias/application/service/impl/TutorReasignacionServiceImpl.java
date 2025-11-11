@@ -17,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 
@@ -58,6 +59,11 @@ public class TutorReasignacionServiceImpl implements TutorReasignacionService {
             throw new IllegalStateException("El alumno ha alcanzado el límite de cambios de tutor permitidos");
         }
 
+        String semestreNormalizado = request.getSemestreAcademico() != null ? request.getSemestreAcademico().trim() : "";
+        if (!StringUtils.hasText(semestreNormalizado)) {
+            throw new IllegalArgumentException("El semestre académico es obligatorio para registrar el cambio de tutor");
+        }
+
         int cargaOrigenAntes = tutorOrigen.getCargaActual();
         int cargaDestinoAntes = tutorDestino.getCargaActual();
 
@@ -77,13 +83,13 @@ public class TutorReasignacionServiceImpl implements TutorReasignacionService {
         asignacion.setAlumno(alumno);
         asignacion.setTutor(tutorDestino);
         asignacion.setTipoAsignacion(TipoAsignacion.REASIGNACION);
-        asignacion.setSemestreAcademico(null);
+        asignacion.setSemestreAcademico(semestreNormalizado);
         asignacion.setFechaAsignacion(fechaCambio);
         asignacionRepository.save(asignacion);
 
-        registrarAuditoria(alumno, tutorOrigen, tutorDestino, request, cargaOrigenAntes, cargaDestinoAntes);
+        registrarAuditoria(alumno, tutorOrigen, tutorDestino, request, cargaOrigenAntes, cargaDestinoAntes, semestreNormalizado);
 
-        log.info("Alumno {} reasignado de tutor {} a tutor {}", alumno.getId(), tutorOrigen.getId(), tutorDestino.getId());
+        log.info("Alumno {} reasignado de tutor {} a tutor {} para el semestre {}", alumno.getId(), tutorOrigen.getId(), tutorDestino.getId(), semestreNormalizado);
 
         return CambioTutorResponseDTO.builder()
                 .alumnoId(alumno.getId())
@@ -93,6 +99,7 @@ public class TutorReasignacionServiceImpl implements TutorReasignacionService {
                 .tutorNuevoNombre(tutorDestino.getNombre())
                 .fechaCambio(fechaCambio)
                 .motivo(request.getMotivo())
+                .semestreAcademico(semestreNormalizado)
                 .build();
     }
 
@@ -101,20 +108,23 @@ public class TutorReasignacionServiceImpl implements TutorReasignacionService {
                                     Tutor tutorDestino,
                                     CambioTutorRequestDTO request,
                                     int cargaOrigenAntes,
-                                    int cargaDestinoAntes) {
+                                    int cargaDestinoAntes,
+                                    String semestreNormalizado) {
 
         String datosAntes = String.format(
-                "{\"tutor_actual\":%d,\"carga_tutor_origen\":%d,\"carga_tutor_destino\":%d}",
+                "{\"tutor_actual\":%d,\"carga_tutor_origen\":%d,\"carga_tutor_destino\":%d,\"semestre\":\"%s\"}",
                 tutorOrigen.getId(),
                 cargaOrigenAntes,
-                cargaDestinoAntes
+                cargaDestinoAntes,
+                semestreNormalizado
         );
 
         String datosDespues = String.format(
-                "{\"tutor_actual\":%d,\"carga_tutor_origen\":%d,\"carga_tutor_destino\":%d}",
+                "{\"tutor_actual\":%d,\"carga_tutor_origen\":%d,\"carga_tutor_destino\":%d,\"semestre\":\"%s\"}",
                 tutorDestino.getId(),
                 tutorOrigen.getCargaActual(),
-                tutorDestino.getCargaActual()
+                tutorDestino.getCargaActual(),
+                semestreNormalizado
         );
 
         auditoriaService.registrarLog(
