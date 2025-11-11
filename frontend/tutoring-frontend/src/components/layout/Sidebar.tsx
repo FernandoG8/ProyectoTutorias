@@ -1,16 +1,23 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { navigationItems } from "@/constants/navigation";
+import { logout as logoutRequest } from "@/services/auth-service";
 import { useAuthStore } from "@/store/auth-store";
 import { useUIStore } from "@/store/ui-store";
 
 export const Sidebar = () => {
   const navigate = useNavigate();
   const { sidebarCollapsed } = useUIStore();
-  const logout = useAuthStore((state) => state.logout);
+  const clearSession = useAuthStore((state) => state.logout);
 
-  const handleLogout = () => {
-    logout();
-    navigate("/login", { replace: true });
+  const handleLogout = async () => {
+    try {
+      await logoutRequest();
+    } catch (error) {
+      console.error("Error al cerrar sesión", error);
+    } finally {
+      clearSession();
+      navigate("/login", { replace: true });
+    }
   };
 
   return (

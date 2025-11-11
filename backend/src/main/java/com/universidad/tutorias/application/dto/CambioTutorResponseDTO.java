@@ -15,4 +15,5 @@ public class CambioTutorResponseDTO {
     String tutorNuevoNombre;
     LocalDateTime fechaCambio;
     String motivo;
+    String semestreAcademico;
 }

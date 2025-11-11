@@ -1,17 +1,16 @@
 import { create } from "zustand";
+import type { UserInfoResponse } from "@/types";
 
 export type Role = "COORDINADOR_TUTORIAS" | "SECRETARIO_ACADEMICO";
 
 interface AuthState {
-  token: string | null;
-  role: Role | null;
-  setAuth: (token: string, role: Role | null) => void;
+  user: UserInfoResponse | null;
+  setUser: (user: UserInfoResponse | null) => void;
   logout: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
-  token: null,
-  role: null,
-  setAuth: (token, role) => set({ token, role }),
-  logout: () => set({ token: null, role: null }),
+  user: null,
+  setUser: (user) => set({ user }),
+  logout: () => set({ user: null }),
 }));

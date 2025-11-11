@@ -1,14 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm, type Resolver, type SubmitHandler } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
-import { fetchCurrentUser } from "@/services/auth-service";
+import { fetchCurrentUser, logout as logoutRequest } from "@/services/auth-service";
 import { useAuthStore } from "@/store/auth-store";
-import type { UserInfoResponse } from "@/types";
 
 const schema = z.object({
   correoAlternativo: z
@@ -22,13 +21,28 @@ const schema = z.object({
 type SettingsForm = z.infer<typeof schema>;
 
 export const SettingsPage = () => {
-  const logout = useAuthStore((state) => state.logout);
+  const navigate = useNavigate();
+  const clearSession = useAuthStore((state) => state.logout);
+  const setUser = useAuthStore((state) => state.setUser);
+  const user = useAuthStore((state) => state.user);
   const [feedback, setFeedback] = useState<string | null>(null);
 
-  const { data: profile } = useQuery<UserInfoResponse>({
-    queryKey: ["profile"],
-    queryFn: fetchCurrentUser,
-  });
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const profile = await fetchCurrentUser();
+        setUser(profile);
+      } catch (error) {
+        console.error("No se pudo actualizar el perfil", error);
+      }
+    };
+
+    if (!user) {
+      void loadProfile();
+    }
+  }, [user, setUser]);
+
+  const profile = user;
 
   const {
     register,
@@ -48,8 +62,15 @@ export const SettingsPage = () => {
     setFeedback("Preferencias actualizadas correctamente.");
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    try {
+      await logoutRequest();
+    } catch (error) {
+      console.error("Error al cerrar sesión", error);
+    } finally {
+      clearSession();
+      navigate("/login", { replace: true });
+    }
   };
 
   return (

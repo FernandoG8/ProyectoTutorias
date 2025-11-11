@@ -76,6 +76,7 @@ export interface CambioTutorRequest {
   tutorDestinoId: number;
   motivo: string;
   usuario: string;
+  semestreAcademico: string;
 }
 
 export interface CambioTutorResponse {
@@ -86,6 +87,7 @@ export interface CambioTutorResponse {
   tutorNuevoNombre: string;
   fechaCambio: string;
   motivo: string;
+  semestreAcademico: string;
 }
 
 export interface StartAssignmentProcessInput {
