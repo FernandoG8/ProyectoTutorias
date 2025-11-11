@@ -58,8 +58,10 @@ public class TokenCookieService {
                 .build();
     }
 
-    private ResponseCookie.Builder baseCookieBuilder(String name, String value) {
-        ResponseCookie.Builder builder = ResponseCookie.from(name, value)
+    private ResponseCookie.ResponseCookieBuilder baseCookieBuilder(String name, String value) {
+        // `ResponseCookie.Builder` no longer exists in Spring 6+, use `ResponseCookie.from(...)`
+        // which returns a `ResponseCookieBuilder` and keeps compatibility with Spring Boot 3.
+        ResponseCookie.ResponseCookieBuilder builder = ResponseCookie.from(name, value)
                 .httpOnly(true)
                 .secure(jwtProperties.isCookieSecure())
                 .sameSite(jwtProperties.getCookieSameSite())
