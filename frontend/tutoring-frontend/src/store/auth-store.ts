@@ -5,7 +5,7 @@ export type Role = "COORDINADOR_TUTORIAS" | "SECRETARIO_ACADEMICO";
 interface AuthState {
   token: string | null;
   role: Role | null;
-  setAuth: (token: string, role: Role) => void;
+  setAuth: (token: string, role: Role | null) => void;
   logout: () => void;
 }
 

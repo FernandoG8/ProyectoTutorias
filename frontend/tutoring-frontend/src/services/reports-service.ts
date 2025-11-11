@@ -1,42 +1,54 @@
 import { api } from "@/lib/api-client";
 import { API_URLS } from "@/lib/api-urls";
+import type { ReporteCarrera } from "@/types";
 
-interface TutorReportPayload {
-  tutorId: number;
-  formato: "PDF" | "EXCEL";
-  periodo: string;
+export interface ReportePorCarreraParams {
+  semestreAcademico: string;
+  carrera?: string;
 }
 
-interface CareerReportPayload {
-  codigoCarrera: string;
-  formato: "PDF" | "EXCEL";
-  periodo: string;
+export interface ExportReportParams {
+  formato?: string;
+  periodo?: string;
 }
 
-export const downloadTutorReport = async ({
-  tutorId,
-  formato,
-  periodo,
-}: TutorReportPayload) => {
-  const { data } = await api.get(
-    `${API_URLS.reportes.tutores(tutorId)}?formato=${formato}&periodo=${periodo}`,
-    {
-      responseType: "blob",
-    },
-  );
+export const fetchReportePorCarrera = async (
+  params: ReportePorCarreraParams,
+): Promise<ReporteCarrera> => {
+  const { data } = await api.get<ReporteCarrera>(API_URLS.reportes.porCarrera, {
+    params,
+  });
   return data;
 };
 
-export const downloadCareerReport = async ({
-  codigoCarrera,
-  formato,
-  periodo,
-}: CareerReportPayload) => {
-  const { data } = await api.get(
-    `${API_URLS.reportes.carreras(codigoCarrera)}?formato=${formato}&periodo=${periodo}`,
-    {
-      responseType: "blob",
-    },
-  );
+export const exportAlumnosPorTutor = async (
+  tutorId: number,
+  params?: ExportReportParams,
+): Promise<Blob> => {
+  const { data } = await api.get<Blob>(API_URLS.reportes.tutores(tutorId), {
+    params,
+    responseType: "blob",
+  });
+  return data;
+};
+
+export const exportCarrera = async (
+  codigo: string,
+  params?: ExportReportParams,
+): Promise<Blob> => {
+  const { data } = await api.get<Blob>(API_URLS.reportes.carreras(codigo), {
+    params,
+    responseType: "blob",
+  });
+  return data;
+};
+
+export const exportTodasLasCarreras = async (
+  params?: ExportReportParams,
+): Promise<Blob> => {
+  const { data } = await api.get<Blob>(API_URLS.reportes.carrerasTodos, {
+    params,
+    responseType: "blob",
+  });
   return data;
 };

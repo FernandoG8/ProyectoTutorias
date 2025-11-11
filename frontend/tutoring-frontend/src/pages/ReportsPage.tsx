@@ -6,8 +6,12 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 import { Input } from "@/components/ui/Input";
-import { downloadCareerReport, downloadTutorReport } from "@/services/reports-service";
-import { fetchTutors } from "@/services/tutors-service";
+import {
+  exportAlumnosPorTutor,
+  exportCarrera,
+} from "@/services/reports-service";
+import { listTutors } from "@/services/tutors-service";
+import type { TutorResponse } from "@/types";
 
 const tutorReportSchema = z.object({
   tutorId: z.coerce.number().min(1, "Selecciona un tutor."),
@@ -67,17 +71,19 @@ export const ReportsPage = () => {
   const {
     data: tutors = [],
     isLoading: tutorsLoading,
-  } = useQuery({
+  } = useQuery<TutorResponse[]>({
     queryKey: ["tutors"],
-    queryFn: fetchTutors,
+    queryFn: () => listTutors(),
   });
 
   const tutorReportMutation = useMutation({
-    mutationFn: downloadTutorReport,
+    mutationFn: ({ tutorId, formato, periodo }: TutorReportForm) =>
+      exportAlumnosPorTutor(tutorId, { formato, periodo }),
   });
 
   const careerReportMutation = useMutation({
-    mutationFn: downloadCareerReport,
+    mutationFn: ({ codigoCarrera, formato, periodo }: CareerReportForm) =>
+      exportCarrera(codigoCarrera, { formato, periodo }),
   });
 
   const onSubmitTutor: SubmitHandler<TutorReportForm> = async (values) => {

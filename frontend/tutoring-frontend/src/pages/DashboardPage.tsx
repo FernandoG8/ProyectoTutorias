@@ -11,16 +11,13 @@ import {
 } from "recharts";
 import { Card } from "@/components/ui/Card";
 import { DataTable } from "@/components/ui/DataTable";
-import { fetchAssignmentProcesses } from "@/services/assignment-service";
-import { fetchTutors } from "@/services/tutors-service";
-import type { AssignmentProcess } from "@/types";
+import { listAssignmentProcesses } from "@/services/asignaciones-service";
+import { listTutors } from "@/services/tutors-service";
+import type { AssignmentProcessSummary, TutorResponse } from "@/types";
 import type { ColumnDef } from "@tanstack/react-table";
 
-const processColumns: ColumnDef<AssignmentProcess>[] = [
-  {
-    header: "Período",
-    accessorKey: "periodo",
-  },
+const processColumns: ColumnDef<AssignmentProcessSummary>[] = [
+  { header: "ID", accessorKey: "id" },
   {
     header: "Estado",
     accessorKey: "estado",
@@ -31,17 +28,31 @@ const processColumns: ColumnDef<AssignmentProcess>[] = [
     ),
   },
   {
-    header: "Fecha de ejecución",
-    accessorKey: "fechaEjecucion",
+    header: "Inicio",
+    accessorKey: "fechaInicio",
   },
   {
-    header: "Observaciones",
-    accessorKey: "observaciones",
-    cell: ({ getValue }) => (
-      <span className="text-sm text-slate-600">
-        {String(getValue() ?? "Sin comentarios")}
-      </span>
-    ),
+    header: "Fin",
+    accessorKey: "fechaFin",
+    cell: ({ getValue }) => getValue() ?? "En curso",
+  },
+  {
+    header: "Archivo",
+    accessorKey: "archivoOrigen",
+    cell: ({ getValue }) => getValue() ?? "-",
+  },
+  {
+    header: "Usuario",
+    accessorKey: "usuarioEjecutor",
+    cell: ({ getValue }) => getValue() ?? "-",
+  },
+  {
+    header: "Asignados",
+    accessorKey: "totalAsignados",
+  },
+  {
+    header: "Errores",
+    accessorKey: "totalErrores",
   },
 ];
 
@@ -49,21 +60,21 @@ export const DashboardPage = () => {
   const {
     data: tutors = [],
     isLoading: tutorsLoading,
-  } = useQuery({
+  } = useQuery<TutorResponse[]>({
     queryKey: ["tutors"],
-    queryFn: fetchTutors,
+    queryFn: () => listTutors(),
   });
 
   const {
     data: processes = [],
     isLoading: processesLoading,
-  } = useQuery({
+  } = useQuery<AssignmentProcessSummary[]>({
     queryKey: ["assignment-processes"],
-    queryFn: fetchAssignmentProcesses,
+    queryFn: () => listAssignmentProcesses(),
   });
 
-  const totalStudents = useMemo(
-    () => tutors.reduce((acc, tutor) => acc + (tutor.totalAlumnos ?? 0), 0),
+  const totalStudents = useMemo<number>(
+    () => tutors.reduce((acc, tutor) => acc + tutor.cargaActual, 0),
     [tutors],
   );
 
@@ -76,7 +87,7 @@ export const DashboardPage = () => {
     () =>
       tutors.map((tutor) => ({
         nombre: tutor.nombre,
-        alumnos: tutor.totalAlumnos ?? 0,
+        alumnos: tutor.cargaActual,
       })),
     [tutors],
   );
@@ -146,12 +157,10 @@ export const DashboardPage = () => {
           <ul className="mt-4 space-y-3 text-sm text-slate-600">
             {processes.slice(0, 4).map((process) => (
               <li key={process.id} className="rounded-lg bg-slate-100 px-3 py-2">
-                {process.estado} · {process.periodo}
-                {process.observaciones && (
-                  <p className="text-xs text-slate-500">
-                    {process.observaciones}
-                  </p>
-                )}
+                {process.estado} · {process.fechaInicio}
+                <p className="text-xs text-slate-500">
+                  Asignados: {process.totalAsignados} · Errores: {process.totalErrores}
+                </p>
               </li>
             ))}
             {!processes.length && (
