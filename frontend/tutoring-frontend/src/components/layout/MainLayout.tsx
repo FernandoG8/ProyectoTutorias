@@ -8,8 +8,10 @@ export const MainLayout = () => {
       <Sidebar />
       <div className="flex flex-1 flex-col">
         <Topbar />
-        <main className="flex-1 space-y-6 bg-background px-6 py-6">
-          <Outlet />
+        <main className="flex-1 overflow-y-auto bg-background px-4 py-6 sm:px-6">
+          <div className="mx-auto flex max-w-7xl flex-col gap-6">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

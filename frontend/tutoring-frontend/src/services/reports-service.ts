@@ -1,6 +1,6 @@
 import { api } from "@/lib/api-client";
 import { API_URLS } from "@/lib/api-urls";
-import type { ReporteCarrera } from "@/types";
+import type { ApiResponse, ReporteCarrera } from "@/types";
 
 export interface ReportePorCarreraParams {
   semestreAcademico: string;
@@ -15,10 +15,10 @@ export interface ExportReportParams {
 export const fetchReportePorCarrera = async (
   params: ReportePorCarreraParams,
 ): Promise<ReporteCarrera> => {
-  const { data } = await api.get<ReporteCarrera>(API_URLS.reportes.porCarrera, {
+  const { data } = await api.get<ApiResponse<ReporteCarrera>>(API_URLS.reportes.porCarrera, {
     params,
   });
-  return data;
+  return data.data;
 };
 
 export const exportAlumnosPorTutor = async (
