@@ -1,7 +1,3 @@
-// ============================================
-// CORS CONFIGURATION
-// ============================================
-
 package com.universidad.tutorias.infrastructure.config;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -18,21 +14,30 @@ import java.util.List;
 @Configuration
 public class CorsConfig {
 
-    @Value("${app.cors.allowed-origins:http://localhost:5173}")
+    @Value("${app.cors.allowed-origins:http://localhost:5173,http://localhost:3000}")
     private String allowedOrigins;
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        List<String> origins = Arrays.stream(allowedOrigins.split(","))
-                .map(String::trim)
-                .filter(StringUtils::hasText)
-                .toList();
+
+        // Parsear los orígenes permitidos desde la propiedad
+        List<String> origins = Arrays.asList(allowedOrigins.split(","));
         config.setAllowedOrigins(origins);
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin"));
-        config.setExposedHeaders(List.of("Set-Cookie"));
+
+        // Métodos HTTP permitidos
+        config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+
+        // Permitir todos los headers
+        config.setAllowedHeaders(Arrays.asList("*"));
+
+        // Exponer headers importantes para el cliente
+        config.setExposedHeaders(Arrays.asList("Set-Cookie", "Authorization", "Content-Type"));
+
+        // Permitir credenciales (cookies)
         config.setAllowCredentials(true);
+
+        // Cachear la respuesta preflight por 1 hora
         config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

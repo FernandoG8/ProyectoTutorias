@@ -37,34 +37,66 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                // CRÍTICO: CORS debe ir primero
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
-                .csrf(csrf -> csrf.disable()) // Cookies HttpOnly + SameSite reducen el riesgo de CSRF en este API REST.
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+
+                // Deshabilitar CSRF (usamos cookies HttpOnly + SameSite)
+                .csrf(csrf -> csrf.disable())
+
+                // Sin sesiones - stateless
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
+
+                // Manejo de excepciones
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((request, response, authException) -> {
                             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                             response.setContentType("application/json");
-                            response.getWriter().write("{\"status\":\"error\",\"code\":\"NO_AUTORIZADO\",\"message\":\"Acceso no autorizado\"}");
+                            response.getWriter().write(
+                                    "{\"status\":\"error\",\"code\":\"NO_AUTORIZADO\"," +
+                                            "\"message\":\"Acceso no autorizado\"}"
+                            );
                         })
                         .accessDeniedHandler((request, response, accessDeniedException) -> {
                             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                             response.setContentType("application/json");
-                            response.getWriter().write("{\"status\":\"error\",\"code\":\"ACCESO_DENEGADO\",\"message\":\"No tiene permisos para acceder a este recurso\"}");
+                            response.getWriter().write(
+                                    "{\"status\":\"error\",\"code\":\"ACCESO_DENEGADO\"," +
+                                            "\"message\":\"No tiene permisos para acceder a este recurso\"}"
+                            );
                         })
                 )
+
+                // Autorización de peticiones
                 .authorizeHttpRequests(auth -> auth
-                        // Permit all CORS pre-flight requests so that the browser can evaluate security rules before authenticating.
+                        // Permitir preflight CORS (OPTIONS) sin autenticación
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        // Endpoints públicos de autenticación
                         .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/auth/refresh").permitAll()
+
+                        // Registro solo para coordinadores
                         .requestMatchers(HttpMethod.POST, "/auth/register").hasRole("COORDINADOR_TUTORIAS")
+
+                        // Endpoints autenticados
                         .requestMatchers(HttpMethod.POST, "/auth/logout").authenticated()
                         .requestMatchers(HttpMethod.GET, "/auth/me").authenticated()
-                        .requestMatchers(HttpMethod.POST, "/api/asignaciones/cambio-tutor").hasRole("COORDINADOR_TUTORIAS")
+
+                        // Operaciones especiales
+                        .requestMatchers(HttpMethod.POST, "/api/asignaciones/cambio-tutor")
+                        .hasRole("COORDINADOR_TUTORIAS")
+
+                        // Todo lo demás requiere autenticación
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().authenticated()
                 )
+
+                // Proveedor de autenticación
                 .authenticationProvider(authenticationProvider())
+
+                // Agregar filtro de cookies JWT
                 .addFilterBefore(cookieAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
