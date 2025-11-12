@@ -112,6 +112,8 @@ public class InactivacionServiceImpl implements InactivacionService {
                 cuposPorTutor.computeIfAbsent(inactivo.getTutorPreservado().getId(), key -> new ArrayList<>())
                         .add(inactivo);
             }
+            inactivo.setCupoLiberado(false);
+            inactivosProcesados.add(inactivo);
         }
 
         int tutoresActualizados = 0;
@@ -160,6 +162,10 @@ public class InactivacionServiceImpl implements InactivacionService {
             } catch (Exception e) {
                 log.error("Error al liberar cupos del tutor {}: {}", entry.getKey(), e.getMessage());
             }
+        }
+
+        if (!inactivosProcesados.isEmpty()) {
+            alumnoInactivoRepository.saveAll(inactivosProcesados);
         }
 
         log.info("Liberados {} cupos de {} tutores", cuposTotalesLiberados, tutoresActualizados);
