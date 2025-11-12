@@ -112,6 +112,8 @@ public class InactivacionServiceImpl implements InactivacionService {
                 cuposPorTutor.computeIfAbsent(inactivo.getTutorPreservado().getId(), key -> new ArrayList<>())
                         .add(inactivo);
             }
+            inactivo.setCupoLiberado(false);
+            inactivosProcesados.add(inactivo);
         }
 
         int tutoresActualizados = 0;
