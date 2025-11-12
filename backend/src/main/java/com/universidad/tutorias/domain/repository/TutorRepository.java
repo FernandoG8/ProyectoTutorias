@@ -30,4 +30,7 @@ public interface TutorRepository extends JpaRepository<Tutor, Long>, JpaSpecific
 
     @Query("SELECT t FROM Tutor t WHERE t.activo = true ORDER BY t.carrera, t.nombre")
     List<Tutor> findAllActivos();
+
+    @Query("SELECT t.id FROM Tutor t")
+    List<Long> findAllIds();
 }
