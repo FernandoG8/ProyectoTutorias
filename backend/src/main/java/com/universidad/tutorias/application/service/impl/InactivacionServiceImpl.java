@@ -21,6 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -104,13 +105,16 @@ public class InactivacionServiceImpl implements InactivacionService {
         }
 
         Map<Long, Integer> cuposPorTutor = new HashMap<>();
+        List<AlumnoInactivo> inactivosProcesados = new ArrayList<>();
 
-        // Contar cupos a liberar por tutor
+        // Contar cupos a liberar por tutor y marcar registros como procesados
         for (AlumnoInactivo inactivo : inactivos) {
-            if (inactivo.getTutorPreservado() != null) {
+            if (Boolean.TRUE.equals(inactivo.getCupoLiberado()) && inactivo.getTutorPreservado() != null) {
                 Long tutorId = inactivo.getTutorPreservado().getId();
-                cuposPorTutor.put(tutorId, cuposPorTutor.getOrDefault(tutorId, 0) + 1);
+                cuposPorTutor.merge(tutorId, 1, Integer::sum);
             }
+            inactivo.setCupoLiberado(false);
+            inactivosProcesados.add(inactivo);
         }
 
         // Liberar cupos
@@ -124,8 +128,13 @@ public class InactivacionServiceImpl implements InactivacionService {
 
                 int cuposALiberar = entry.getValue();
                 int cargaAntes = tutor.getCargaActual();
+                if (cuposALiberar > cargaAntes) {
+                    log.warn("Se intentó liberar {} cupos del tutor {} (ID: {}), pero solo tiene {} ocupados. Se ajustará al máximo disponible.",
+                            cuposALiberar, tutor.getNombre(), tutor.getId(), cargaAntes);
+                }
 
-                tutor.setCargaActual(Math.max(0, tutor.getCargaActual() - cuposALiberar));
+                int cuposEfectivos = Math.min(cuposALiberar, cargaAntes);
+                tutor.setCargaActual(cargaAntes - cuposEfectivos);
                 tutorRepository.save(tutor);
 
                 auditoriaService.registrarLog(
@@ -133,18 +142,24 @@ public class InactivacionServiceImpl implements InactivacionService {
                         TipoAccion.LIBERACION_CUPOS,
                         "TUTOR",
                         tutor.getId(),
-                        String.format("Liberados %d cupos del tutor %s", cuposALiberar, tutor.getNombre()),
+                        cuposALiberar == cuposEfectivos
+                                ? String.format("Liberados %d cupos del tutor %s", cuposEfectivos, tutor.getNombre())
+                                : String.format("Liberados %d cupos del tutor %s (solicitados %d)", cuposEfectivos, tutor.getNombre(), cuposALiberar),
                         String.format("{\"carga_actual\":%d}", cargaAntes),
                         String.format("{\"carga_actual\":%d}", tutor.getCargaActual()),
                         "SISTEMA"
                 );
 
                 tutoresActualizados++;
-                cuposTotalesLiberados += cuposALiberar;
+                cuposTotalesLiberados += cuposEfectivos;
 
             } catch (Exception e) {
                 log.error("Error al liberar cupos del tutor {}: {}", entry.getKey(), e.getMessage());
             }
+        }
+
+        if (!inactivosProcesados.isEmpty()) {
+            alumnoInactivoRepository.saveAll(inactivosProcesados);
         }
 
         log.info("Liberados {} cupos de {} tutores", cuposTotalesLiberados, tutoresActualizados);
