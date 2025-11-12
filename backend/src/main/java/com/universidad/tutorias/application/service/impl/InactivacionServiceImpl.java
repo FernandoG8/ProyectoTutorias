@@ -118,6 +118,7 @@ public class InactivacionServiceImpl implements InactivacionService {
 
         int tutoresActualizados = 0;
         int cuposTotalesLiberados = 0;
+        List<AlumnoInactivo> inactivosProcesados = new ArrayList<>();
 
         for (Map.Entry<Long, List<AlumnoInactivo>> entry : cuposPorTutor.entrySet()) {
             try {
@@ -157,7 +158,7 @@ public class InactivacionServiceImpl implements InactivacionService {
 
                 List<AlumnoInactivo> procesados = entry.getValue();
                 procesados.forEach(inactivo -> inactivo.setCupoLiberado(false));
-                alumnoInactivoRepository.saveAll(procesados);
+                inactivosProcesados.addAll(procesados);
 
             } catch (Exception e) {
                 log.error("Error al liberar cupos del tutor {}: {}", entry.getKey(), e.getMessage());
