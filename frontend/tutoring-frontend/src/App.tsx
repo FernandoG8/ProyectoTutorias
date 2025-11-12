@@ -5,6 +5,8 @@ import { DashboardPage } from "@/pages/DashboardPage";
 import { ListUploadPage } from "@/pages/ListUploadPage";
 import { AssignmentPage } from "@/pages/AssignmentPage";
 import { TutorsPage } from "@/pages/TutorsPage";
+import { StudentsPage } from "@/pages/StudentsPage";
+import { InactiveStudentsPage } from "@/pages/InactiveStudentsPage";
 import { TutorChangePage } from "@/pages/TutorChangePage";
 import { ReportsPage } from "@/pages/ReportsPage";
 import { SettingsPage } from "@/pages/SettingsPage";
@@ -24,9 +26,11 @@ function App() {
       >
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
+        <Route path="students" element={<StudentsPage />} />
         <Route path="list-upload" element={<ListUploadPage />} />
         <Route path="assignment" element={<AssignmentPage />} />
         <Route path="tutors" element={<TutorsPage />} />
+        <Route path="inactive-students" element={<InactiveStudentsPage />} />
         <Route path="tutor-change" element={<TutorChangePage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="settings" element={<SettingsPage />} />
