@@ -6,6 +6,7 @@ package com.universidad.tutorias.application.service.impl;
 
 import com.universidad.tutorias.application.service.AuditoriaService;
 import com.universidad.tutorias.application.service.InactivacionService;
+import com.universidad.tutorias.application.service.TutorSincronizacionService;
 import com.universidad.tutorias.domain.entity.Alumno;
 import com.universidad.tutorias.domain.entity.AlumnoInactivo;
 import com.universidad.tutorias.domain.entity.Tutor;
@@ -35,6 +36,7 @@ public class InactivacionServiceImpl implements InactivacionService {
     private final AlumnoInactivoRepository alumnoInactivoRepository;
     private final TutorRepository tutorRepository;
     private final AuditoriaService auditoriaService;
+    private final TutorSincronizacionService tutorSincronizacionService;
 
     @Override
     @Transactional
@@ -104,29 +106,29 @@ public class InactivacionServiceImpl implements InactivacionService {
             return;
         }
 
-        Map<Long, Integer> cuposPorTutor = new HashMap<>();
-        List<AlumnoInactivo> inactivosProcesados = new ArrayList<>();
-
-        // Contar cupos a liberar por tutor y marcar registros como procesados
+        Map<Long, List<AlumnoInactivo>> cuposPorTutor = new HashMap<>();
         for (AlumnoInactivo inactivo : inactivos) {
             if (Boolean.TRUE.equals(inactivo.getCupoLiberado()) && inactivo.getTutorPreservado() != null) {
-                Long tutorId = inactivo.getTutorPreservado().getId();
-                cuposPorTutor.merge(tutorId, 1, Integer::sum);
+                cuposPorTutor.computeIfAbsent(inactivo.getTutorPreservado().getId(), key -> new ArrayList<>())
+                        .add(inactivo);
             }
             inactivo.setCupoLiberado(false);
             inactivosProcesados.add(inactivo);
         }
 
-        // Liberar cupos
         int tutoresActualizados = 0;
         int cuposTotalesLiberados = 0;
 
-        for (Map.Entry<Long, Integer> entry : cuposPorTutor.entrySet()) {
+        for (Map.Entry<Long, List<AlumnoInactivo>> entry : cuposPorTutor.entrySet()) {
             try {
                 Tutor tutor = tutorRepository.findByIdForUpdate(entry.getKey())
                         .orElseThrow(() -> new EntityNotFoundException("Tutor no encontrado: " + entry.getKey()));
 
-                int cuposALiberar = entry.getValue();
+                tutorSincronizacionService.recalcularCargaTutor(tutor.getId());
+                tutor = tutorRepository.findByIdForUpdate(entry.getKey())
+                        .orElseThrow(() -> new EntityNotFoundException("Tutor no encontrado: " + entry.getKey()));
+
+                int cuposALiberar = entry.getValue().size();
                 int cargaAntes = tutor.getCargaActual();
                 if (cuposALiberar > cargaAntes) {
                     log.warn("Se intentó liberar {} cupos del tutor {} (ID: {}), pero solo tiene {} ocupados. Se ajustará al máximo disponible.",
@@ -134,7 +136,7 @@ public class InactivacionServiceImpl implements InactivacionService {
                 }
 
                 int cuposEfectivos = Math.min(cuposALiberar, cargaAntes);
-                tutor.setCargaActual(cargaAntes - cuposEfectivos);
+                tutor.sincronizarCarga(cargaAntes - cuposEfectivos);
                 tutorRepository.save(tutor);
 
                 auditoriaService.registrarLog(
@@ -152,6 +154,10 @@ public class InactivacionServiceImpl implements InactivacionService {
 
                 tutoresActualizados++;
                 cuposTotalesLiberados += cuposEfectivos;
+
+                List<AlumnoInactivo> procesados = entry.getValue();
+                procesados.forEach(inactivo -> inactivo.setCupoLiberado(false));
+                alumnoInactivoRepository.saveAll(procesados);
 
             } catch (Exception e) {
                 log.error("Error al liberar cupos del tutor {}: {}", entry.getKey(), e.getMessage());
