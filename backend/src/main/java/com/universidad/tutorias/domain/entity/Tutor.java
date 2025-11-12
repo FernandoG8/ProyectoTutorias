@@ -74,4 +74,8 @@ public class Tutor {
             this.cargaActual--;
         }
     }
+
+    public void sincronizarCarga(int cargaReal) {
+        this.cargaActual = Math.max(0, cargaReal);
+    }
 }

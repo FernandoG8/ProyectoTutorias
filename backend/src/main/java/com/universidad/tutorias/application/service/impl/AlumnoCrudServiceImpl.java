@@ -6,10 +6,14 @@ import com.universidad.tutorias.application.dto.AlumnoResponseDTO;
 import com.universidad.tutorias.application.dto.AlumnoUpdateDTO;
 import com.universidad.tutorias.application.dto.TutorSimpleDTO;
 import com.universidad.tutorias.application.service.AlumnoCrudService;
+import com.universidad.tutorias.application.service.TutorSincronizacionService;
 import com.universidad.tutorias.domain.entity.Alumno;
+import com.universidad.tutorias.domain.entity.Asignacion;
 import com.universidad.tutorias.domain.entity.Tutor;
 import com.universidad.tutorias.domain.enums.EstadoAlumno;
+import com.universidad.tutorias.domain.enums.TipoAsignacion;
 import com.universidad.tutorias.domain.repository.AlumnoRepository;
+import com.universidad.tutorias.domain.repository.AsignacionRepository;
 import com.universidad.tutorias.domain.repository.TutorRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +33,8 @@ public class AlumnoCrudServiceImpl implements AlumnoCrudService {
 
     private final AlumnoRepository alumnoRepository;
     private final TutorRepository tutorRepository;
+    private final AsignacionRepository asignacionRepository;
+    private final TutorSincronizacionService tutorSincronizacionService;
 
     @Override
     @Transactional(readOnly = true)
@@ -71,16 +77,29 @@ public class AlumnoCrudServiceImpl implements AlumnoCrudService {
         alumno.setSemestre(request.getSemestre());
         alumno.setEstado(request.getEstado() != null ? request.getEstado() : EstadoAlumno.ACTIVO);
 
+        Alumno guardado = alumnoRepository.save(alumno);
+
         if (request.getTutorId() != null) {
             Tutor tutor = tutorRepository.findByIdForUpdate(request.getTutorId())
                     .orElseThrow(() -> new EntityNotFoundException("Tutor no encontrado con ID: " + request.getTutorId()));
+            tutorSincronizacionService.recalcularCargaTutor(tutor.getId());
+            tutor = tutorRepository.findByIdForUpdate(tutor.getId())
+                    .orElseThrow(() -> new EntityNotFoundException("Tutor no encontrado con ID: " + tutor.getId()));
             validarCapacidadTutor(tutor);
+
+            guardado.setTutorActual(tutor);
+            guardado = alumnoRepository.save(guardado);
+
+            Asignacion asignacion = new Asignacion();
+            asignacion.setAlumno(guardado);
+            asignacion.setTutor(tutor);
+            asignacion.setTipoAsignacion(TipoAsignacion.INICIAL);
+            asignacionRepository.save(asignacion);
+
             tutor.incrementarCarga();
             tutorRepository.save(tutor);
-            alumno.setTutorActual(tutor);
         }
 
-        Alumno guardado = alumnoRepository.save(alumno);
         log.info("Alumno creado con ID {}", guardado.getId());
         return mapToResponse(guardado);
     }
@@ -140,6 +159,9 @@ public class AlumnoCrudServiceImpl implements AlumnoCrudService {
         Tutor tutor = alumno.getTutorActual();
         if (tutor != null) {
             Tutor tutorBloqueado = tutorRepository.findByIdForUpdate(tutor.getId())
+                    .orElseThrow(() -> new EntityNotFoundException("Tutor no encontrado con ID: " + tutor.getId()));
+            tutorSincronizacionService.recalcularCargaTutor(tutorBloqueado.getId());
+            tutorBloqueado = tutorRepository.findByIdForUpdate(tutorBloqueado.getId())
                     .orElseThrow(() -> new EntityNotFoundException("Tutor no encontrado con ID: " + tutor.getId()));
             tutorBloqueado.decrementarCarga();
             tutorRepository.save(tutorBloqueado);

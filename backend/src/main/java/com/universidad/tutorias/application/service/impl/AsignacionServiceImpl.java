@@ -5,11 +5,17 @@
 package com.universidad.tutorias.application.service.impl;
 
 import com.universidad.tutorias.application.dto.AlumnoExcelDTO;
+import com.universidad.tutorias.application.dto.ErrorAsignacionDTO;
 import com.universidad.tutorias.application.dto.ResultadoAsignacion;
+import com.universidad.tutorias.application.dto.TipoErrorAsignacion;
 import com.universidad.tutorias.application.service.AsignacionService;
 import com.universidad.tutorias.application.service.AuditoriaService;
+import com.universidad.tutorias.application.service.TutorSincronizacionService;
 import com.universidad.tutorias.domain.entity.*;
 import com.universidad.tutorias.domain.enums.*;
+import com.universidad.tutorias.domain.exception.CapacidadExcedidaException;
+import com.universidad.tutorias.domain.exception.DuplicadoException;
+import com.universidad.tutorias.domain.exception.SinTutorDisponibleException;
 import com.universidad.tutorias.domain.repository.*;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
@@ -19,6 +25,7 @@ import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
@@ -36,6 +43,8 @@ public class AsignacionServiceImpl implements AsignacionService {
     private final AlertaProcesoRepository alertaRepository;
     private final ProcesoAsignacionRepository procesoRepository;
     private final AuditoriaService auditoriaService;
+    private final ErrorValidacionRepository errorValidacionRepository;
+    private final TutorSincronizacionService tutorSincronizacionService;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -43,7 +52,6 @@ public class AsignacionServiceImpl implements AsignacionService {
     private static final int BATCH_SIZE = 100;
     private final Random random = new Random();
 
-    // Mapeo de carreras
     private static final Map<String, String> MAPEO_CARRERAS = Map.of(
             "Ingeniería Civil y Administración", "ICA",
             "Ingeniería en Energía", "IE",
@@ -54,7 +62,6 @@ public class AsignacionServiceImpl implements AsignacionService {
     );
 
     @Override
-    @Transactional
     public ResultadoAsignacion asignarAlumnos(List<AlumnoExcelDTO> alumnosValidos,
                                               Long procesoId,
                                               String semestreAcademico) {
@@ -64,121 +71,234 @@ public class AsignacionServiceImpl implements AsignacionService {
         ProcesoAsignacion proceso = procesoRepository.findById(procesoId)
                 .orElseThrow(() -> new EntityNotFoundException("Proceso no encontrado: " + procesoId));
 
-        // Ordenar alumnos por carrera y matrícula
+        tutorSincronizacionService.recalcularCargaTodosLosTutores();
+
         List<AlumnoExcelDTO> alumnosOrdenados = alumnosValidos.stream()
                 .sorted(Comparator.comparing(AlumnoExcelDTO::getCarrera)
                         .thenComparing(AlumnoExcelDTO::getMatricula))
                 .collect(Collectors.toList());
 
-        // Obtener tutores disponibles agrupados por carrera
         Map<String, List<Tutor>> tutoresPorCarrera = agruparTutoresPorCarrera();
 
-        log.info("Tutores disponibles por carrera: {}",
-                tutoresPorCarrera.entrySet().stream()
-                        .collect(Collectors.toMap(
-                                Map.Entry::getKey,
-                                e -> e.getValue().size()
-                        ))
-        );
-
-        // Resultado de asignaciones
         List<Asignacion> asignaciones = new ArrayList<>();
         List<AlertaProceso> alertas = new ArrayList<>();
+        List<ErrorAsignacionDTO> errores = new ArrayList<>();
+        Map<String, Integer> estadisticas = new HashMap<>();
 
         int procesados = 0;
-        int asignados = 0;
-        int errores = 0;
+        int exitosos = 0;
 
-        for (AlumnoExcelDTO alumnoDTO : alumnosOrdenados) {
+        for (int index = 0; index < alumnosOrdenados.size(); index++) {
+            AlumnoExcelDTO alumnoDTO = alumnosOrdenados.get(index);
+            int filaExcel = index + 2; // +2 por encabezado
             try {
-                // Verificar si ya existe en BD (caso de reingreso)
-                Optional<Alumno> alumnoExistente = alumnoRepository.findByMatricula(
-                        alumnoDTO.getMatricula().toUpperCase().trim()
-                );
-
-                if (alumnoExistente.isPresent() &&
-                        alumnoExistente.get().getEstado() == EstadoAlumno.ACTIVO &&
-                        alumnoExistente.get().getTutorActual() != null) {
-                    // Ya tiene tutor asignado, no hacer nada
-                    log.debug("Alumno {} ya tiene tutor asignado, se omite", alumnoDTO.getMatricula());
-                    procesados++;
-                    asignados++;
-                    continue;
-                }
-
-                // Intentar asignación
-                ResultadoAsignacionIndividual resultado = asignarAlumnoIndividual(
+                ResultadoAsignacionIndividual resultado = asignarAlumnoTransaccional(
                         alumnoDTO,
                         tutoresPorCarrera,
                         proceso,
                         semestreAcademico
                 );
 
+                procesados++;
+
                 if (resultado.isExitosa()) {
                     asignaciones.add(resultado.getAsignacion());
-                    asignados++;
-
-                    // Actualizar mapa de tutores en memoria
+                    exitosos++;
+                    if (resultado.getAlertas() != null) {
+                        alertas.addAll(resultado.getAlertas());
+                    }
+                    registrarEstadistica(estadisticas, resultado.getAsignacion().getTutor());
                     actualizarTutorEnMapa(tutoresPorCarrera, resultado.getAsignacion().getTutor());
                 } else {
                     if (resultado.getAlertas() != null) {
                         alertas.addAll(resultado.getAlertas());
                     }
-                    errores++;
                 }
 
-                procesados++;
-
-                // Commit por lotes
                 if (procesados % BATCH_SIZE == 0) {
                     entityManager.flush();
                     entityManager.clear();
-
-                    proceso.setTotalAlumnosProcesados(procesados);
-                    proceso.setTotalAlumnosAsignados(asignados);
-                    proceso.setTotalErrores(errores);
-                    procesoRepository.save(proceso);
-
-                    log.info("Progreso: {}/{} alumnos procesados ({} asignados, {} errores)",
-                            procesados, alumnosOrdenados.size(), asignados, errores);
+                    actualizarProceso(proceso, procesados, exitosos, errores.size(), alertas);
                 }
 
+            } catch (DuplicadoException e) {
+                log.warn("Asignación duplicada para alumno {}: {}", alumnoDTO.getMatricula(), e.getMessage());
+                errores.add(crearErrorAsignacion(filaExcel, alumnoDTO, TipoErrorAsignacion.ALUMNO_DUPLICADO, e.getMessage(), null));
+                registrarErrorValidacion(alumnoDTO, filaExcel, proceso, TipoError.ASIGNACION_DUPLICADA, e.getMessage());
+                procesados++;
+            } catch (CapacidadExcedidaException e) {
+                log.warn("Capacidad excedida para tutor al asignar alumno {}: {}", alumnoDTO.getMatricula(), e.getMessage());
+                errores.add(crearErrorAsignacion(filaExcel, alumnoDTO, TipoErrorAsignacion.CAPACIDAD_EXCEDIDA, e.getMessage(), null));
+                registrarErrorValidacion(alumnoDTO, filaExcel, proceso, TipoError.CAPACIDAD_EXCEDIDA, e.getMessage());
+                procesados++;
+            } catch (SinTutorDisponibleException e) {
+                log.error("Sin tutor disponible para alumno {}: {}", alumnoDTO.getMatricula(), e.getMessage());
+                errores.add(crearErrorAsignacion(filaExcel, alumnoDTO, TipoErrorAsignacion.SIN_TUTOR_DISPONIBLE, e.getMessage(), null));
+                registrarErrorValidacion(alumnoDTO, filaExcel, proceso, TipoError.SIN_TUTOR_DISPONIBLE, e.getMessage());
+                procesados++;
             } catch (Exception e) {
-                log.error("Error al asignar alumno {}: {}", alumnoDTO.getMatricula(), e.getMessage(), e);
-                errores++;
+                log.error("Error inesperado al asignar alumno {}: {}", alumnoDTO.getMatricula(), e.getMessage(), e);
+                errores.add(crearErrorAsignacion(filaExcel, alumnoDTO, TipoErrorAsignacion.ERROR_DESCONOCIDO,
+                        "Ocurrió un error inesperado al asignar al alumno", e.getMessage()));
+                registrarErrorValidacion(alumnoDTO, filaExcel, proceso, TipoError.ERROR_SISTEMA, e.getMessage());
+                procesados++;
             }
         }
 
-        // Flush final
         entityManager.flush();
+        actualizarProceso(proceso, procesados, exitosos, errores.size(), alertas);
 
-        // Guardar alertas
         if (!alertas.isEmpty()) {
             alertaRepository.saveAll(alertas);
             log.info("Guardadas {} alertas", alertas.size());
         }
 
-        // Actualizar proceso final
-        proceso.setTotalAlumnosProcesados(procesados);
-        proceso.setTotalAlumnosAsignados(asignados);
-        proceso.setTotalErrores(errores);
-        proceso.setTotalWarnings(
-                (int) alertas.stream()
-                        .filter(a -> a.getSeveridad() == SeveridadAlerta.WARNING)
-                        .count()
-        );
-        procesoRepository.save(proceso);
-
         log.info("Asignación completada. Procesados: {}, Asignados: {}, Errores: {}",
-                procesados, asignados, errores);
+                procesados, exitosos, errores.size());
 
         return ResultadoAsignacion.builder()
                 .totalProcesados(procesados)
-                .totalAsignados(asignados)
-                .totalErrores(errores)
+                .totalAsignados(exitosos)
+                .totalErrores(errores.size())
+                .errores(errores)
                 .alertas(alertas)
                 .asignaciones(asignaciones)
+                .estadisticas(estadisticas)
                 .build();
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
+    protected ResultadoAsignacionIndividual asignarAlumnoTransaccional(AlumnoExcelDTO alumnoDTO,
+                                                                       Map<String, List<Tutor>> tutoresPorCarrera,
+                                                                       ProcesoAsignacion proceso,
+                                                                       String semestreAcademico) {
+
+        String carreraAlumno = normalizarCarrera(alumnoDTO.getCarrera());
+        SeleccionTutor seleccionTutor = seleccionarTutorDisponible(tutoresPorCarrera, alumnoDTO, proceso);
+
+        if (seleccionTutor == null || seleccionTutor.getTutor() == null) {
+            throw new SinTutorDisponibleException(String.format(
+                    "No hay tutores disponibles para el alumno %s de la carrera %s",
+                    alumnoDTO.getMatricula(), carreraAlumno));
+        }
+
+        Tutor tutorBase = seleccionTutor.getTutor();
+        tutorSincronizacionService.recalcularCargaTutor(tutorBase.getId());
+        Tutor tutor = tutorRepository.findByIdForUpdate(tutorBase.getId())
+                .orElseThrow(() -> new EntityNotFoundException("Tutor no encontrado: " + tutorBase.getId()));
+
+        if (!tutor.tieneCapacidadDisponible()) {
+            throw new CapacidadExcedidaException(String.format(
+                    "Tutor %s ha alcanzado su capacidad máxima (%d/%d)",
+                    tutor.getNombre(), tutor.getCargaActual(), tutor.getCapacidadMax()));
+        }
+
+        Alumno alumno = alumnoRepository.findByMatricula(alumnoDTO.getMatricula().toUpperCase().trim())
+                .orElse(new Alumno());
+
+        if (alumno.getId() != null) {
+            boolean asignacionExiste = asignacionRepository.existsByAlumnoAndTutorAndSemestre(
+                    alumno.getId(), tutor.getId(), semestreAcademico);
+            if (asignacionExiste) {
+                throw new DuplicadoException(String.format(
+                        "El alumno %s ya cuenta con una asignación activa con el tutor %s para el semestre %s",
+                        alumno.getMatricula(), tutor.getNombre(), semestreAcademico));
+            }
+        }
+
+        alumno.setMatricula(alumnoDTO.getMatricula().toUpperCase().trim());
+        alumno.setNombre(alumnoDTO.getNombre());
+        alumno.setCarrera(carreraAlumno);
+        alumno.setSemestre(alumnoDTO.getSemestre());
+        alumno.setEstado(EstadoAlumno.ACTIVO);
+        alumno.setTutorActual(tutor);
+
+        alumno = alumnoRepository.save(alumno);
+
+        Asignacion asignacion = new Asignacion();
+        asignacion.setAlumno(alumno);
+        asignacion.setTutor(tutor);
+        asignacion.setTipoAsignacion(TipoAsignacion.INICIAL);
+        asignacion.setSemestreAcademico(semestreAcademico);
+        asignacion = asignacionRepository.save(asignacion);
+
+        tutor.incrementarCarga();
+        tutorRepository.save(tutor);
+
+        auditoriaService.registrarLog(
+                proceso.getId(),
+                TipoAccion.ASIGNACION,
+                "ALUMNO",
+                alumno.getId(),
+                String.format("Alumno %s asignado a tutor %s", alumno.getMatricula(), tutor.getNombre()),
+                null,
+                String.format("{\"id_tutor\":%d,\"tipo\":\"%s\",\"semestre\":\"%s\"}",
+                        tutor.getId(), TipoAsignacion.INICIAL, semestreAcademico),
+                "SISTEMA"
+        );
+
+        List<AlertaProceso> alertas = Optional.ofNullable(seleccionTutor.getAlertas())
+                .orElseGet(Collections::emptyList);
+
+        return ResultadoAsignacionIndividual.builder()
+                .exitosa(true)
+                .asignacion(asignacion)
+                .alertas(alertas)
+                .build();
+    }
+
+    private SeleccionTutor seleccionarTutorDisponible(Map<String, List<Tutor>> tutoresPorCarrera,
+                                                      AlumnoExcelDTO alumnoDTO,
+                                                      ProcesoAsignacion proceso) {
+        String carreraAlumno = normalizarCarrera(alumnoDTO.getCarrera());
+
+        Optional<Tutor> tutorMismaCarrera = buscarTutorDisponible(tutoresPorCarrera.get(carreraAlumno));
+        if (tutorMismaCarrera.isPresent()) {
+            return SeleccionTutor.builder()
+                    .tutor(tutorMismaCarrera.get())
+                    .build();
+        }
+
+        List<String> carrerasCompatibles = matrizAfinidadRepository.findCarrerasCompatibles(carreraAlumno);
+        for (String carreraCompatible : carrerasCompatibles) {
+            Optional<Tutor> tutorCompatible = buscarTutorDisponible(tutoresPorCarrera.get(carreraCompatible));
+            if (tutorCompatible.isPresent()) {
+                Tutor tutor = tutorCompatible.get();
+                AlertaProceso alerta = crearAlerta(
+                        proceso,
+                        TipoAlerta.ASIGNACION_CRUZADA,
+                        SeveridadAlerta.WARNING,
+                        String.format("Alumno %s de carrera %s asignado a tutor de carrera %s por disponibilidad",
+                                alumnoDTO.getMatricula(), carreraAlumno, carreraCompatible),
+                        alumnoDTO,
+                        tutor
+                );
+                return SeleccionTutor.builder()
+                        .tutor(tutor)
+                        .alertas(Collections.singletonList(alerta))
+                        .build();
+            }
+        }
+
+        Optional<Tutor> tutorMenorCarga = buscarTutorMenorCarga(tutoresPorCarrera);
+        if (tutorMenorCarga.isPresent()) {
+            Tutor tutor = tutorMenorCarga.get();
+            AlertaProceso alerta = crearAlerta(
+                    proceso,
+                    TipoAlerta.ASIGNACION_CRUZADA,
+                    SeveridadAlerta.WARNING,
+                    String.format("Alumno %s de carrera %s asignado por menor carga a tutor de carrera %s (sin compatibilidad)",
+                            alumnoDTO.getMatricula(), carreraAlumno, tutor.getCarrera()),
+                    alumnoDTO,
+                    tutor
+            );
+            return SeleccionTutor.builder()
+                    .tutor(tutor)
+                    .alertas(Collections.singletonList(alerta))
+                    .build();
+        }
+
+        return null;
     }
 
     private Map<String, List<Tutor>> agruparTutoresPorCarrera() {
@@ -187,98 +307,33 @@ public class AsignacionServiceImpl implements AsignacionService {
                 .collect(Collectors.groupingBy(Tutor::getCarrera));
     }
 
-    private void actualizarTutorEnMapa(Map<String, List<Tutor>> mapa, Tutor tutor) {
-        List<Tutor> tutoresCarrera = mapa.get(tutor.getCarrera());
-        if (tutoresCarrera != null) {
-            // Actualizar el tutor en la lista
-            for (int i = 0; i < tutoresCarrera.size(); i++) {
-                if (tutoresCarrera.get(i).getId().equals(tutor.getId())) {
-                    tutoresCarrera.set(i, tutor);
-                    break;
-                }
-            }
-        }
+    private void actualizarProceso(ProcesoAsignacion proceso,
+                                    int procesados,
+                                    int asignados,
+                                    int errores,
+                                    List<AlertaProceso> alertas) {
+        proceso.setTotalAlumnosProcesados(procesados);
+        proceso.setTotalAlumnosAsignados(asignados);
+        proceso.setTotalErrores(errores);
+        proceso.setTotalWarnings((int) alertas.stream()
+                .filter(a -> a.getSeveridad() == SeveridadAlerta.WARNING)
+                .count());
+        procesoRepository.save(proceso);
     }
 
-    private ResultadoAsignacionIndividual asignarAlumnoIndividual(AlumnoExcelDTO alumnoDTO,
-                                                                  Map<String, List<Tutor>> tutoresPorCarrera,
-                                                                  ProcesoAsignacion proceso,
-                                                                  String semestreAcademico) {
-
-        String carreraAlumno = normalizarCarrera(alumnoDTO.getCarrera());
-
-        // ESTRATEGIA 1: Buscar tutor de la misma carrera
-        Optional<Tutor> tutorMismaCarrera = buscarTutorDisponible(tutoresPorCarrera.get(carreraAlumno));
-        if (tutorMismaCarrera.isPresent()) {
-            log.debug("Asignando alumno {} a tutor de su misma carrera {}",
-                    alumnoDTO.getMatricula(), carreraAlumno);
-            return crearAsignacion(alumnoDTO, tutorMismaCarrera.get(), proceso,
-                    semestreAcademico, TipoAsignacion.INICIAL, null);
-        }
-
-        // ESTRATEGIA 2: Buscar tutor de carrera compatible
-        List<String> carrerasCompatibles = matrizAfinidadRepository.findCarrerasCompatibles(carreraAlumno);
-        for (String carreraCompatible : carrerasCompatibles) {
-            Optional<Tutor> tutorCompatible = buscarTutorDisponible(tutoresPorCarrera.get(carreraCompatible));
-            if (tutorCompatible.isPresent()) {
-                log.debug("Asignando alumno {} a tutor de carrera compatible {} (alumno de {})",
-                        alumnoDTO.getMatricula(), carreraCompatible, carreraAlumno);
-
-                AlertaProceso alerta = crearAlerta(
-                        proceso,
-                        TipoAlerta.ASIGNACION_CRUZADA,
-                        SeveridadAlerta.WARNING,
-                        String.format("Alumno %s de carrera %s asignado a tutor de carrera %s por disponibilidad",
-                                alumnoDTO.getMatricula(), carreraAlumno, carreraCompatible),
-                        alumnoDTO,
-                        tutorCompatible.get()
-                );
-                return crearAsignacion(alumnoDTO, tutorCompatible.get(), proceso,
-                        semestreAcademico, TipoAsignacion.INICIAL, alerta);
+    private void actualizarTutorEnMapa(Map<String, List<Tutor>> mapa, Tutor tutor) {
+        List<Tutor> tutoresCarrera = mapa.computeIfAbsent(tutor.getCarrera(), key -> new ArrayList<>());
+        boolean actualizado = false;
+        for (int i = 0; i < tutoresCarrera.size(); i++) {
+            if (tutoresCarrera.get(i).getId().equals(tutor.getId())) {
+                tutoresCarrera.set(i, tutor);
+                actualizado = true;
+                break;
             }
         }
-
-        // ESTRATEGIA 3: Buscar tutor con menor carga (cualquier carrera)
-        Optional<Tutor> tutorMenorCarga = buscarTutorMenorCarga(tutoresPorCarrera);
-        if (tutorMenorCarga.isPresent()) {
-            log.debug("Asignando alumno {} a tutor por menor carga (carrera {})",
-                    alumnoDTO.getMatricula(), tutorMenorCarga.get().getCarrera());
-
-            AlertaProceso alerta = crearAlerta(
-                    proceso,
-                    TipoAlerta.ASIGNACION_CRUZADA,
-                    SeveridadAlerta.WARNING,
-                    String.format("Alumno %s de carrera %s asignado por menor carga a tutor de carrera %s (sin compatibilidad)",
-                            alumnoDTO.getMatricula(), carreraAlumno, tutorMenorCarga.get().getCarrera()),
-                    alumnoDTO,
-                    tutorMenorCarga.get()
-            );
-            return crearAsignacion(alumnoDTO, tutorMenorCarga.get(), proceso,
-                    semestreAcademico, TipoAsignacion.INICIAL, alerta);
+        if (!actualizado) {
+            tutoresCarrera.add(tutor);
         }
-
-        // NO SE PUDO ASIGNAR
-        log.error("No hay tutores disponibles para alumno {} de carrera {}",
-                alumnoDTO.getMatricula(), carreraAlumno);
-
-        AlertaProceso alerta = crearAlerta(
-                proceso,
-                TipoAlerta.SIN_TUTOR_DISPONIBLE,
-                SeveridadAlerta.CRITICO,
-                String.format("No hay tutores disponibles para el alumno %s de carrera %s",
-                        alumnoDTO.getMatricula(), carreraAlumno),
-                alumnoDTO,
-                null
-        );
-
-        // Crear alumno sin tutor y marcarlo como inactivo
-        Alumno alumnoSinTutor = crearAlumnoSinTutor(alumnoDTO);
-        alumnoRepository.save(alumnoSinTutor);
-
-        return ResultadoAsignacionIndividual.builder()
-                .exitosa(false)
-                .alertas(Collections.singletonList(alerta))
-                .build();
     }
 
     private Optional<Tutor> buscarTutorDisponible(List<Tutor> tutores) {
@@ -286,19 +341,15 @@ public class AsignacionServiceImpl implements AsignacionService {
             return Optional.empty();
         }
 
-        // Filtrar tutores con capacidad disponible
         List<Tutor> disponibles = tutores.stream()
                 .filter(Tutor::tieneCapacidadDisponible)
+                .sorted(Comparator.comparingInt(Tutor::getCargaActual))
                 .collect(Collectors.toList());
 
         if (disponibles.isEmpty()) {
             return Optional.empty();
         }
 
-        // Ordenar por carga actual (menor primero)
-        disponibles.sort(Comparator.comparingInt(Tutor::getCargaActual));
-
-        // Si hay empate en menor carga, seleccionar aleatoriamente
         int menorCarga = disponibles.get(0).getCargaActual();
         List<Tutor> conMenorCarga = disponibles.stream()
                 .filter(t -> t.getCargaActual() == menorCarga)
@@ -306,10 +357,8 @@ public class AsignacionServiceImpl implements AsignacionService {
 
         if (conMenorCarga.size() == 1) {
             return Optional.of(conMenorCarga.get(0));
-        } else {
-            // Selección aleatoria en caso de empate
-            return Optional.of(conMenorCarga.get(random.nextInt(conMenorCarga.size())));
         }
+        return Optional.of(conMenorCarga.get(random.nextInt(conMenorCarga.size())));
     }
 
     private Optional<Tutor> buscarTutorMenorCarga(Map<String, List<Tutor>> tutoresPorCarrera) {
@@ -319,69 +368,36 @@ public class AsignacionServiceImpl implements AsignacionService {
                 .min(Comparator.comparingInt(Tutor::getCargaActual));
     }
 
-    private ResultadoAsignacionIndividual crearAsignacion(AlumnoExcelDTO alumnoDTO,
-                                                          Tutor tutor,
-                                                          ProcesoAsignacion proceso,
-                                                          String semestreAcademico,
-                                                          TipoAsignacion tipo,
-                                                          AlertaProceso alerta) {
-
-        // Crear o actualizar alumno
-        Alumno alumno = alumnoRepository.findByMatricula(alumnoDTO.getMatricula().toUpperCase().trim())
-                .orElse(new Alumno());
-
-        alumno.setMatricula(alumnoDTO.getMatricula().toUpperCase().trim());
-        alumno.setNombre(alumnoDTO.getNombre());
-        alumno.setCarrera(normalizarCarrera(alumnoDTO.getCarrera()));
-        alumno.setSemestre(alumnoDTO.getSemestre());
-        alumno.setEstado(EstadoAlumno.ACTIVO);
-        alumno.setTutorActual(tutor);
-
-        alumno = alumnoRepository.save(alumno);
-
-        // Crear asignación
-        Asignacion asignacion = new Asignacion();
-        asignacion.setAlumno(alumno);
-        asignacion.setTutor(tutor);
-        asignacion.setTipoAsignacion(tipo);
-        asignacion.setSemestreAcademico(semestreAcademico);
-        asignacion = asignacionRepository.save(asignacion);
-
-        // Actualizar carga del tutor
-        tutor.incrementarCarga();
-        tutorRepository.save(tutor);
-
-        // Auditoría
-        auditoriaService.registrarLog(
-                proceso.getId(),
-                TipoAccion.ASIGNACION,
-                "ALUMNO",
-                alumno.getId(),
-                String.format("Alumno %s asignado a tutor %s", alumno.getMatricula(), tutor.getNombre()),
-                null,
-                String.format("{\"id_tutor\":%d,\"tipo\":\"%s\",\"semestre\":\"%s\"}",
-                        tutor.getId(), tipo, semestreAcademico),
-                "SISTEMA"
-        );
-
-        List<AlertaProceso> alertas = alerta != null ? Collections.singletonList(alerta) : Collections.emptyList();
-
-        return ResultadoAsignacionIndividual.builder()
-                .exitosa(true)
-                .asignacion(asignacion)
-                .alertas(alertas)
+    private ErrorAsignacionDTO crearErrorAsignacion(int filaExcel,
+                                                    AlumnoExcelDTO alumnoDTO,
+                                                    TipoErrorAsignacion tipo,
+                                                    String mensaje,
+                                                    String detalles) {
+        return ErrorAsignacionDTO.builder()
+                .filaExcel(filaExcel)
+                .matricula(alumnoDTO.getMatricula())
+                .nombreAlumno(alumnoDTO.getNombre())
+                .carrera(alumnoDTO.getCarrera())
+                .tipoError(tipo)
+                .mensajeError(mensaje)
+                .detallesTecnicos(detalles)
                 .build();
     }
 
-    private Alumno crearAlumnoSinTutor(AlumnoExcelDTO alumnoDTO) {
-        Alumno alumno = new Alumno();
-        alumno.setMatricula(alumnoDTO.getMatricula().toUpperCase().trim());
-        alumno.setNombre(alumnoDTO.getNombre());
-        alumno.setCarrera(normalizarCarrera(alumnoDTO.getCarrera()));
-        alumno.setSemestre(alumnoDTO.getSemestre());
-        alumno.setEstado(EstadoAlumno.INACTIVO);
-        alumno.setTutorActual(null);
-        return alumno;
+    private void registrarErrorValidacion(AlumnoExcelDTO alumnoDTO,
+                                          int filaExcel,
+                                          ProcesoAsignacion proceso,
+                                          TipoError tipoError,
+                                          String mensaje) {
+        ErrorValidacion error = ErrorValidacion.builder()
+                .proceso(proceso)
+                .filaExcel(filaExcel)
+                .matricula(alumnoDTO.getMatricula())
+                .tipoError(tipoError)
+                .descripcion(mensaje)
+                .datoErroneo(String.format("%s - %s", alumnoDTO.getMatricula(), alumnoDTO.getNombre()))
+                .build();
+        errorValidacionRepository.save(error);
     }
 
     private AlertaProceso crearAlerta(ProcesoAsignacion proceso,
@@ -408,9 +424,15 @@ public class AsignacionServiceImpl implements AsignacionService {
                 .build();
     }
 
-    private String normalizarCarrera(String carrera) {
-        if (carrera == null) return null;
+    private void registrarEstadistica(Map<String, Integer> estadisticas, Tutor tutor) {
+        String clave = String.format("%s|%s", tutor.getCarrera(), tutor.getNombre());
+        estadisticas.merge(clave, 1, Integer::sum);
+    }
 
+    private String normalizarCarrera(String carrera) {
+        if (carrera == null) {
+            return null;
+        }
         String carreraTrim = carrera.trim();
         return MAPEO_CARRERAS.getOrDefault(carreraTrim, carreraTrim.toUpperCase());
     }
@@ -420,6 +442,13 @@ public class AsignacionServiceImpl implements AsignacionService {
     private static class ResultadoAsignacionIndividual {
         private boolean exitosa;
         private Asignacion asignacion;
+        private List<AlertaProceso> alertas;
+    }
+
+    @Data
+    @Builder
+    private static class SeleccionTutor {
+        private Tutor tutor;
         private List<AlertaProceso> alertas;
     }
 }

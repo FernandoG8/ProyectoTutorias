@@ -13,6 +13,8 @@ import java.time.LocalDateTime;
         @Index(name = "idx_alumno_asig", columnList = "id_alumno"),
         @Index(name = "idx_tutor_asig", columnList = "id_tutor"),
         @Index(name = "idx_semestre_asig", columnList = "semestre_academico")
+}, uniqueConstraints = {
+        @UniqueConstraint(name = "uk_asignacion_unica", columnNames = {"id_alumno", "id_tutor", "semestre_academico"})
 })
 @Data
 @NoArgsConstructor
