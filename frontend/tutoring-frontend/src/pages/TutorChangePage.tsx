@@ -17,6 +17,7 @@ import { useDebounce } from "@/lib/use-debounce";
 import type { AlumnoPagedResponse, AlumnoResponse, TutorResponse } from "@/types";
 import { useAuthStore } from "@/store/auth-store";
 
+// 1) Reemplaza tu campo semestreAcademico en el schema por este:
 const schema = z
   .object({
     alumnoId: z.coerce.number().min(1, "Selecciona un alumno válido."),
@@ -26,7 +27,16 @@ const schema = z
     usuario: z.string().min(1, "Ingresa tu usuario."),
     semestreAcademico: z
       .string()
-      .regex(/^[0-9]{4}-[12]$/, "Ingresa un semestre válido en formato AAAA-1."),
+      .transform((v) => v.trim().toUpperCase())
+      .refine(
+        (v) => /^\d{4}\s*-\s*F[12]$/.test(v),
+        "Formato válido: AAAA - F1 o AAAA - F2."
+      )
+      // Normaliza a 'AAAA-F1' / 'AAAA-F2' para el backend
+      .transform((v) => {
+        const m = v.match(/^(\d{4})\s*-\s*F([12])$/);
+        return m ? `${m[1]}-F${m[2]}` : v;
+      }),
   })
   .refine((data) => data.tutorDestinoId !== data.tutorOrigenId, {
     message: "El tutor destino debe ser distinto al tutor origen.",
@@ -174,11 +184,10 @@ export const TutorChangePage = () => {
                   <button
                     type="button"
                     key={student.id}
-                    className={`flex flex-col rounded-xl border px-3 py-2 text-left transition ${
-                      selectedStudent?.id === student.id
+                    className={`flex flex-col rounded-xl border px-3 py-2 text-left transition ${selectedStudent?.id === student.id
                         ? "border-primary bg-primary/5"
                         : "border-border hover:border-primary/40"
-                    }`}
+                      }`}
                     onClick={() => setSelectedStudent(student)}
                   >
                     <div className="flex items-center justify-between text-sm">
@@ -261,9 +270,18 @@ export const TutorChangePage = () => {
                   </label>
                   <Input
                     id="semestreAcademico"
-                    placeholder="2025-1"
+                    placeholder="2025 - F1"
                     {...register("semestreAcademico")}
+                    onBlur={(e) => {
+                      // opcional: reescribe lo que ve el usuario a 'AAAA - F1'
+                      const raw = e.target.value.toUpperCase();
+                      const m = raw.match(/^(\d{4})\s*-\s*F([12])$/);
+                      if (m) {
+                        e.target.value = `${m[1]} - F${m[2]}`;
+                      }
+                    }}
                   />
+
                   <p className="text-xs text-slate-500">Este dato se registra en el historial del alumno y habilita los reportes del período.</p>
                   {errors.semestreAcademico && (
                     <p className="text-sm text-rose-600">{errors.semestreAcademico.message}</p>
