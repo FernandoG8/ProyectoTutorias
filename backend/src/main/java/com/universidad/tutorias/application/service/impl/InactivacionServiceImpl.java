@@ -106,25 +106,34 @@ public class InactivacionServiceImpl implements InactivacionService {
             return;
         }
 
+        // <- declara antes de usar
+        List<AlumnoInactivo> inactivosProcesados = new ArrayList<>();
+
+        // Agrupar por tutor preservado y recolectar los que no tienen tutor
         Map<Long, List<AlumnoInactivo>> cuposPorTutor = new HashMap<>();
+        List<AlumnoInactivo> sinTutor = new ArrayList<>();
+
         for (AlumnoInactivo inactivo : inactivos) {
             if (Boolean.TRUE.equals(inactivo.getCupoLiberado()) && inactivo.getTutorPreservado() != null) {
-                cuposPorTutor.computeIfAbsent(inactivo.getTutorPreservado().getId(), key -> new ArrayList<>())
+                cuposPorTutor
+                        .computeIfAbsent(inactivo.getTutorPreservado().getId(), k -> new ArrayList<>())
                         .add(inactivo);
+            } else {
+                // No se puede atribuir a un tutor; marcar como procesado para no reintentar
+                sinTutor.add(inactivo);
             }
-            inactivo.setCupoLiberado(false);
-            inactivosProcesados.add(inactivo);
         }
 
         int tutoresActualizados = 0;
         int cuposTotalesLiberados = 0;
-        List<AlumnoInactivo> inactivosProcesados = new ArrayList<>();
 
+        // Procesar los que sí tienen tutor preservado
         for (Map.Entry<Long, List<AlumnoInactivo>> entry : cuposPorTutor.entrySet()) {
             try {
                 Tutor tutor = tutorRepository.findByIdForUpdate(entry.getKey())
                         .orElseThrow(() -> new EntityNotFoundException("Tutor no encontrado: " + entry.getKey()));
 
+                // Recalcular carga antes de liberar
                 tutorSincronizacionService.recalcularCargaTutor(tutor.getId());
                 tutor = tutorRepository.findByIdForUpdate(entry.getKey())
                         .orElseThrow(() -> new EntityNotFoundException("Tutor no encontrado: " + entry.getKey()));
@@ -156,14 +165,22 @@ public class InactivacionServiceImpl implements InactivacionService {
                 tutoresActualizados++;
                 cuposTotalesLiberados += cuposEfectivos;
 
-                List<AlumnoInactivo> procesados = entry.getValue();
-                procesados.forEach(inactivo -> inactivo.setCupoLiberado(false));
-                inactivosProcesados.addAll(procesados);
+                // Marcar como procesados estos inactivos
+                for (AlumnoInactivo ai : entry.getValue()) {
+                    ai.setCupoLiberado(false);
+                }
+                inactivosProcesados.addAll(entry.getValue());
 
             } catch (Exception e) {
                 log.error("Error al liberar cupos del tutor {}: {}", entry.getKey(), e.getMessage());
             }
         }
+
+        // Marcar como procesados los inactivos sin tutor preservado (para no reintentar indefinidamente)
+        for (AlumnoInactivo ai : sinTutor) {
+            ai.setCupoLiberado(false);
+        }
+        inactivosProcesados.addAll(sinTutor);
 
         if (!inactivosProcesados.isEmpty()) {
             alumnoInactivoRepository.saveAll(inactivosProcesados);
@@ -171,4 +188,5 @@ public class InactivacionServiceImpl implements InactivacionService {
 
         log.info("Liberados {} cupos de {} tutores", cuposTotalesLiberados, tutoresActualizados);
     }
+
 }

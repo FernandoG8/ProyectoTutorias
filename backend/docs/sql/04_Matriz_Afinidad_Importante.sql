@@ -1,0 +1,15 @@
+INSERT INTO matriz_afinidad_carreras(carrera_compatible, carrera_origen, prioridad) VALUES
+                                                                                        ('ICA', 'ICA', 1),
+                                                                                        ('IE', 'IE', 1),
+                                                                                        ('IME', 'IE', 2),
+                                                                                        ('IMECA', 'IE', 3),
+                                                                                        ('IMECA', 'IMECA', 1),
+                                                                                        ('IME', 'IMECA', 2),
+                                                                                        ('IE', 'IMECA', 3),
+                                                                                        ('IME', 'IME', 1),
+                                                                                        ('IMECA', 'IME', 2),
+                                                                                        ('IE', 'IME', 3),
+                                                                                        ('ISC', 'ISC', 1),
+                                                                                        ('ITS', 'ISC', 2),
+                                                                                        ('ITS', 'ITS', 1),
+                                                                                        ('ISC', 'ITS', 2);

@@ -83,8 +83,9 @@ public class AlumnoCrudServiceImpl implements AlumnoCrudService {
             Tutor tutor = tutorRepository.findByIdForUpdate(request.getTutorId())
                     .orElseThrow(() -> new EntityNotFoundException("Tutor no encontrado con ID: " + request.getTutorId()));
             tutorSincronizacionService.recalcularCargaTutor(tutor.getId());
+            Tutor finalTutor = tutor;
             tutor = tutorRepository.findByIdForUpdate(tutor.getId())
-                    .orElseThrow(() -> new EntityNotFoundException("Tutor no encontrado con ID: " + tutor.getId()));
+                    .orElseThrow(() -> new EntityNotFoundException("Tutor no encontrado con ID: " + finalTutor.getId()));
             validarCapacidadTutor(tutor);
 
             guardado.setTutorActual(tutor);
