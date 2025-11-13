@@ -1,6 +1,6 @@
 # Documentación / Archivos de ayuda 
 HELP.md
-
+CLAUDE.md
 #  Backend (Spring Boot / Maven / IntelliJ) 
 backend/target/
 backend/.mvn/wrapper/maven-wrapper.jar

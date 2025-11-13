@@ -63,8 +63,12 @@ public class AlumnoSearchRepository {
                        a.carrera,
                        a.semestre,
                        a.estado,
-                       %s AS score
+                       %s AS score,
+                       t.id AS tutor_id,
+                       t.nombre AS tutor_nombre,
+                       t.carrera AS tutor_carrera
                 FROM alumnos a
+                LEFT JOIN tutores t ON a.tutor_id = t.id
                 """.formatted(SCORE_EXPRESSION) + whereClause + buildOrderClause(sortOption);
 
         Query dataQuery = entityManager.createNativeQuery(selectSql);
@@ -96,8 +100,12 @@ public class AlumnoSearchRepository {
                        a.carrera,
                        a.semestre,
                        a.estado,
-                       %s AS score
+                       %s AS score,
+                       t.id AS tutor_id,
+                       t.nombre AS tutor_nombre,
+                       t.carrera AS tutor_carrera
                 FROM alumnos a
+                LEFT JOIN tutores t ON a.tutor_id = t.id
                 WHERE LOWER(a.matricula) = :normalizedQuery
                 """.formatted(SCORE_EXPRESSION);
 

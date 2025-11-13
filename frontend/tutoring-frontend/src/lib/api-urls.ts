@@ -9,6 +9,9 @@ export const API_URLS = {
   alumnos: {
     root: "/api/alumnos",
     detail: (id: number | string) => `/api/alumnos/${id}`,
+    search: "/api/alumnos/search",
+    autocomplete: "/api/alumnos/autocomplete",
+    byMatricula: (matricula: string) => `/api/alumnos/by-matricula/${matricula}`,
   },
   alumnosInactivos: {
     root: "/api/alumnos-inactivos",

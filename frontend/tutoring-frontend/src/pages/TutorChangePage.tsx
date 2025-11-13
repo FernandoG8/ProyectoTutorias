@@ -10,10 +10,12 @@ import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 import { Badge } from "@/components/ui/Badge";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { SearchInput } from "@/components/SearchInput";
 import { listTutors } from "@/services/tutors-service";
-import { listStudents } from "@/services/alumnos-service";
+import { listStudents, autocompleteStudents } from "@/services/alumnos-service";
 import { requestTutorChange } from "@/services/asignaciones-service";
 import { useDebounce } from "@/lib/use-debounce";
+import { rankStudents } from "@/lib/search-rank";
 import type { AlumnoPagedResponse, AlumnoResponse, TutorResponse } from "@/types";
 import { useAuthStore } from "@/store/auth-store";
 
@@ -60,7 +62,7 @@ export const TutorChangePage = () => {
 
   const [search, setSearch] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<AlumnoResponse | null>(null);
-  const debouncedSearch = useDebounce(search, 400);
+  const debouncedSearch = useDebounce(search, 300);
 
   const studentsQuery = useQuery<AlumnoPagedResponse>({
     queryKey: ["students-for-change"],
@@ -69,17 +71,23 @@ export const TutorChangePage = () => {
 
   const students = studentsQuery.data?.items ?? [];
 
+  // Autocomplete suggestions (only active students)
+  const { data: suggestions = [] } = useQuery<AlumnoResponse[]>({
+    queryKey: ["cambio-tutor-autocomplete", search],
+    queryFn: () => autocompleteStudents(search, "ACTIVO", undefined, 8),
+    enabled: search.length >= 2,
+  });
+
   const filteredStudents = useMemo(() => {
-    if (!debouncedSearch) {
-      return students.slice(0, 8);
+    if (debouncedSearch.length >= 2) {
+      // Use autocomplete suggestions if available, otherwise rank locally
+      if (suggestions.length > 0) {
+        return suggestions;
+      }
+      return rankStudents(students, debouncedSearch, 8);
     }
-    const term = debouncedSearch.trim().toLowerCase();
-    return students.filter((student) =>
-      [student.matricula, student.nombre]
-        .filter(Boolean)
-        .some((value) => value.toLowerCase().includes(term)),
-    );
-  }, [students, debouncedSearch]);
+    return students.slice(0, 8);
+  }, [students, debouncedSearch, suggestions]);
 
   const {
     register,
@@ -162,13 +170,19 @@ export const TutorChangePage = () => {
               <label className="text-sm font-medium text-text" htmlFor="search-student-change">
                 Buscar alumno
               </label>
-              <Input
+              <SearchInput
                 id="search-student-change"
                 placeholder="Ej. 202501234"
                 value={search}
-                onChange={(event) => setSearch(event.target.value)}
+                onChange={setSearch}
+                onSelect={(item) => setSelectedStudent(item as AlumnoResponse)}
+                suggestions={suggestions}
+                suggestionsType="student"
+                isLoading={search.length >= 2 && studentsQuery.isFetching}
               />
-              <p className="text-xs text-slate-500">La búsqueda aplica sobre los alumnos activos disponibles para reasignación.</p>
+              <p className="text-xs text-slate-500">
+                Escribe 2+ caracteres para autocompletado. Solo alumnos activos disponibles.
+              </p>
             </div>
 
             {studentsQuery.isLoading ? (

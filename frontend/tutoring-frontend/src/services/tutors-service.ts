@@ -9,11 +9,38 @@ import type {
   TutorConAlumnos,
 } from "@/types";
 
+export interface SearchTutorsParams extends TutorFilter {
+  q?: string;
+  limit?: number;
+}
+
 export const listTutors = async (
   params?: TutorFilter,
 ): Promise<TutorResponse[]> => {
   const { data } = await api.get<ApiResponse<TutorResponse[]>>(API_URLS.tutores.root, {
     params,
+  });
+  return data.data;
+};
+
+export const searchTutors = async (
+  params: SearchTutorsParams,
+): Promise<TutorResponse[]> => {
+  const { data } = await api.get<ApiResponse<TutorResponse[]>>(API_URLS.tutores.root, {
+    params,
+  });
+  return data.data;
+};
+
+export const autocompleteTutors = async (
+  query: string,
+  limit: number = 8,
+): Promise<TutorResponse[]> => {
+  const { data } = await api.get<ApiResponse<TutorResponse[]>>(API_URLS.tutores.root, {
+    params: {
+      q: query,
+      limit,
+    },
   });
   return data.data;
 };

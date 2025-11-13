@@ -7,6 +7,7 @@ public record AlumnoSearchResultDTO(
         String carrera,
         Integer semestre,
         String estado,
-        Integer score
+        Integer score,
+        TutorSimpleDTO tutor
 ) {
 }

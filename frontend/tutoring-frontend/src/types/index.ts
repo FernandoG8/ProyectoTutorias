@@ -7,3 +7,4 @@ export * from "./tutor";
 export * from "./asignacion";
 export * from "./auth";
 export * from "./reporte";
+export * from "./search";

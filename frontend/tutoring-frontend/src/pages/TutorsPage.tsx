@@ -7,13 +7,18 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Badge } from "@/components/ui/Badge";
 import { DataTable } from "@/components/ui/DataTable";
+import { SearchInput } from "@/components/SearchInput";
 import {
   createTutor,
   getTutorWithStudents,
   listTutors,
   updateTutor,
+  autocompleteTutors,
 } from "@/services/tutors-service";
+import { useDebounce } from "@/lib/use-debounce";
+import { rankTutors } from "@/lib/search-rank";
 import type { TutorConAlumnos, TutorResponse } from "@/types";
 
 const tutorSchema = z.object({
@@ -70,14 +75,33 @@ export const TutorsPage = () => {
   const [selectedTutor, setSelectedTutor] = useState<TutorResponse | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [isSearchMode, setIsSearchMode] = useState(false);
+
+  const debouncedSearch = useDebounce(search, 300);
 
   const {
     data: tutors = [],
     isLoading,
+    isFetching,
   } = useQuery<TutorResponse[]>({
-    queryKey: ["tutors"],
+    queryKey: ["tutors", isSearchMode, debouncedSearch],
     queryFn: () => listTutors(),
   });
+
+  // Autocomplete suggestions
+  const { data: suggestions = [] } = useQuery<TutorResponse[]>({
+    queryKey: ["tutors-autocomplete", search],
+    queryFn: () => autocompleteTutors(search, 8),
+    enabled: search.length >= 2 && !isSearchMode,
+  });
+
+  const displayTutors = useMemo(() => {
+    if (isSearchMode && debouncedSearch.length >= 2) {
+      return rankTutors(tutors, debouncedSearch);
+    }
+    return tutors;
+  }, [tutors, debouncedSearch, isSearchMode]);
 
   const {
     data: tutorDetail,
@@ -178,6 +202,25 @@ export const TutorsPage = () => {
     setFeedback(null);
   };
 
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    if (value.length >= 2) {
+      setIsSearchMode(true);
+    } else {
+      setIsSearchMode(false);
+    }
+  };
+
+  const handleSearchClear = () => {
+    setSearch("");
+    setIsSearchMode(false);
+  };
+
+  const handleSelectTutor = (tutor: TutorResponse) => {
+    setSearch(tutor.nombre);
+    setIsSearchMode(true);
+  };
+
   return (
     <div className="grid gap-6 xl:grid-cols-[2fr_3fr]">
       <Card>
@@ -271,14 +314,35 @@ export const TutorsPage = () => {
 
       <div className="space-y-4">
         <Card>
-          <h2 className="text-lg font-semibold text-text">Listado de tutores</h2>
-          <p className="text-sm text-slate-500">
-            Consulta el estado y los alumnos asignados a cada tutor.
-          </p>
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold text-text">Listado de tutores</h2>
+              <p className="text-sm text-slate-500">
+                Consulta el estado y los alumnos asignados a cada tutor.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-text" htmlFor="search-tutor">
+                Buscar tutor
+              </label>
+              <SearchInput
+                id="search-tutor"
+                placeholder="Ingresa nombre del tutor"
+                value={search}
+                onChange={handleSearchChange}
+                onClear={handleSearchClear}
+                onSelect={(item) => handleSelectTutor(item as TutorResponse)}
+                suggestions={suggestions}
+                suggestionsType="tutor"
+                isLoading={search.length >= 2 && !isSearchMode && isFetching}
+              />
+              {isSearchMode && <Badge variant="info">🔍 Búsqueda global</Badge>}
+            </div>
+          </div>
         </Card>
         <DataTable
           columns={tableColumns}
-          data={tutors}
+          data={displayTutors}
           isLoading={isLoading}
           emptyMessage="No hay tutores registrados aún."
         />

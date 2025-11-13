@@ -109,6 +109,16 @@ public class AlumnoSearchServiceImpl implements AlumnoSearchService {
     }
 
     private AlumnoSearchResultDTO mapAlumnoResult(Object[] row) {
+        // Map tutor if present (rows 7-9: tutor_id, tutor_nombre, tutor_carrera)
+        com.universidad.tutorias.application.dto.TutorSimpleDTO tutor = null;
+        if (row.length > 7 && row[7] != null) {
+            tutor = new com.universidad.tutorias.application.dto.TutorSimpleDTO(
+                    ((Number) row[7]).longValue(),
+                    (String) row[8],
+                    (String) row[9]
+            );
+        }
+
         return new AlumnoSearchResultDTO(
                 toLong(row[0]),
                 (String) row[1],
@@ -116,7 +126,8 @@ public class AlumnoSearchServiceImpl implements AlumnoSearchService {
                 (String) row[3],
                 row[4] == null ? null : ((Number) row[4]).intValue(),
                 (String) row[5],
-                row[6] == null ? 0 : ((Number) row[6]).intValue()
+                row[6] == null ? 0 : ((Number) row[6]).intValue(),
+                tutor
         );
     }
 

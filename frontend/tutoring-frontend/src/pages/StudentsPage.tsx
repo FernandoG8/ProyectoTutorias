@@ -2,15 +2,16 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Card } from "@/components/ui/Card";
-import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { DataTable } from "@/components/ui/DataTable";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { listStudents } from "@/services/alumnos-service";
+import { SearchInput } from "@/components/SearchInput";
+import { listStudents, searchStudents, autocompleteStudents } from "@/services/alumnos-service";
 import { useDebounce } from "@/lib/use-debounce";
-import type { AlumnoPagedResponse, AlumnoResponse, EstadoAlumno } from "@/types";
+import { rankStudents } from "@/lib/search-rank";
+import type { AlumnoPagedResponse, AlumnoResponse, EstadoAlumno, TutorResponse } from "@/types";
 
 const columns: ColumnDef<AlumnoResponse>[] = [
   {
@@ -71,36 +72,52 @@ export const StudentsPage = () => {
   const [estado, setEstado] = useState<EstadoAlumno | "TODOS">("TODOS");
   const [carrera, setCarrera] = useState("TODAS");
   const [search, setSearch] = useState("");
+  const [isSearchMode, setIsSearchMode] = useState(false);
 
-  const debouncedSearch = useDebounce(search, 400);
+  const debouncedSearch = useDebounce(search, 300);
 
+  // Fetch list or search results
   const {
     data: pagedStudents,
     isLoading,
     isFetching,
     refetch,
   } = useQuery<AlumnoPagedResponse>({
-    queryKey: ["students", page, estado, carrera],
-    queryFn: () =>
-      listStudents({
+    queryKey: ["students", page, estado, carrera, isSearchMode, debouncedSearch],
+    queryFn: async () => {
+      if (isSearchMode && debouncedSearch.length >= 2) {
+        return searchStudents({
+          q: debouncedSearch,
+          page,
+          limit: pageSize,
+          estado: estado === "TODOS" ? undefined : estado,
+          carrera: carrera === "TODAS" ? undefined : carrera,
+        });
+      }
+      return listStudents({
         page,
         limit: pageSize,
         estado: estado === "TODOS" ? undefined : estado,
         carrera: carrera === "TODAS" ? undefined : carrera,
-      }),
+      });
+    },
+  });
+
+  // Autocomplete suggestions (respects estado and carrera filters)
+  const { data: suggestions = [] } = useQuery<AlumnoResponse[]>({
+    queryKey: ["students-autocomplete", search, estado, carrera],
+    queryFn: () => autocompleteStudents(search, estado, carrera, 8),
+    enabled: search.length >= 2 && !isSearchMode,
   });
 
   const students: AlumnoResponse[] = pagedStudents?.items ?? [];
 
   const filteredStudents = useMemo(() => {
-    if (!debouncedSearch) return students;
+    if (isSearchMode || debouncedSearch.length < 2) return students;
+    // Client-side filtering for non-search mode (filtering within current page)
     const term = debouncedSearch.trim().toLowerCase();
-    return students.filter((student) =>
-      [student.matricula, student.nombre]
-        .filter(Boolean)
-        .some((value) => value.toLowerCase().includes(term)),
-    );
-  }, [students, debouncedSearch]);
+    return rankStudents(students, term);
+  }, [students, debouncedSearch, isSearchMode]);
 
   const carreraOptions = useMemo(() => {
     const items = new Set<string>();
@@ -122,6 +139,30 @@ export const StudentsPage = () => {
     setPage((current) => Math.min(totalPages, current + 1));
   };
 
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setPage(1);
+    if (value.length >= 2) {
+      setIsSearchMode(true);
+    } else {
+      setIsSearchMode(false);
+    }
+  };
+
+  const handleSearchClear = () => {
+    setSearch("");
+    setIsSearchMode(false);
+    setPage(1);
+  };
+
+  const handleSelectStudent = (item: AlumnoResponse | TutorResponse, type: "student" | "tutor") => {
+    if (type === "student") {
+      setSearch((item as AlumnoResponse).nombre);
+      setIsSearchMode(true);
+      setPage(1);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3">
@@ -139,13 +180,24 @@ export const StudentsPage = () => {
               <label className="text-sm font-medium text-text" htmlFor="search-student">
                 Buscar alumno
               </label>
-              <Input
+              <SearchInput
                 id="search-student"
                 placeholder="Ingresa matrícula o nombre"
                 value={search}
-                onChange={(event) => setSearch(event.target.value)}
+                onChange={handleSearchChange}
+                onClear={handleSearchClear}
+                onSelect={handleSelectStudent}
+                suggestions={suggestions}
+                suggestionsType="student"
+                isLoading={search.length >= 2 && !isSearchMode && isFetching}
               />
-              <p className="text-xs text-slate-500">La búsqueda se aplica sobre los resultados de la página actual.</p>
+              <p className="text-xs text-slate-500">
+                {isSearchMode ? (
+                  <>Búsqueda global habilitada. Presiona <kbd className="bg-slate-100 px-1 rounded text-xs">Escape</kbd> para cancelar.</>
+                ) : (
+                  <>Escribe 2+ caracteres para búsqueda automática.</>
+                )}
+              </p>
             </div>
             <div className="space-y-1">
               <label className="text-sm font-medium text-text" htmlFor="filter-status">
@@ -191,9 +243,12 @@ export const StudentsPage = () => {
           </div>
 
           <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-500">
-              Página {page} de {totalPages} • {pagedStudents?.totalElements ?? 0} registros totales
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500">
+                Página {page} de {totalPages} • {pagedStudents?.totalElements ?? 0} registros totales
+              </span>
+              {isSearchMode && <Badge variant="info">🔍 Búsqueda global</Badge>}
+            </div>
             <div className="flex items-center gap-2">
               <Button
                 variant="secondary"
