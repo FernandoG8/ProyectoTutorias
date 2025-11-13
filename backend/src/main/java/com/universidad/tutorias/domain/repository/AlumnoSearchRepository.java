@@ -21,10 +21,10 @@ public class AlumnoSearchRepository {
     private static final String SCORE_EXPRESSION = """
             CASE
                 WHEN LOWER(a.matricula) = :normalizedQuery THEN 1000
-                WHEN LOWER(a.matricula) LIKE CONCAT(:likeQuery, '%') ESCAPE '\\\\' THEN 800
+                WHEN LOWER(a.matricula) LIKE CONCAT(:likeQuery, '%') THEN 800
                 WHEN INSTR(LOWER(a.matricula), :normalizedQuery) > 0 THEN 600
                 WHEN LOWER(a.nombre) = :normalizedQuery THEN 500
-                WHEN LOWER(a.nombre) LIKE CONCAT(:likeQuery, '%') ESCAPE '\\\\' THEN 420
+                WHEN LOWER(a.nombre) LIKE CONCAT(:likeQuery, '%') THEN 420
                 WHEN LOWER(a.nombre) REGEXP CONCAT('(^| )', :regexQuery) THEN 400
                 WHEN INSTR(LOWER(a.nombre), :normalizedQuery) > 0 THEN 200
                 ELSE 0
@@ -34,10 +34,10 @@ public class AlumnoSearchRepository {
     private static final String MATCH_CONDITION = """
             (
                 LOWER(a.matricula) = :normalizedQuery
-                OR LOWER(a.matricula) LIKE CONCAT(:likeQuery, '%') ESCAPE '\\\\'
+                OR LOWER(a.matricula) LIKE CONCAT(:likeQuery, '%')
                 OR INSTR(LOWER(a.matricula), :normalizedQuery) > 0
                 OR LOWER(a.nombre) = :normalizedQuery
-                OR LOWER(a.nombre) LIKE CONCAT(:likeQuery, '%') ESCAPE '\\\\'
+                OR LOWER(a.nombre) LIKE CONCAT(:likeQuery, '%')
                 OR LOWER(a.nombre) REGEXP CONCAT('(^| )', :regexQuery)
                 OR INSTR(LOWER(a.nombre), :normalizedQuery) > 0
             )
@@ -68,7 +68,7 @@ public class AlumnoSearchRepository {
                        t.nombre AS tutor_nombre,
                        t.carrera AS tutor_carrera
                 FROM alumnos a
-                LEFT JOIN tutores t ON a.tutor_id = t.id
+                LEFT JOIN tutores t ON a.id_tutor_actual = t.id
                 """.formatted(SCORE_EXPRESSION) + whereClause + buildOrderClause(sortOption);
 
         Query dataQuery = entityManager.createNativeQuery(selectSql);
@@ -105,7 +105,7 @@ public class AlumnoSearchRepository {
                        t.nombre AS tutor_nombre,
                        t.carrera AS tutor_carrera
                 FROM alumnos a
-                LEFT JOIN tutores t ON a.tutor_id = t.id
+                LEFT JOIN tutores t ON a.id_tutor_actual = t.id
                 WHERE LOWER(a.matricula) = :normalizedQuery
                 """.formatted(SCORE_EXPRESSION);
 
