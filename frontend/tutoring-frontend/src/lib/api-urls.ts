@@ -36,5 +36,22 @@ export const API_URLS = {
       `/api/reportes/tutores/${tutorId}/alumnos/exportar`,
     carreras: (codigo: string) => `/api/reportes/carreras/${codigo}/exportar`,
     carrerasTodos: "/api/reportes/carreras/exportar-todos",
+    tutorPdf: (tutorId: number | string) => `/api/reportes/tutor/${tutorId}/pdf`,
+    carreraExcel: (codigo: string) => `/api/reportes/carrera/${codigo}/excel`,
+    listar: "/api/reportes",
+  },
+  semestres: {
+    root: "/api/semestres",
+    activo: "/api/semestres/activo",
+    activar: (id: number | string) => `/api/semestres/${id}/activar`,
+    estadisticas: (id: number | string) => `/api/semestres/${id}/estadisticas`,
+    detail: (id: number | string) => `/api/semestres/${id}`,
+  },
+  dashboard: {
+    estadisticas: "/api/dashboard/estadisticas",
+    distribucionTutores: "/api/dashboard/distribucion-tutores",
+    procesosRecientes: "/api/dashboard/procesos-recientes",
+    semestreActivo: "/api/dashboard/semestre-activo",
+    health: "/api/dashboard/health",
   },
 };

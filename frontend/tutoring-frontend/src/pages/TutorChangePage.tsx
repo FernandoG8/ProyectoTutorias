@@ -18,6 +18,7 @@ import { useDebounce } from "@/lib/use-debounce";
 import { rankStudents } from "@/lib/search-rank";
 import type { AlumnoPagedResponse, AlumnoResponse, TutorResponse } from "@/types";
 import { useAuthStore } from "@/store/auth-store";
+import { useSemestreStore } from "@/store/semestre-store";
 
 const schema = z
   .object({
@@ -26,18 +27,6 @@ const schema = z
     tutorDestinoId: z.coerce.number().min(1, "Selecciona un tutor."),
     motivo: z.string().min(5, "Describe el motivo de la reasignación."),
     usuario: z.string().min(1, "Ingresa tu usuario."),
-    semestreAcademico: z
-      .string()
-      .transform((v) => v.trim().toUpperCase())
-      .refine(
-        (v) => /^\d{4}\s*-\s*F[12]$/.test(v),
-        "Formato válido: AAAA - F1 o AAAA - F2."
-      )
-      // Normaliza a 'AAAA-F1' / 'AAAA-F2' para el backend
-      .transform((v) => {
-        const m = v.match(/^(\d{4})\s*-\s*F([12])$/);
-        return m ? `${m[1]}-F${m[2]}` : v;
-      }),
   })
   .refine((data) => data.tutorDestinoId !== data.tutorOrigenId, {
     message: "El tutor destino debe ser distinto al tutor origen.",
@@ -49,6 +38,7 @@ type FormValues = z.infer<typeof schema>;
 export const TutorChangePage = () => {
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
+  const { semestreActivo } = useSemestreStore();
   const canReassign = user?.roles.includes("ROLE_COORDINADOR_TUTORIAS") ?? false;
 
   const {
@@ -102,7 +92,6 @@ export const TutorChangePage = () => {
       tutorDestinoId: 0,
       motivo: "",
       usuario: user?.username ?? "",
-      semestreAcademico: "",
     },
   });
 
@@ -123,16 +112,24 @@ export const TutorChangePage = () => {
   }, [selectedStudent, setValue]);
 
   const mutation = useMutation({
-    mutationFn: requestTutorChange,
+    mutationFn: (data: Omit<FormValues, "semestreAcademico">) => {
+      if (!semestreActivo) {
+        throw new Error("No hay semestre activo configurado");
+      }
+      return requestTutorChange({
+        ...data,
+        semestreAcademico: semestreActivo.codigo,
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["students-for-change"] });
+      queryClient.invalidateQueries({ queryKey: ["students"] });
       reset({
         alumnoId: 0,
         tutorOrigenId: 0,
         tutorDestinoId: 0,
         motivo: "",
         usuario: user?.username ?? "",
-        semestreAcademico: "",
       });
       setSelectedStudent(null);
     },
@@ -277,29 +274,34 @@ export const TutorChangePage = () => {
                     <p className="text-sm text-rose-600">{errors.tutorDestinoId.message}</p>
                   )}
                 </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-text" htmlFor="semestreAcademico">
-                    Semestre académico
-                  </label>
-                  <Input
-                    id="semestreAcademico"
-                    placeholder="2025 - F1"
-                    {...register("semestreAcademico")}
-                    onBlur={(e) => {
-                      // opcional: reescribe lo que ve el usuario a 'AAAA - F1'
-                      const raw = e.target.value.toUpperCase();
-                      const m = raw.match(/^(\d{4})\s*-\s*F([12])$/);
-                      if (m) {
-                        e.target.value = `${m[1]} - F${m[2]}`;
-                      }
-                    }}
-                  />
-
-                  <p className="text-xs text-slate-500">Este dato se registra en el historial del alumno y habilita los reportes del período.</p>
-                  {errors.semestreAcademico && (
-                    <p className="text-sm text-rose-600">{errors.semestreAcademico.message}</p>
-                  )}
-                </div>
+                {semestreActivo ? (
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-text">
+                      Semestre académico
+                    </label>
+                    <div className="rounded-lg border border-border bg-slate-50 px-3 py-2">
+                      <p className="text-sm font-semibold text-text">{semestreActivo.codigo}</p>
+                      <p className="text-xs text-slate-500">{semestreActivo.nombre}</p>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      Se utilizará el semestre activo para registrar el cambio.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-text">
+                      Semestre académico
+                    </label>
+                    <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2">
+                      <p className="text-sm font-semibold text-amber-700">
+                        No hay semestre activo
+                      </p>
+                      <p className="text-xs text-amber-600">
+                        Debe configurar un semestre activo antes de realizar cambios de tutor.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-1">
@@ -346,7 +348,7 @@ export const TutorChangePage = () => {
               )}
 
               <Button
-                disabled={!canReassign || !selectedStudent || !selectedTutorOrigen}
+                disabled={!canReassign || !selectedStudent || !selectedTutorOrigen || !semestreActivo}
                 loading={mutation.isPending}
                 type="submit"
               >

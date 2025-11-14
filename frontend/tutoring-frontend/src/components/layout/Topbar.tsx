@@ -4,6 +4,7 @@ import { navigationItems } from "@/constants/navigation";
 import { useAuthStore } from "@/store/auth-store";
 import { useUIStore } from "@/store/ui-store";
 import { MenuIcon } from "@/components/icons";
+import { SemestreSelector } from "@/components/common/SemestreSelector";
 
 export const Topbar = () => {
   const location = useLocation();
@@ -45,13 +46,16 @@ export const Topbar = () => {
           <h1 className="text-2xl font-semibold text-text">{activeRoute}</h1>
         </div>
       </div>
-      <div className="flex items-center gap-4 rounded-2xl border border-border bg-white px-4 py-2 shadow-sm">
-        <div className="text-right">
-          <p className="text-sm font-semibold text-text">{user?.username ?? "Invitado"}</p>
-          <p className="text-xs text-slate-500">{roleLabel}</p>
-        </div>
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-base font-semibold text-primary">
-          {user ? user.username.charAt(0).toUpperCase() : "I"}
+      <div className="flex items-center gap-4">
+        <SemestreSelector />
+        <div className="flex items-center gap-4 rounded-2xl border border-border bg-white px-4 py-2 shadow-sm">
+          <div className="text-right">
+            <p className="text-sm font-semibold text-text">{user?.username ?? "Invitado"}</p>
+            <p className="text-xs text-slate-500">{roleLabel}</p>
+          </div>
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-base font-semibold text-primary">
+            {user ? user.username.charAt(0).toUpperCase() : "I"}
+          </div>
         </div>
       </div>
     </header>

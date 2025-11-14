@@ -15,6 +15,11 @@ export interface ListStudentsParams {
   estado?: string;
   carrera?: string;
   semestre?: number;
+  semestreId?: number;
+  semestreCursado?: number;
+  busqueda?: string;
+  sortBy?: string;
+  direction?: "ASC" | "DESC";
 }
 
 export interface SearchStudentsParams {

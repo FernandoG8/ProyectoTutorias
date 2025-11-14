@@ -11,9 +11,14 @@ import {
 } from "recharts";
 import { Card } from "@/components/ui/Card";
 import { DataTable } from "@/components/ui/DataTable";
+import { DashboardSkeleton } from "@/components/common/DashboardSkeleton";
+import {
+  getDashboardEstadisticas,
+  getDistribucionTutores,
+  getProcesosRecientes,
+} from "@/services/dashboard-service";
 import { listAssignmentProcesses } from "@/services/asignaciones-service";
-import { listTutors } from "@/services/tutors-service";
-import type { AssignmentProcessSummary, TutorResponse } from "@/types";
+import type { AssignmentProcessSummary, DistribucionTutor, ProcesoReciente } from "@/types";
 import type { ColumnDef } from "@tanstack/react-table";
 
 const processColumns: ColumnDef<AssignmentProcessSummary>[] = [
@@ -58,39 +63,51 @@ const processColumns: ColumnDef<AssignmentProcessSummary>[] = [
 
 export const DashboardPage = () => {
   const {
-    data: tutors = [],
-    isLoading: tutorsLoading,
-  } = useQuery<TutorResponse[]>({
-    queryKey: ["tutors"],
-    queryFn: () => listTutors(),
+    data: estadisticas,
+    isLoading: estadisticasLoading,
+  } = useQuery({
+    queryKey: ["dashboard-estadisticas"],
+    queryFn: () => getDashboardEstadisticas(),
   });
 
   const {
-    data: processes = [],
-    isLoading: processesLoading,
+    data: distribucionTutores = [],
+    isLoading: distribucionLoading,
+  } = useQuery<DistribucionTutor[]>({
+    queryKey: ["dashboard-distribucion-tutores"],
+    queryFn: () => getDistribucionTutores(),
+  });
+
+  const {
+    data: procesosRecientes = [],
+    isLoading: procesosLoading,
+  } = useQuery<ProcesoReciente[]>({
+    queryKey: ["dashboard-procesos-recientes"],
+    queryFn: () => getProcesosRecientes(5),
+  });
+
+  const {
+    data: allProcesses = [],
+    isLoading: allProcessesLoading,
   } = useQuery<AssignmentProcessSummary[]>({
     queryKey: ["assignment-processes"],
     queryFn: () => listAssignmentProcesses(),
   });
 
-  const totalStudents = useMemo<number>(
-    () => tutors.reduce((acc, tutor) => acc + tutor.cargaActual, 0),
-    [tutors],
-  );
-
-  const averageStudents = useMemo(() => {
-    if (!tutors.length) return 0;
-    return Math.round(totalStudents / tutors.length);
-  }, [tutors.length, totalStudents]);
-
   const chartData = useMemo(
     () =>
-      tutors.map((tutor) => ({
-        nombre: tutor.nombre,
-        alumnos: tutor.cargaActual,
+      distribucionTutores.map((tutor) => ({
+        nombre: tutor.tutor_nombre,
+        alumnos: tutor.alumnos_asignados,
       })),
-    [tutors],
+    [distribucionTutores],
   );
+
+  const isLoading = estadisticasLoading || distribucionLoading || procesosLoading;
+
+  if (isLoading) {
+    return <DashboardSkeleton />;
+  }
 
   return (
     <div className="space-y-6">
@@ -98,25 +115,30 @@ export const DashboardPage = () => {
         <Card>
           <p className="text-sm text-slate-500">Total de tutores activos</p>
           <p className="text-3xl font-semibold text-text">
-            {tutorsLoading ? "--" : tutors.length}
+            {estadisticas?.total_tutores ?? "--"}
           </p>
         </Card>
         <Card>
           <p className="text-sm text-slate-500">Alumnos asignados</p>
           <p className="text-3xl font-semibold text-text">
-            {tutorsLoading ? "--" : totalStudents}
+            {estadisticas?.alumnos_con_tutor ?? "--"}
           </p>
+          {estadisticas && (
+            <p className="mt-1 text-xs text-slate-500">
+              {estadisticas.alumnos_sin_tutor} sin tutor
+            </p>
+          )}
         </Card>
         <Card>
           <p className="text-sm text-slate-500">Promedio por tutor</p>
           <p className="text-3xl font-semibold text-text">
-            {tutorsLoading ? "--" : averageStudents}
+            {estadisticas?.promedio_alumnos_por_tutor.toFixed(1) ?? "--"}
           </p>
         </Card>
         <Card>
-          <p className="text-sm text-slate-500">Procesos registrados</p>
+          <p className="text-sm text-slate-500">Cobertura</p>
           <p className="text-3xl font-semibold text-text">
-            {processesLoading ? "--" : processes.length}
+            {estadisticas?.porcentaje_cobertura.toFixed(1) ?? "--"}%
           </p>
         </Card>
       </section>
@@ -150,22 +172,30 @@ export const DashboardPage = () => {
         </Card>
 
         <Card className="lg:col-span-2">
-          <h2 className="text-lg font-semibold text-text">Alertas recientes</h2>
+          <h2 className="text-lg font-semibold text-text">Procesos recientes</h2>
           <p className="text-sm text-slate-500">
-            Seguimiento a novedades reportadas en los últimos procesos.
+            Seguimiento a los últimos procesos de asignación ejecutados.
           </p>
           <ul className="mt-4 space-y-3 text-sm text-slate-600">
-            {processes.slice(0, 4).map((process) => (
-              <li key={process.id} className="rounded-lg bg-slate-100 px-3 py-2">
-                {process.estado} · {process.fechaInicio}
-                <p className="text-xs text-slate-500">
-                  Asignados: {process.totalAsignados} · Errores: {process.totalErrores}
+            {procesosRecientes.map((proceso) => (
+              <li key={proceso.id} className="rounded-lg bg-slate-100 px-3 py-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold">{proceso.estado}</span>
+                  <span className="text-xs text-slate-500">
+                    {new Date(proceso.fecha_inicio).toLocaleDateString()}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-slate-500">
+                  Archivo: {proceso.archivo} · Usuario: {proceso.usuario}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Procesados: {proceso.total_procesados} · Asignados: {proceso.total_asignados} · Errores: {proceso.total_errores}
                 </p>
               </li>
             ))}
-            {!processes.length && (
+            {!procesosRecientes.length && (
               <li className="rounded-lg bg-slate-100 px-3 py-2">
-                No se registran alertas recientes.
+                No se registran procesos recientes.
               </li>
             )}
           </ul>
@@ -183,8 +213,8 @@ export const DashboardPage = () => {
         </div>
         <DataTable
           columns={processColumns}
-          data={processes}
-          isLoading={processesLoading}
+          data={allProcesses}
+          isLoading={allProcessesLoading}
           emptyMessage="Aún no se han registrado procesos."
         />
       </section>
