@@ -257,11 +257,11 @@ export const ReportsPage = () => {
               </label>
               <Input
                 id="semestre-consulta"
-                placeholder="2025-1"
+                placeholder="2025-2026-F1"
                 value={filters.semestre}
                 onChange={(event) => setFilters((prev) => ({ ...prev, semestre: event.target.value }))}
               />
-              <p className="text-xs text-slate-500">Campo obligatorio para sincronizar con el backend.</p>
+              <p className="text-xs text-slate-500">Formato: YYYY-YYYY-F1 o YYYY-YYYY-F2 (ej: 2025-2026-F1)</p>
             </div>
             <div className="space-y-1">
               <label className="text-sm font-medium text-text" htmlFor="carrera-consulta">

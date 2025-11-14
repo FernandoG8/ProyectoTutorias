@@ -155,19 +155,25 @@ export const DashboardPage = () => {
               </p>
             </div>
           </div>
-          <div className="mt-6 h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-                <XAxis dataKey="nombre" hide={chartData.length > 8} />
-                <YAxis allowDecimals={false} />
-                <Tooltip
-                  cursor={{ fill: "rgba(49, 87, 98, 0.08)" }}
-                  contentStyle={{ borderRadius: 12, borderColor: "#E2E8F0" }}
-                />
-                <Bar dataKey="alumnos" fill="#315762" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="mt-6 h-80 min-h-[320px]">
+            {chartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                  <XAxis dataKey="nombre" hide={chartData.length > 8} />
+                  <YAxis allowDecimals={false} />
+                  <Tooltip
+                    cursor={{ fill: "rgba(49, 87, 98, 0.08)" }}
+                    contentStyle={{ borderRadius: 12, borderColor: "#E2E8F0" }}
+                  />
+                  <Bar dataKey="alumnos" fill="#315762" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm text-slate-500">
+                No hay datos de distribución disponibles
+              </div>
+            )}
           </div>
         </Card>
 

@@ -8,10 +8,11 @@ export function SemestreSelector() {
   const { semestreActivo, isLoading, error, fetchSemestreActivo } = useSemestreStore();
 
   useEffect(() => {
-    if (!semestreActivo && !isLoading && !error) {
+    // Solo intentar cargar si no hay datos y no está cargando
+    if (!semestreActivo && !isLoading) {
       fetchSemestreActivo();
     }
-  }, [semestreActivo, isLoading, error, fetchSemestreActivo]);
+  }, []); // Solo ejecutar una vez al montar
 
   if (isLoading) {
     return (
