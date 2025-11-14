@@ -117,7 +117,47 @@
 
 ---
 
-### 📋 FASE 4: Testing Integral (PENDIENTE)
+### ✅ FASE 4: Endpoints REST y Documentación (COMPLETADA)
+
+**Estado:** COMPLETADO Y COMPILADO
+
+**Cambios principales:**
+- Creación de SemestreController con 12 endpoints REST
+- Creación de DashboardController con 5 endpoints de estadísticas
+- DTOs adicionales (ProcesoIniciadoDTO)
+- Documentación OpenAPI/Swagger completa
+- Validaciones robustas en todos los endpoints
+
+**Archivos creados:**
+- ✅ DashboardController.java (248 líneas)
+- ✅ ProcesoIniciadoDTO.java (29 líneas)
+- ✅ FASE4_IMPLEMENTACION.md (documentación técnica)
+- ✅ FASE4_VALIDACION.md (validaciones ejecutadas)
+
+**Endpoints implementados:**
+- ✅ SemestreController: 12 endpoints (CRUD + estadísticas)
+- ✅ DashboardController: 5 endpoints (estadísticas globales)
+- ✅ AsignacionController: 4+ endpoints (actualizado FASE 3)
+- **Total: 21+ endpoints REST**
+
+**Características:**
+- ✓ Documentación Swagger completa
+- ✓ Filtrado por semestre activo por defecto
+- ✓ Cálculos de estadísticas en tiempo real
+- ✓ Validaciones robustas
+- ✓ CORS habilitado
+- ✓ Respuestas consistentes
+
+**Build:** ✅ SUCCESS
+**Compilación:** 159 archivos Java sin errores
+
+**Documentación:**
+- ✅ FASE4_IMPLEMENTACION.md (detalles técnicos)
+- ✅ FASE4_VALIDACION.md (validaciones ejecutadas)
+
+---
+
+### 📋 FASE 5: Testing Integral (PENDIENTE)
 
 **Estado:** NO INICIADA
 
@@ -133,7 +173,7 @@
 
 ---
 
-### 📋 FASE 5: Frontend - Componentes React (PENDIENTE)
+### 📋 FASE 6: Frontend - Componentes React (PENDIENTE)
 
 **Estado:** NO INICIADA
 
