@@ -12,6 +12,7 @@ import com.universidad.tutorias.application.dto.ResultadoValidacion;
 import com.universidad.tutorias.application.service.*;
 import com.universidad.tutorias.domain.entity.Alumno;
 import com.universidad.tutorias.domain.entity.ProcesoAsignacion;
+import com.universidad.tutorias.domain.entity.Semestre;
 import com.universidad.tutorias.domain.enums.EstadoProceso;
 import com.universidad.tutorias.domain.repository.ProcesoAsignacionRepository;
 import lombok.RequiredArgsConstructor;
@@ -38,17 +39,22 @@ public class ProcesoOrchestratorImpl implements ProcesoOrchestrator {
     private final ReingresoService reingresoService;
     private final ProcesoAsignacionRepository procesoRepository;
     private final ObjectMapper objectMapper;
+    private final SemestreService semestreService;
 
     @Override
     @Async("asignacionExecutor")
     @Transactional
     public CompletableFuture<Long> ejecutarProcesoCompleto(MultipartFile archivo,
-                                                           String semestreAcademico,
+                                                           Long semestreId,
                                                            String usuario) {
 
         log.info("===== INICIO PROCESO DE ASIGNACIÓN =====");
-        log.info("Archivo: {}, Usuario: {}, Semestre: {}",
-                archivo.getOriginalFilename(), usuario, semestreAcademico);
+        log.info("Archivo: {}, Usuario: {}, Semestre ID: {}",
+                archivo.getOriginalFilename(), usuario, semestreId);
+
+        // Validar que el semestre existe
+        Semestre semestre = semestreService.obtenerPorId(semestreId);
+        log.info("Semestre encontrado: {} - {}", semestre.getCodigo(), semestre.getNombre());
 
         // Crear registro de proceso
         ProcesoAsignacion proceso = new ProcesoAsignacion();
@@ -73,10 +79,10 @@ public class ProcesoOrchestratorImpl implements ProcesoOrchestrator {
             proceso.setEstado(EstadoProceso.COMPARANDO);
             procesoRepository.save(proceso);
 
-            List<Alumno> alumnosAInactivar = comparadorService.identificarInactivos(alumnosExcel);
+            List<Alumno> alumnosAInactivar = comparadorService.identificarInactivos(alumnosExcel, semestreId);
 
             if (!alumnosAInactivar.isEmpty()) {
-                inactivacionService.marcarInactivos(alumnosAInactivar, procesoId);
+                inactivacionService.marcarInactivos(alumnosAInactivar, procesoId, semestreId);
             }
 
             // FASE 3: Liberar cupos
@@ -100,7 +106,7 @@ public class ProcesoOrchestratorImpl implements ProcesoOrchestrator {
             ResultadoAsignacion resultado = asignacionService.asignarAlumnos(
                     validacion.getAlumnosValidos(),
                     procesoId,
-                    semestreAcademico
+                    semestreId
             );
 
             // FINALIZACIÓN: Actualizar estado del proceso

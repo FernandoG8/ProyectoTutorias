@@ -40,23 +40,24 @@ public class InactivacionServiceImpl implements InactivacionService {
 
     @Override
     @Transactional
-    public void marcarInactivos(List<Alumno> alumnos, Long procesoId) {
-        log.info("Marcando {} alumnos como inactivos", alumnos.size());
+    public void marcarInactivos(List<Alumno> alumnos, Long procesoId, Long semestreId) {
+        log.info("Marcando {} alumnos como inactivos para semestre ID: {}", alumnos.size(), semestreId);
 
         int contador = 0;
         for (Alumno alumno : alumnos) {
             try {
                 String datosAntes = String.format(
-                        "{\"estado\":\"%s\",\"tutor_id\":%s}",
+                        "{\"estado\":\"%s\",\"tutor_id\":%s,\"semestre_id\":%d}",
                         alumno.getEstado(),
-                        alumno.getTutorActual() != null ? alumno.getTutorActual().getId() : "null"
+                        alumno.getTutorActual() != null ? alumno.getTutorActual().getId() : "null",
+                        semestreId
                 );
 
                 // Cambiar estado
                 alumno.setEstado(EstadoAlumno.INACTIVO);
                 alumnoRepository.save(alumno);
 
-                // Crear registro de inactivo
+                // Crear registro de inactivo con referencia al semestre
                 AlumnoInactivo inactivo = AlumnoInactivo.builder()
                         .alumno(alumno)
                         .motivoInactividad(MotivoInactividad.SIN_DEFINIR)
@@ -66,10 +67,11 @@ public class InactivacionServiceImpl implements InactivacionService {
                 alumnoInactivoRepository.save(inactivo);
 
                 String datosDespues = String.format(
-                        "{\"estado\":\"%s\",\"motivo\":\"%s\",\"tutor_preservado_id\":%s}",
+                        "{\"estado\":\"%s\",\"motivo\":\"%s\",\"tutor_preservado_id\":%s,\"semestre_id\":%d}",
                         EstadoAlumno.INACTIVO,
                         MotivoInactividad.SIN_DEFINIR,
-                        alumno.getTutorActual() != null ? alumno.getTutorActual().getId() : "null"
+                        alumno.getTutorActual() != null ? alumno.getTutorActual().getId() : "null",
+                        semestreId
                 );
 
                 // Auditoría
@@ -78,7 +80,7 @@ public class InactivacionServiceImpl implements InactivacionService {
                         TipoAccion.MARCADO_INACTIVOS,
                         "ALUMNO",
                         alumno.getId(),
-                        String.format("Alumno %s marcado como inactivo", alumno.getMatricula()),
+                        String.format("Alumno %s marcado como inactivo para semestre %d", alumno.getMatricula(), semestreId),
                         datosAntes,
                         datosDespues,
                         "SISTEMA"

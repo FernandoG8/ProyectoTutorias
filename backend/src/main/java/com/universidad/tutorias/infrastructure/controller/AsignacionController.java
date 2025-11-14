@@ -6,6 +6,7 @@ package com.universidad.tutorias.infrastructure.controller;
 
 import com.universidad.tutorias.application.dto.*;
 import com.universidad.tutorias.application.service.ProcesoOrchestrator;
+import com.universidad.tutorias.application.service.SemestreService;
 import com.universidad.tutorias.application.service.TutorReasignacionService;
 import com.universidad.tutorias.domain.entity.AlertaProceso;
 import com.universidad.tutorias.domain.entity.ProcesoAsignacion;
@@ -43,6 +44,7 @@ public class AsignacionController {
     private final ProcesoAsignacionRepository procesoRepository;
     private final AlertaProcesoRepository alertaRepository;
     private final TutorReasignacionService tutorReasignacionService;
+    private final SemestreService semestreService;
 
     @PostMapping("/iniciar")
     public ResponseEntity<ApiResponse<IniciarProcesoResponse>> iniciarProceso(
@@ -52,9 +54,12 @@ public class AsignacionController {
                 request.getSemestreAcademico(), request.getUsuario());
 
         try {
+            // Convertir código de semestre a ID
+            Long semestreId = semestreService.convertirCodigoAId(request.getSemestreAcademico());
+
             CompletableFuture<Long> futuro = orchestrator.ejecutarProcesoCompleto(
                     request.getArchivo(),
-                    request.getSemestreAcademico(),
+                    semestreId,
                     request.getUsuario()
             );
 

@@ -10,10 +10,10 @@ public interface AsignacionService {
      * Ejecuta el algoritmo de asignación principal
      * @param alumnosValidos lista de alumnos a asignar
      * @param procesoId ID del proceso actual
-     * @param semestreAcademico semestre actual
+     * @param semestreId ID del semestre (no string)
      * @return ResultadoAsignacion con estadísticas
      */
     ResultadoAsignacion asignarAlumnos(List<AlumnoExcelDTO> alumnosValidos,
                                        Long procesoId,
-                                       String semestreAcademico);
+                                       Long semestreId);
 }

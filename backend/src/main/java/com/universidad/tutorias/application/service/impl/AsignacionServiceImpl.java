@@ -10,6 +10,7 @@ import com.universidad.tutorias.application.dto.ResultadoAsignacion;
 import com.universidad.tutorias.application.dto.TipoErrorAsignacion;
 import com.universidad.tutorias.application.service.AsignacionService;
 import com.universidad.tutorias.application.service.AuditoriaService;
+import com.universidad.tutorias.application.service.SemestreService;
 import com.universidad.tutorias.application.service.TutorSincronizacionService;
 import com.universidad.tutorias.domain.entity.*;
 import com.universidad.tutorias.domain.enums.*;
@@ -45,6 +46,7 @@ public class AsignacionServiceImpl implements AsignacionService {
     private final AuditoriaService auditoriaService;
     private final ErrorValidacionRepository errorValidacionRepository;
     private final TutorSincronizacionService tutorSincronizacionService;
+    private final SemestreService semestreService;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -64,9 +66,13 @@ public class AsignacionServiceImpl implements AsignacionService {
     @Override
     public ResultadoAsignacion asignarAlumnos(List<AlumnoExcelDTO> alumnosValidos,
                                               Long procesoId,
-                                              String semestreAcademico) {
+                                              Long semestreId) {
 
-        log.info("Iniciando asignación de {} alumnos para semestre {}", alumnosValidos.size(), semestreAcademico);
+        log.info("Iniciando asignación de {} alumnos para semestre ID: {}", alumnosValidos.size(), semestreId);
+
+        // Obtener y validar el semestre
+        Semestre semestre = semestreService.obtenerPorId(semestreId);
+        log.info("Semestre encontrado: {} - {}", semestre.getCodigo(), semestre.getNombre());
 
         ProcesoAsignacion proceso = procesoRepository.findById(procesoId)
                 .orElseThrow(() -> new EntityNotFoundException("Proceso no encontrado: " + procesoId));
@@ -96,7 +102,7 @@ public class AsignacionServiceImpl implements AsignacionService {
                         alumnoDTO,
                         tutoresPorCarrera,
                         proceso,
-                        semestreAcademico
+                        semestre
                 );
 
                 procesados++;
@@ -171,7 +177,7 @@ public class AsignacionServiceImpl implements AsignacionService {
     protected ResultadoAsignacionIndividual asignarAlumnoTransaccional(AlumnoExcelDTO alumnoDTO,
                                                                        Map<String, List<Tutor>> tutoresPorCarrera,
                                                                        ProcesoAsignacion proceso,
-                                                                       String semestreAcademico) {
+                                                                       Semestre semestre) {
 
         String carreraAlumno = normalizarCarrera(alumnoDTO.getCarrera());
         SeleccionTutor seleccionTutor = seleccionarTutorDisponible(tutoresPorCarrera, alumnoDTO, proceso);
@@ -182,7 +188,7 @@ public class AsignacionServiceImpl implements AsignacionService {
                     alumnoDTO.getMatricula(), carreraAlumno));
         }
 
-        Tutor tutorBase = seleccionTutor.getTutor();
+        final Tutor tutorBase = seleccionTutor.getTutor();
         tutorSincronizacionService.recalcularCargaTutor(tutorBase.getId());
         Tutor tutor = tutorRepository.findByIdForUpdate(tutorBase.getId())
                 .orElseThrow(() -> new EntityNotFoundException("Tutor no encontrado: " + tutorBase.getId()));
@@ -193,18 +199,92 @@ public class AsignacionServiceImpl implements AsignacionService {
                     tutor.getNombre(), tutor.getCargaActual(), tutor.getCapacidadMax()));
         }
 
-        Alumno alumno = alumnoRepository.findByMatricula(alumnoDTO.getMatricula().toUpperCase().trim())
-                .orElse(new Alumno());
+        // ============================================
+        // BUSCAR O CREAR ALUMNO
+        // ============================================
 
-        if (alumno.getId() != null) {
-            boolean asignacionExiste = asignacionRepository.existsByAlumnoAndTutorAndSemestre(
-                    alumno.getId(), tutor.getId(), semestreAcademico);
+        Alumno alumno = alumnoRepository.findByMatricula(alumnoDTO.getMatricula().toUpperCase().trim())
+                .orElse(null);
+
+        boolean esAlumnoNuevo = (alumno == null);
+        boolean mantuvoPrevio = false;
+        TipoAsignacion tipoAsignacion = TipoAsignacion.INICIAL;
+
+        if (!esAlumnoNuevo) {
+            // ALUMNO EXISTENTE - Validar duplicación en este semestre
+            boolean asignacionExiste = asignacionRepository.existsByAlumnoAndTutorAndSemestreId(
+                    alumno.getId(), tutor.getId(), semestre.getId());
             if (asignacionExiste) {
                 throw new DuplicadoException(String.format(
                         "El alumno %s ya cuenta con una asignación activa con el tutor %s para el semestre %s",
-                        alumno.getMatricula(), tutor.getNombre(), semestreAcademico));
+                        alumno.getMatricula(), tutor.getNombre(), semestre.getCodigo()));
             }
+
+            // ============================================
+            // LÓGICA DE MANTENER TUTOR ANTERIOR
+            // ============================================
+
+            Tutor tutorAnterior = alumno.getTutorActual();
+
+            if (tutorAnterior != null &&
+                tutorAnterior.getActivo() &&
+                tutorAnterior.tieneCapacidadDisponible()) {
+
+                // ✅ MANTENER tutor anterior
+                Tutor tutorAnteriorActualizado = tutorRepository.findByIdForUpdate(tutorAnterior.getId())
+                        .orElseThrow(() -> new EntityNotFoundException("Tutor anterior no encontrado: " + tutorAnterior.getId()));
+
+                tutor = tutorAnteriorActualizado;
+
+                seleccionTutor = SeleccionTutor.builder()
+                        .tutor(tutor)
+                        .build();
+
+                mantuvoPrevio = true;
+                tipoAsignacion = TipoAsignacion.REINGRESO;
+
+                log.debug("Alumno {} mantiene tutor anterior: {}",
+                         alumno.getMatricula(), tutor.getNombre());
+            } else {
+                // ❌ REASIGNAR a nuevo tutor
+                mantuvoPrevio = false;
+                tipoAsignacion = TipoAsignacion.REASIGNACION;
+
+                String motivo = tutorAnterior == null ? "sin tutor previo" :
+                               !tutorAnterior.getActivo() ? "tutor inactivo" :
+                               "tutor sin capacidad";
+
+                AlertaProceso alerta = crearAlerta(
+                    proceso,
+                    TipoAlerta.REASIGNACION_FORZADA,
+                    SeveridadAlerta.WARNING,
+                    String.format("Alumno %s reasignado de %s a %s (motivo: %s)",
+                            alumnoDTO.getMatricula(),
+                            tutorAnterior != null ? tutorAnterior.getNombre() : "ninguno",
+                            tutor.getNombre(),
+                            motivo),
+                    alumnoDTO,
+                    tutor
+                );
+
+                log.debug("Alumno {} reasignado de {} a {} (motivo: {})",
+                         alumno.getMatricula(),
+                         tutorAnterior != null ? tutorAnterior.getNombre() : "ninguno",
+                         tutor.getNombre(),
+                         motivo);
+            }
+        } else {
+            // ALUMNO NUEVO
+            alumno = new Alumno();
+            tipoAsignacion = TipoAsignacion.INICIAL;
+            mantuvoPrevio = false;
+
+            log.debug("Creando alumno nuevo: {}", alumnoDTO.getMatricula());
         }
+
+        // ============================================
+        // ACTUALIZAR DATOS DEL ALUMNO
+        // ============================================
 
         alumno.setMatricula(alumnoDTO.getMatricula().toUpperCase().trim());
         alumno.setNombre(alumnoDTO.getNombre());
@@ -215,25 +295,46 @@ public class AsignacionServiceImpl implements AsignacionService {
 
         alumno = alumnoRepository.save(alumno);
 
+        // ============================================
+        // CREAR ASIGNACIÓN CON SEMESTRE
+        // ============================================
+
         Asignacion asignacion = new Asignacion();
         asignacion.setAlumno(alumno);
         asignacion.setTutor(tutor);
-        asignacion.setTipoAsignacion(TipoAsignacion.INICIAL);
-        asignacion.setSemestreAcademico(semestreAcademico);
+        asignacion.setSemestre(semestre);  // ← Relación nueva
+        asignacion.setSemestreAcademico(semestre.getCodigo());  // ← Legacy (para compatibilidad)
+        asignacion.setTipoAsignacion(tipoAsignacion);
         asignacion = asignacionRepository.save(asignacion);
 
-        tutor.incrementarCarga();
-        tutorRepository.save(tutor);
+        // ============================================
+        // ACTUALIZAR CARGA DEL TUTOR
+        // ============================================
+
+        // IMPORTANTE: Solo incrementar si NO mantuvo al tutor previo
+        if (!mantuvoPrevio) {
+            tutor.incrementarCarga();
+            tutorRepository.save(tutor);
+
+            log.debug("Carga del tutor {} incrementada a {}/{}",
+                     tutor.getNombre(),
+                     tutor.getCargaActual(),
+                     tutor.getCapacidadMax());
+        } else {
+            log.debug("Carga del tutor {} NO incrementada (mantuvo alumno previo)",
+                     tutor.getNombre());
+        }
 
         auditoriaService.registrarLog(
                 proceso.getId(),
                 TipoAccion.ASIGNACION,
                 "ALUMNO",
                 alumno.getId(),
-                String.format("Alumno %s asignado a tutor %s", alumno.getMatricula(), tutor.getNombre()),
+                String.format("Alumno %s asignado a tutor %s (tipo: %s)",
+                             alumno.getMatricula(), tutor.getNombre(), tipoAsignacion),
                 null,
-                String.format("{\"id_tutor\":%d,\"tipo\":\"%s\",\"semestre\":\"%s\"}",
-                        tutor.getId(), TipoAsignacion.INICIAL, semestreAcademico),
+                String.format("{\"id_tutor\":%d,\"id_semestre\":%d,\"tipo\":\"%s\",\"semestre\":\"%s\"}",
+                        tutor.getId(), semestre.getId(), tipoAsignacion, semestre.getCodigo()),
                 "SISTEMA"
         );
 

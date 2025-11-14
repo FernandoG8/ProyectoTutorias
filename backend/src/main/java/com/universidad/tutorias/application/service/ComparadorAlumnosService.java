@@ -9,7 +9,8 @@ public interface ComparadorAlumnosService {
     /**
      * Compara alumnos del Excel con los activos en BD
      * @param alumnosExcel lista del archivo Excel
+     * @param semestreId ID del semestre académico
      * @return lista de alumnos que deben marcarse inactivos
      */
-    List<Alumno> identificarInactivos(List<AlumnoExcelDTO> alumnosExcel);
+    List<Alumno> identificarInactivos(List<AlumnoExcelDTO> alumnosExcel, Long semestreId);
 }
