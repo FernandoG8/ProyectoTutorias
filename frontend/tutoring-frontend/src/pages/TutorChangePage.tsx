@@ -19,7 +19,6 @@ import { rankStudents } from "@/lib/search-rank";
 import type { AlumnoPagedResponse, AlumnoResponse, TutorResponse } from "@/types";
 import { useAuthStore } from "@/store/auth-store";
 
-// 1) Reemplaza tu campo semestreAcademico en el schema por este:
 const schema = z
   .object({
     alumnoId: z.coerce.number().min(1, "Selecciona un alumno válido."),

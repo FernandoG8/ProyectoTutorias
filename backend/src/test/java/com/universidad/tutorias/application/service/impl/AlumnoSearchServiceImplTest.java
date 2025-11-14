@@ -39,7 +39,9 @@ class AlumnoSearchServiceImplTest {
     @BeforeEach
     void setUp() {
         Object[] row = new Object[]{1L, "202101234", "Juan Pérez", "INGENIERIA", 5, "ACTIVO", 800};
-        samplePage = new PageImpl<Object[]>((List<Object[]>) List.of(row), PageRequest.of(0, 20), 1);
+        @SuppressWarnings("unchecked")
+        List<Object[]> rowList = (List<Object[]>) (List<?>) List.of(row);
+        samplePage = new PageImpl<>(rowList, PageRequest.of(0, 20), 1);
     }
 
     @Test

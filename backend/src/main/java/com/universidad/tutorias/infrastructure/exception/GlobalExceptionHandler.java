@@ -4,6 +4,9 @@
 
 package com.universidad.tutorias.infrastructure.exception;
 
+import com.universidad.tutorias.domain.exception.SemestreException;
+import com.universidad.tutorias.domain.exception.SemestreNotFoundException;
+import com.universidad.tutorias.domain.exception.SemestreValidationException;
 import com.universidad.tutorias.infrastructure.controller.response.ApiErrorResponse;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
@@ -91,6 +94,27 @@ public class GlobalExceptionHandler {
 
         ApiErrorResponse error = ApiErrorResponse.error("ARGUMENTO_INVALIDO", ex.getMessage());
 
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+
+    @ExceptionHandler(SemestreNotFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleSemestreNotFound(SemestreNotFoundException ex) {
+        log.warn("Semestre no encontrado: {}", ex.getMessage());
+        ApiErrorResponse error = ApiErrorResponse.error("SEMESTRE_NO_ENCONTRADO", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    }
+
+    @ExceptionHandler(SemestreValidationException.class)
+    public ResponseEntity<ApiErrorResponse> handleSemestreValidation(SemestreValidationException ex) {
+        log.warn("Error de validación de semestre: {}", ex.getMessage());
+        ApiErrorResponse error = ApiErrorResponse.error("VALIDACION_SEMESTRE", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+
+    @ExceptionHandler(SemestreException.class)
+    public ResponseEntity<ApiErrorResponse> handleSemestreException(SemestreException ex) {
+        log.warn("Error de semestre: {}", ex.getMessage());
+        ApiErrorResponse error = ApiErrorResponse.error("ERROR_SEMESTRE", ex.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
     }
 

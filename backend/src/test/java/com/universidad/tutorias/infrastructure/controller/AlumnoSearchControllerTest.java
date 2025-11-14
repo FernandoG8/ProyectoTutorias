@@ -77,7 +77,8 @@ class AlumnoSearchControllerTest {
                         "ING",
                         5,
                         "ACTIVO",
-                        400
+                        400,
+                        null
                 ))
                 .toList();
         when(alumnoSearchService.autocomplete(anyString(), any(), any(), any())).thenReturn(results);

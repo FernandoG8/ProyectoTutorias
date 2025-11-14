@@ -80,14 +80,14 @@ public class ReporteConsultaService {
 
     private List<Asignacion> obtenerAsignacionesPorTutor(Long tutorId, String periodo) {
         if (StringUtils.hasText(periodo)) {
-            return asignacionRepository.findByTutorAndSemestre(tutorId, periodo);
+            return asignacionRepository.findByTutorAndSemestreString(tutorId, periodo);
         }
         return asignacionRepository.findByTutorIdWithDetalles(tutorId);
     }
 
     private List<Asignacion> obtenerAsignacionesPorCarrera(String carrera, String periodo) {
         if (StringUtils.hasText(periodo)) {
-            return asignacionRepository.findByCarreraAndSemestre(carrera, periodo);
+            return asignacionRepository.findByCarreraAndSemestreString(carrera, periodo);
         }
         return asignacionRepository.findByCarrera(carrera);
     }
