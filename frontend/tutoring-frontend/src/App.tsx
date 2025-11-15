@@ -1,5 +1,7 @@
 import { useEffect } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardPage } from "@/pages/DashboardPage";
@@ -23,30 +25,44 @@ function App() {
   }, [fetchSemestreActivo]);
 
   return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <MainLayout />
-          </ProtectedRoute>
-        }
-      >
-        <Route index element={<Navigate to="/dashboard" replace />} />
-        <Route path="dashboard" element={<DashboardPage />} />
-        <Route path="students" element={<StudentsPage />} />
-        <Route path="list-upload" element={<ListUploadPage />} />
-        <Route path="assignment" element={<AssignmentPage />} />
-        <Route path="tutors" element={<TutorsPage />} />
-        <Route path="inactive-students" element={<InactiveStudentsPage />} />
-        <Route path="tutor-change" element={<TutorChangePage />} />
-        <Route path="reports" element={<ReportsPage />} />
-        <Route path="semestres" element={<SemestresPage />} />
-        <Route path="settings" element={<SettingsPage />} />
-      </Route>
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
-    </Routes>
+    <>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <MainLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="students" element={<StudentsPage />} />
+          <Route path="list-upload" element={<ListUploadPage />} />
+          <Route path="assignment" element={<AssignmentPage />} />
+          <Route path="tutors" element={<TutorsPage />} />
+          <Route path="inactive-students" element={<InactiveStudentsPage />} />
+          <Route path="tutor-change" element={<TutorChangePage />} />
+          <Route path="reports" element={<ReportsPage />} />
+          <Route path="semestres" element={<SemestresPage />} />
+          <Route path="settings" element={<SettingsPage />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Routes>
+      <ToastContainer
+        position="bottom-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={true}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
+    </>
   );
 }
 

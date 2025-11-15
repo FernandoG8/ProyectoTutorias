@@ -142,7 +142,7 @@ export const SemestresPage = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedSemestreId, setSelectedSemestreId] = useState<number | null>(null);
   const [statsModalOpen, setStatsModalOpen] = useState(false);
-  const [stats, setStats] = useState<SemestreEstadisticas | null>(null);
+  const [_stats, _setStats] = useState<SemestreEstadisticas | null>(null);
 
   const {
     data: semestres = [],
@@ -401,7 +401,7 @@ export const SemestresPage = () => {
         onClose={() => {
           setStatsModalOpen(false);
           setSelectedSemestreId(null);
-          setStats(null);
+          _setStats(null);
         }}
       >
         {statsQuery.isLoading ? (

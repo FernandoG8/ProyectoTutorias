@@ -1,11 +1,29 @@
 import { useMemo } from "react";
 import { useLocation } from "react-router-dom";
+import { Menu } from "lucide-react";
 import { navigationItems } from "@/constants/navigation";
 import { useAuthStore } from "@/store/auth-store";
 import { useUIStore } from "@/store/ui-store";
-import { MenuIcon } from "@/components/icons";
 import { SemestreSelector } from "@/components/common/SemestreSelector";
+import { colors } from "@/constants/colors";
 
+/**
+ * Topbar Component
+ *
+ * Header component with:
+ * - Sidebar toggle button
+ * - Current page title/breadcrumb
+ * - Semester selector
+ * - User profile information
+ * - Sticky positioning for persistent access
+ *
+ * Decision Log:
+ * - Uses semantic color system from constants/colors.ts
+ * - Lucide icons for consistency
+ * - Memoized route detection to prevent unnecessary re-renders
+ * - Improved accessibility with ARIA labels
+ * - Responsive layout with flexbox
+ */
 export const Topbar = () => {
   const location = useLocation();
   const toggleSidebar = useUIStore((state) => state.toggleSidebar);
@@ -28,33 +46,73 @@ export const Topbar = () => {
     return dictionary[role] ?? role.replace("ROLE_", "").toLowerCase();
   }, [user?.roles]);
 
+  const initials = user?.username ? user.username.substring(0, 2).toUpperCase() : "IN";
+
   return (
-    <header className="sticky top-0 z-10 flex items-center justify-between border-b border-border/60 bg-surface/95 px-6 py-4 backdrop-blur">
-      <div className="flex items-center gap-4">
+    <header
+      className="sticky top-0 z-10 flex items-center justify-between border-b bg-white px-6 py-4 shadow-sm"
+      style={{ borderColor: colors.semantic.border }}
+    >
+      {/* Left Section: Menu Toggle & Title */}
+      <div className="flex items-center gap-4 flex-1">
         <button
           onClick={toggleSidebar}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-white text-primary transition hover:-translate-y-0.5 hover:border-primary/50 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-lg border transition-colors duration-200 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2"
+          style={{
+            borderColor: colors.semantic.border,
+            color: colors.semantic.text.primary,
+          }}
           type="button"
           aria-label="Alternar menú"
+          title="Mostrar/ocultar menú"
         >
-          <MenuIcon className="h-5 w-5" aria-hidden="true" />
+          <Menu className="h-5 w-5" aria-hidden="true" />
         </button>
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.32em] text-primary/70">
-            Módulo activo
+        <div className="min-w-0">
+          <p
+            className="text-xs font-semibold uppercase tracking-wider"
+            style={{ color: colors.semantic.text.secondary }}
+          >
+            Módulo actual
           </p>
-          <h1 className="text-2xl font-semibold text-text">{activeRoute}</h1>
+          <h1
+            className="text-xl font-bold truncate"
+            style={{ color: colors.semantic.text.primary }}
+          >
+            {activeRoute}
+          </h1>
         </div>
       </div>
-      <div className="flex items-center gap-4">
+
+      {/* Right Section: Semester Selector & User Profile */}
+      <div className="flex items-center gap-6">
         <SemestreSelector />
-        <div className="flex items-center gap-4 rounded-2xl border border-border bg-white px-4 py-2 shadow-sm">
+
+        {/* User Profile Card */}
+        <div
+          className="flex items-center gap-3 rounded-lg border px-4 py-2 bg-gray-50"
+          style={{ borderColor: colors.semantic.border }}
+        >
           <div className="text-right">
-            <p className="text-sm font-semibold text-text">{user?.username ?? "Invitado"}</p>
-            <p className="text-xs text-slate-500">{roleLabel}</p>
+            <p
+              className="text-sm font-semibold"
+              style={{ color: colors.semantic.text.primary }}
+            >
+              {user?.username ?? "Invitado"}
+            </p>
+            <p
+              className="text-xs"
+              style={{ color: colors.semantic.text.secondary }}
+            >
+              {roleLabel}
+            </p>
           </div>
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-base font-semibold text-primary">
-            {user ? user.username.charAt(0).toUpperCase() : "I"}
+          <div
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-sm font-semibold text-white"
+            style={{ backgroundColor: colors.primary[400] }}
+            title={user?.username ?? "Usuario"}
+          >
+            {initials}
           </div>
         </div>
       </div>

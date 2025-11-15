@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import type { LucideIcon } from "lucide-react";
 

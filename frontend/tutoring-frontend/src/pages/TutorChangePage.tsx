@@ -63,7 +63,7 @@ export const TutorChangePage = () => {
   // Autocomplete suggestions (only active students)
   const { data: suggestions = [] } = useQuery<AlumnoResponse[]>({
     queryKey: ["cambio-tutor-autocomplete", search],
-    queryFn: () => autocompleteStudents(search, "ACTIVO", undefined, 8),
+    queryFn: () => autocompleteStudents(search, "ACTIVO", undefined),
     enabled: search.length >= 2,
   });
 

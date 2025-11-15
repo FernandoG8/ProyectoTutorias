@@ -9,9 +9,13 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { Users, GraduationCap, TrendingUp, AlertCircle } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { DataTable } from "@/components/ui/DataTable";
 import { DashboardSkeleton } from "@/components/common/DashboardSkeleton";
+// import { StatCard } from "@/components/common/StatCard";
+import { ProcessStatusCard } from "@/components/common/ProcessStatusCard";
+import { MetricsCard } from "@/components/common/MetricsCard";
 import {
   getDashboardEstadisticas,
   getDistribucionTutores,
@@ -20,6 +24,7 @@ import {
 import { listAssignmentProcesses } from "@/services/asignaciones-service";
 import type { AssignmentProcessSummary, DistribucionTutor, ProcesoReciente } from "@/types";
 import type { ColumnDef } from "@tanstack/react-table";
+import { colors } from "@/constants/colors";
 
 const processColumns: ColumnDef<AssignmentProcessSummary>[] = [
   { header: "ID", accessorKey: "id" },
@@ -111,94 +116,147 @@ export const DashboardPage = () => {
 
   return (
     <div className="space-y-6">
-      <section className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <p className="text-sm text-slate-500">Total de tutores activos</p>
-          <p className="text-3xl font-semibold text-text">
-            {estadisticas?.total_tutores ?? "--"}
-          </p>
-        </Card>
-        <Card>
-          <p className="text-sm text-slate-500">Alumnos asignados</p>
-          <p className="text-3xl font-semibold text-text">
-            {estadisticas?.alumnos_con_tutor ?? "--"}
-          </p>
-          {estadisticas && (
-            <p className="mt-1 text-xs text-slate-500">
-              {estadisticas.alumnos_sin_tutor} sin tutor
-            </p>
-          )}
-        </Card>
-        <Card>
-          <p className="text-sm text-slate-500">Promedio por tutor</p>
-          <p className="text-3xl font-semibold text-text">
-            {estadisticas?.promedio_alumnos_por_tutor.toFixed(1) ?? "--"}
-          </p>
-        </Card>
-        <Card>
-          <p className="text-sm text-slate-500">Cobertura</p>
-          <p className="text-3xl font-semibold text-text">
-            {estadisticas?.porcentaje_cobertura.toFixed(1) ?? "--"}%
-          </p>
-        </Card>
+      {/* Key Metrics Section */}
+      <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <MetricsCard
+          label="Tutores Activos"
+          value={estadisticas?.total_tutores ?? "--"}
+          color="primary"
+          icon={<Users className="h-5 w-5" />}
+          isLoading={estadisticasLoading}
+        />
+        <MetricsCard
+          label="Alumnos Asignados"
+          value={estadisticas?.alumnos_con_tutor ?? "--"}
+          color="success"
+          icon={<GraduationCap className="h-5 w-5" />}
+          subtitle={
+            estadisticas
+              ? `${estadisticas.alumnos_sin_tutor} sin tutor`
+              : undefined
+          }
+          isLoading={estadisticasLoading}
+        />
+        <MetricsCard
+          label="Promedio por Tutor"
+          value={estadisticas?.promedio_alumnos_por_tutor?.toFixed(1) ?? "--"}
+          color="info"
+          icon={<TrendingUp className="h-5 w-5" />}
+          isLoading={estadisticasLoading}
+        />
+        <MetricsCard
+          label="Cobertura"
+          value={estadisticas?.porcentaje_cobertura?.toFixed(1) ?? "--"}
+          unit="%"
+          color="warning"
+          icon={<AlertCircle className="h-5 w-5" />}
+          isLoading={estadisticasLoading}
+          trend={
+            estadisticas &&
+            estadisticas.porcentaje_cobertura >= 85
+              ? "up"
+              : "down"
+          }
+          trendValue={
+            estadisticas &&
+            estadisticas.porcentaje_cobertura >= 85
+              ? "Meta alcanzada"
+              : "Necesita mejora"
+          }
+        />
       </section>
 
       <section className="grid gap-6 lg:grid-cols-5">
         <Card className="lg:col-span-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-text">
-                Tutores vs alumnos asignados
-              </h2>
-              <p className="text-sm text-slate-500">
-                Distribución de tutorías por docente para el período actual.
-              </p>
-            </div>
+          <div className="mb-6">
+            <h2
+              className="text-lg font-semibold mb-1"
+              style={{ color: colors.semantic.text.primary }}
+            >
+              Distribución de Tutores
+            </h2>
+            <p
+              className="text-sm"
+              style={{ color: colors.semantic.text.secondary }}
+            >
+              Alumnos asignados por docente en el período actual.
+            </p>
           </div>
-          <div className="mt-6 h-80">
+          <div className="h-80 -mx-4">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-                <XAxis dataKey="nombre" hide={chartData.length > 8} />
-                <YAxis allowDecimals={false} />
-                <Tooltip
-                  cursor={{ fill: "rgba(49, 87, 98, 0.08)" }}
-                  contentStyle={{ borderRadius: 12, borderColor: "#E2E8F0" }}
+              <BarChart
+                data={chartData}
+                margin={{ top: 20, right: 30, left: 0, bottom: 50 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke={colors.semantic.border}
                 />
-                <Bar dataKey="alumnos" fill="#315762" radius={[6, 6, 0, 0]} />
+                <XAxis
+                  dataKey="nombre"
+                  hide={chartData.length > 8}
+                  stroke={colors.semantic.text.muted}
+                />
+                <YAxis
+                  allowDecimals={false}
+                  stroke={colors.semantic.text.muted}
+                />
+                <Tooltip
+                  cursor={{ fill: colors.primary[100] }}
+                  contentStyle={{
+                    borderRadius: 8,
+                    border: `1px solid ${colors.semantic.border}`,
+                    backgroundColor: "white",
+                  }}
+                />
+                <Bar
+                  dataKey="alumnos"
+                  fill={colors.primary[400]}
+                  radius={[8, 8, 0, 0]}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </Card>
 
         <Card className="lg:col-span-2">
-          <h2 className="text-lg font-semibold text-text">Procesos recientes</h2>
-          <p className="text-sm text-slate-500">
+          <h2
+            className="text-lg font-semibold mb-1"
+            style={{ color: colors.semantic.text.primary }}
+          >
+            Procesos recientes
+          </h2>
+          <p
+            className="text-sm mb-4"
+            style={{ color: colors.semantic.text.secondary }}
+          >
             Seguimiento a los últimos procesos de asignación ejecutados.
           </p>
-          <ul className="mt-4 space-y-3 text-sm text-slate-600">
-            {procesosRecientes.map((proceso) => (
-              <li key={proceso.id} className="rounded-lg bg-slate-100 px-3 py-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold">{proceso.estado}</span>
-                  <span className="text-xs text-slate-500">
-                    {new Date(proceso.fecha_inicio).toLocaleDateString()}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-slate-500">
-                  Archivo: {proceso.archivo} · Usuario: {proceso.usuario}
-                </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  Procesados: {proceso.total_procesados} · Asignados: {proceso.total_asignados} · Errores: {proceso.total_errores}
-                </p>
-              </li>
-            ))}
-            {!procesosRecientes.length && (
-              <li className="rounded-lg bg-slate-100 px-3 py-2">
-                No se registran procesos recientes.
-              </li>
+          <div className="space-y-3 max-h-96 overflow-y-auto">
+            {procesosRecientes.length > 0 ? (
+              procesosRecientes.map((proceso) => (
+                <ProcessStatusCard
+                  key={proceso.id}
+                  id={proceso.id}
+                  estado={proceso.estado as any}
+                  fechaInicio={proceso.fecha_inicio}
+                  fechaFin={proceso.fecha_fin ?? undefined}
+                  totalProcesados={proceso.total_procesados}
+                  totalAsignados={proceso.total_asignados}
+                  totalErrores={proceso.total_errores}
+                  archivo={proceso.archivo}
+                  usuario={proceso.usuario}
+                />
+              ))
+            ) : (
+              <p
+                className="text-sm py-4 text-center"
+                style={{ color: colors.semantic.text.muted }}
+              >
+                No se registran procesos recientes
+              </p>
             )}
-          </ul>
+          </div>
         </Card>
       </section>
 

@@ -1,69 +1,20 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
+import { RotateCw } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { DataTable } from "@/components/ui/DataTable";
 import { Skeleton } from "@/components/ui/Skeleton";
+// import { FormField } from "@/components/ui/FormField";
 import { SearchInput } from "@/components/SearchInput";
 import { listStudents, searchStudents, autocompleteStudents } from "@/services/alumnos-service";
 import { useDebounce } from "@/lib/use-debounce";
 import { rankStudents } from "@/lib/search-rank";
+import { colors } from "@/constants/colors";
 import type { AlumnoPagedResponse, AlumnoResponse, EstadoAlumno, TutorResponse } from "@/types";
-
-const columns: ColumnDef<AlumnoResponse>[] = [
-  {
-    header: "Matrícula",
-    accessorKey: "matricula",
-    cell: ({ getValue }) => (
-      <span className="font-semibold text-text">{getValue<string>()}</span>
-    ),
-  },
-  {
-    header: "Nombre",
-    accessorKey: "nombre",
-  },
-  {
-    header: "Carrera",
-    accessorKey: "carrera",
-  },
-  {
-    header: "Semestre",
-    accessorKey: "semestre",
-    cell: ({ getValue }) => <span className="text-slate-600">{getValue<number>()}</span>,
-  },
-  {
-    header: "Estado",
-    accessorKey: "estado",
-    cell: ({ getValue }) => {
-      const value = getValue<EstadoAlumno>();
-      return (
-        <Badge variant={value === "ACTIVO" ? "success" : "warning"}>
-          {value === "ACTIVO" ? "Activo" : "Inactivo"}
-        </Badge>
-      );
-    },
-  },
-  {
-    header: "Tutor asignado",
-    cell: ({ row }) => (
-      <div className="flex flex-col text-sm">
-        <span className="font-medium text-text">
-          {row.original.tutor?.nombre ?? "Sin asignar"}
-        </span>
-        {row.original.tutor ? (
-          <span className="text-xs text-slate-500">
-            {row.original.tutor.carrera}
-          </span>
-        ) : (
-          <span className="text-xs text-amber-600">Pendiente de asignación</span>
-        )}
-      </div>
-    ),
-  },
-];
 
 const pageSize = 20;
 
@@ -75,6 +26,62 @@ export const StudentsPage = () => {
   const [isSearchMode, setIsSearchMode] = useState(false);
 
   const debouncedSearch = useDebounce(search, 300);
+
+  // Memoized column definitions to prevent unnecessary re-renders
+  const columns = useMemo<ColumnDef<AlumnoResponse>[]>(
+    () => [
+      {
+        header: "Matrícula",
+        accessorKey: "matricula",
+        cell: ({ getValue }) => (
+          <span className="font-semibold text-text">{getValue<string>()}</span>
+        ),
+      },
+      {
+        header: "Nombre",
+        accessorKey: "nombre",
+      },
+      {
+        header: "Carrera",
+        accessorKey: "carrera",
+      },
+      {
+        header: "Semestre",
+        accessorKey: "semestre",
+        cell: ({ getValue }) => <span className="text-slate-600">{getValue<number>()}</span>,
+      },
+      {
+        header: "Estado",
+        accessorKey: "estado",
+        cell: ({ getValue }) => {
+          const value = getValue<EstadoAlumno>();
+          return (
+            <Badge variant={value === "ACTIVO" ? "success" : "warning"}>
+              {value === "ACTIVO" ? "Activo" : "Inactivo"}
+            </Badge>
+          );
+        },
+      },
+      {
+        header: "Tutor asignado",
+        cell: ({ row }) => (
+          <div className="flex flex-col text-sm">
+            <span className="font-medium text-text">
+              {row.original.tutor?.nombre ?? "Sin asignar"}
+            </span>
+            {row.original.tutor ? (
+              <span className="text-xs text-slate-500">
+                {row.original.tutor.carrera}
+              </span>
+            ) : (
+              <span className="text-xs text-amber-600">Pendiente de asignación</span>
+            )}
+          </div>
+        ),
+      },
+    ],
+    []
+  );
 
   // Fetch list or search results
   const {
@@ -89,7 +96,7 @@ export const StudentsPage = () => {
         return searchStudents({
           q: debouncedSearch,
           page,
-          limit: pageSize,
+          size: pageSize,
           estado: estado === "TODOS" ? undefined : estado,
           carrera: carrera === "TODAS" ? undefined : carrera,
         });
@@ -106,7 +113,7 @@ export const StudentsPage = () => {
   // Autocomplete suggestions (respects estado and carrera filters)
   const { data: suggestions = [] } = useQuery<AlumnoResponse[]>({
     queryKey: ["students-autocomplete", search, estado, carrera],
-    queryFn: () => autocompleteStudents(search, estado, carrera, 8),
+    queryFn: () => autocompleteStudents(search, estado, carrera),
     enabled: search.length >= 2 && !isSearchMode,
   });
 
@@ -165,42 +172,66 @@ export const StudentsPage = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3">
-        <h2 className="text-2xl font-semibold text-text">Alumnos activos</h2>
-        <p className="max-w-3xl text-sm text-slate-600">
-          Consulta y filtra a los alumnos inscritos en el programa de tutorías. Usa la
-          búsqueda por matrícula o nombre y acota los resultados por estado y carrera.
+      {/* Header */}
+      <div className="flex flex-col gap-2">
+        <h1
+          className="text-3xl font-bold"
+          style={{ color: colors.semantic.text.primary }}
+        >
+          Gestión de Alumnos
+        </h1>
+        <p
+          className="text-sm max-w-3xl"
+          style={{ color: colors.semantic.text.secondary }}
+        >
+          Consulta y administra los alumnos inscritos en el programa de tutorías.
+          Usa filtros para encontrar alumnos específicos por matrícula, estado o carrera.
         </p>
       </div>
 
+      {/* Filters Card */}
       <Card>
-        <div className="flex flex-col gap-4">
-          <div className="grid gap-4 md:grid-cols-4">
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-text" htmlFor="search-student">
-                Buscar alumno
-              </label>
-              <SearchInput
-                id="search-student"
-                placeholder="Ingresa matrícula o nombre"
-                value={search}
-                onChange={handleSearchChange}
-                onClear={handleSearchClear}
-                onSelect={handleSelectStudent}
-                suggestions={suggestions}
-                suggestionsType="student"
-                isLoading={search.length >= 2 && !isSearchMode && isFetching}
-              />
-              <p className="text-xs text-slate-500">
-                {isSearchMode ? (
-                  <>Búsqueda global habilitada. Presiona <kbd className="bg-slate-100 px-1 rounded text-xs">Escape</kbd> para cancelar.</>
-                ) : (
-                  <>Escribe 2+ caracteres para búsqueda automática.</>
-                )}
-              </p>
-            </div>
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-text" htmlFor="filter-status">
+        <div className="space-y-4">
+          {/* Search Bar */}
+          <div>
+            <label
+              className="text-sm font-semibold mb-2 block"
+              htmlFor="search-student"
+              style={{ color: colors.semantic.text.primary }}
+            >
+              Buscar alumno
+            </label>
+            <SearchInput
+              id="search-student"
+              placeholder="Matrícula, nombre o carrera..."
+              value={search}
+              onChange={handleSearchChange}
+              onClear={handleSearchClear}
+              onSelect={handleSelectStudent}
+              suggestions={suggestions}
+              suggestionsType="student"
+              isLoading={search.length >= 2 && !isSearchMode && isFetching}
+            />
+            <p
+              className="text-xs mt-2"
+              style={{ color: colors.semantic.text.muted }}
+            >
+              {isSearchMode ? (
+                <>Búsqueda global activa. Presiona Escape para cancelar</>
+              ) : (
+                <>Escribe 2+ caracteres para búsqueda automática</>
+              )}
+            </p>
+          </div>
+
+          {/* Filters Grid */}
+          <div className="grid gap-4 md:grid-cols-3">
+            <div>
+              <label
+                className="text-sm font-semibold mb-2 block"
+                htmlFor="filter-status"
+                style={{ color: colors.semantic.text.primary }}
+              >
                 Estado
               </label>
               <Select
@@ -211,14 +242,24 @@ export const StudentsPage = () => {
                   setEstado(event.target.value as EstadoAlumno | "TODOS");
                 }}
               >
-                <option value="TODOS">Todos</option>
+                <option value="TODOS">Todos los estados</option>
                 <option value="ACTIVO">Activos</option>
                 <option value="INACTIVO">Inactivos</option>
               </Select>
-              <p className="text-xs text-slate-500">Selecciona el estado académico reportado por el sistema.</p>
+              <p
+                className="text-xs mt-1"
+                style={{ color: colors.semantic.text.muted }}
+              >
+                Filtra por estado académico
+              </p>
             </div>
-            <div className="space-y-1 md:col-span-2">
-              <label className="text-sm font-medium text-text" htmlFor="filter-career">
+
+            <div className="md:col-span-2">
+              <label
+                className="text-sm font-semibold mb-2 block"
+                htmlFor="filter-career"
+                style={{ color: colors.semantic.text.primary }}
+              >
                 Carrera
               </label>
               <Select
@@ -229,34 +270,50 @@ export const StudentsPage = () => {
                   setCarrera(event.target.value);
                 }}
               >
-                <option value="TODAS">Todas</option>
+                <option value="TODAS">Todas las carreras</option>
                 {carreraOptions.map((option) => (
                   <option key={option} value={option}>
                     {option}
                   </option>
                 ))}
               </Select>
-              <p className="text-xs text-slate-500">
-                Las carreras listadas corresponden a los resultados obtenidos en la consulta actual.
+              <p
+                className="text-xs mt-1"
+                style={{ color: colors.semantic.text.muted }}
+              >
+                Filtra por programa académico
               </p>
             </div>
           </div>
 
-          <div className="flex items-center justify-between">
+          {/* Pagination & Actions */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t" style={{ borderColor: colors.semantic.border }}>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500">
-                Página {page} de {totalPages} • {pagedStudents?.totalElements ?? 0} registros totales
+              <span
+                className="text-sm font-medium"
+                style={{ color: colors.semantic.text.secondary }}
+              >
+                {pagedStudents?.totalElements ?? 0} registros
               </span>
-              {isSearchMode && <Badge variant="info">🔍 Búsqueda global</Badge>}
+              {isSearchMode && (
+                <Badge variant="info">🔍 Búsqueda activa</Badge>
+              )}
+              <span
+                className="text-xs"
+                style={{ color: colors.semantic.text.muted }}
+              >
+                Página {page} de {totalPages}
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <Button
-                variant="secondary"
+                variant="ghost"
                 onClick={() => refetch()}
-                className="hidden sm:inline-flex"
-                type="button"
                 disabled={isFetching}
+                title="Actualizar datos"
+                className="hidden sm:inline-flex gap-2"
               >
+                <RotateCw className="h-4 w-4" />
                 Actualizar
               </Button>
               <Button
@@ -265,7 +322,7 @@ export const StudentsPage = () => {
                 type="button"
                 disabled={page === 1 || isFetching}
               >
-                Anterior
+                ← Anterior
               </Button>
               <Button
                 variant="ghost"
@@ -273,7 +330,7 @@ export const StudentsPage = () => {
                 type="button"
                 disabled={page === totalPages || isFetching}
               >
-                Siguiente
+                Siguiente →
               </Button>
             </div>
           </div>

@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { DataTable } from "@/components/ui/DataTable";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { useNotification } from "@/hooks/useNotification";
 import {
   getAssignmentProcessStatus,
   listAssignmentProcesses,
@@ -52,6 +53,7 @@ const formatStatus = (estado: EstadoProceso) => estadoLabels[estado] ?? estadoLa
 
 export const AssignmentPage = () => {
   const queryClient = useQueryClient();
+  const { error: showError, success } = useNotification();
   const [selectedProcessId, setSelectedProcessId] = useState<number | null>(null);
 
   const {
@@ -86,22 +88,41 @@ export const AssignmentPage = () => {
   const { mutateAsync, isPending, data: startResponse, reset: resetMutation } = useMutation({
     mutationFn: startAssignmentProcess,
     onSuccess: (result) => {
+      success("Proceso iniciado exitosamente");
       queryClient.invalidateQueries({ queryKey: ["assignment-processes"] });
       if (result.procesoId) {
         setSelectedProcessId(result.procesoId);
       }
     },
+    onError: (error) => {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Error al ejecutar el proceso de asignación. Verifica los datos e intenta de nuevo.";
+      showError(errorMessage);
+    },
   });
 
   const onSubmit = async (values: FormValues) => {
-    const file = values.archivo.item(0);
-    if (!file) return;
-    await mutateAsync({
-      archivo: file,
-      semestreAcademico: values.semestreAcademico,
-      usuario: values.usuario,
-    });
-    reset({ semestreAcademico: values.semestreAcademico, usuario: values.usuario, archivo: undefined });
+    try {
+      const file = values.archivo.item(0);
+      if (!file) {
+        showError("Selecciona un archivo válido");
+        return;
+      }
+      await mutateAsync({
+        archivo: file,
+        semestreAcademico: values.semestreAcademico,
+        usuario: values.usuario,
+      });
+      reset({ semestreAcademico: values.semestreAcademico, usuario: values.usuario, archivo: undefined });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Error inesperado al procesar el formulario";
+      showError(errorMessage);
+    }
   };
 
   const processes = processesQuery.data ?? [];

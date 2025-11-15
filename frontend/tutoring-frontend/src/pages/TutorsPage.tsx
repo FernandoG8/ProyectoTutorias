@@ -92,7 +92,7 @@ export const TutorsPage = () => {
   // Autocomplete suggestions
   const { data: suggestions = [] } = useQuery<TutorResponse[]>({
     queryKey: ["tutors-autocomplete", search],
-    queryFn: () => autocompleteTutors(search, 8),
+    queryFn: () => autocompleteTutors(search, undefined),
     enabled: search.length >= 2 && !isSearchMode,
   });
 

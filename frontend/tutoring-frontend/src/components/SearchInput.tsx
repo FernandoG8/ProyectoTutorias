@@ -27,6 +27,7 @@ export const SearchInput = ({
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const isMountedRef = useRef(true);
 
   const isStudent = (item: any): item is AlumnoResponse => "matricula" in item;
   const isTutor = (item: any): item is TutorResponse => "capacidadMax" in item;
@@ -99,13 +100,24 @@ export const SearchInput = ({
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
+      // Only update state if component is still mounted
+      if (!isMountedRef.current) return;
+
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setIsOpen(false);
       }
     };
 
+    // Set mounted flag
+    isMountedRef.current = true;
+
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+
+    // Cleanup: remove listener and mark as unmounted
+    return () => {
+      isMountedRef.current = false;
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
   }, []);
 
   return (
