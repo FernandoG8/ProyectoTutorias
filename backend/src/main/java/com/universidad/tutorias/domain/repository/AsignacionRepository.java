@@ -62,7 +62,7 @@ public interface AsignacionRepository extends JpaRepository<Asignacion, Long> {
             "WHERE (:semestre IS NULL OR a.semestreAcademico = :semestre)")
     List<String> findCarrerasDisponibles(@Param("semestre") String semestre);
 
-    @Query("SELECT COUNT(a) FROM Asignacion a WHERE a.tutor.id = :tutorId")
+    @Query("SELECT COUNT(a) FROM Asignacion a WHERE a.tutor.id = :tutorId AND a.alumno.estado = 'ACTIVO'")
     int countByTutorId(@Param("tutorId") Long tutorId);
 
     @Query("SELECT COUNT(a) FROM Asignacion a WHERE a.semestre.id = :semestreId")

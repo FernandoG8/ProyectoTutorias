@@ -1,6 +1,8 @@
 package com.universidad.tutorias.application.service;
 
+import com.universidad.tutorias.application.dto.ResolucionMotivoResultDTO;
 import com.universidad.tutorias.domain.entity.Alumno;
+import com.universidad.tutorias.domain.enums.MotivoInactividad;
 
 import java.util.List;
 
@@ -18,4 +20,13 @@ public interface InactivacionService {
      * @param procesoId ID del proceso actual
      */
     void liberarCupos(Long procesoId);
+
+    /**
+     * Cambia el motivo de inactividad de un alumno inactivo
+     * Detecta automáticamente si el tutor preservado tiene capacidad disponible
+     * @param alumnoInactivoId ID del registro de alumno inactivo
+     * @param motivoInactividad nuevo motivo de inactividad
+     * @return información del resultado del cambio (sugerencias si es necesario)
+     */
+    ResolucionMotivoResultDTO cambiarMotivoInactividad(Long alumnoInactivoId, MotivoInactividad motivoInactividad);
 }

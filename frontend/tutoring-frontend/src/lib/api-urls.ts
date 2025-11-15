@@ -44,7 +44,6 @@ export const API_URLS = {
     root: "/api/semestres",
     activo: "/api/semestres/activo",
     activar: (id: number | string) => `/api/semestres/${id}/activar`,
-    desactivar: (id: number | string) => `/api/semestres/${id}/desactivar`,
     estadisticas: (id: number | string) => `/api/semestres/${id}/estadisticas`,
     detail: (id: number | string) => `/api/semestres/${id}`,
   },

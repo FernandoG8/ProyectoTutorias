@@ -4,6 +4,7 @@
 
 package com.universidad.tutorias.application.service.impl;
 
+import com.universidad.tutorias.application.dto.ResolucionMotivoResultDTO;
 import com.universidad.tutorias.application.service.AuditoriaService;
 import com.universidad.tutorias.application.service.InactivacionService;
 import com.universidad.tutorias.application.service.TutorSincronizacionService;
@@ -189,6 +190,116 @@ public class InactivacionServiceImpl implements InactivacionService {
         }
 
         log.info("Liberados {} cupos de {} tutores", cuposTotalesLiberados, tutoresActualizados);
+    }
+
+    @Override
+    @Transactional
+    public ResolucionMotivoResultDTO cambiarMotivoInactividad(Long alumnoInactivoId, MotivoInactividad motivoInactividad) {
+        log.info("Cambiando motivo de inactividad del alumno inactivo ID: {} a: {}", alumnoInactivoId, motivoInactividad);
+
+        // 1. Obtener el registro de alumno inactivo
+        AlumnoInactivo alumnoInactivo = alumnoInactivoRepository.findById(alumnoInactivoId)
+                .orElseThrow(() -> new EntityNotFoundException("Alumno inactivo no encontrado: " + alumnoInactivoId));
+
+        Alumno alumno = alumnoInactivo.getAlumno();
+        Tutor tutorPreservado = alumnoInactivo.getTutorPreservado();
+
+        // 2. Inicializar el resultado
+        ResolucionMotivoResultDTO resultado = ResolucionMotivoResultDTO.builder()
+                .alumnoInactivoId(alumnoInactivoId)
+                .alumnoMatricula(alumno.getMatricula())
+                .alumnoNombre(alumno.getNombre())
+                .motivoInactividad(motivoInactividad)
+                .tutorPreservadoId(tutorPreservado != null ? tutorPreservado.getId() : null)
+                .tutorNombre(tutorPreservado != null ? tutorPreservado.getNombre() : "N/A")
+                .build();
+
+        // 3. Analizar si el tutor preservado tiene capacidad
+        if (tutorPreservado == null) {
+            resultado.setExitoso(false);
+            resultado.setMensaje("No hay tutor preservado para este alumno inactivo");
+            resultado.setSugerencia("El alumno no tenía tutor asignado cuando se marcó como inactivo");
+            return resultado;
+        }
+
+        // 4. Sincronizar carga del tutor para obtener datos precisos
+        tutorSincronizacionService.recalcularCargaTutor(tutorPreservado.getId());
+        tutorPreservado = tutorRepository.findByIdForUpdate(tutorPreservado.getId())
+                .orElseThrow(() -> new EntityNotFoundException("Tutor preservado no encontrado"));
+
+        int cargaActual = tutorPreservado.getCargaActual();
+        int capacidadMax = tutorPreservado.getCapacidadMax();
+        int cuposDisponibles = capacidadMax - cargaActual;
+        boolean tutorActivo = tutorPreservado.getActivo();
+        boolean tutorTieneCapacidad = tutorActivo && cuposDisponibles > 0;
+
+        // 5. Establecer información del tutor en el resultado
+        resultado.setTutorCargaActual(cargaActual);
+        resultado.setTutorCapacidadMax(capacidadMax);
+        resultado.setTutorCuposDisponibles(cuposDisponibles);
+        resultado.setTutorActivo(tutorActivo);
+        resultado.setTutorTieneCapacidad(tutorTieneCapacidad);
+
+        // 6. Actualizar el motivo de inactividad
+        MotivoInactividad motivoAnterior = alumnoInactivo.getMotivoInactividad();
+        alumnoInactivo.setMotivoInactividad(motivoInactividad);
+
+        // 7. Determinar si debe liberar o preservar el cupo según el motivo
+        // Si el motivo debe preservar tutor, mantener el alumno con su tutor
+        // Si debe liberar, entonces cupoLiberado = true
+        boolean debePreservar = motivoInactividad.debePreservarTutor();
+        alumnoInactivo.setCupoLiberado(!debePreservar);
+
+        // 8. Guardar cambios
+        alumnoInactivoRepository.save(alumnoInactivo);
+
+        // 9. Preparar respuesta según la situación
+        if (!tutorActivo) {
+            resultado.setExitoso(true);
+            resultado.setMensaje(String.format("Motivo actualizado a %s", motivoInactividad.toString()));
+            resultado.setSugerencia(String.format("⚠️ AVISO: El tutor %s (ID: %d) NO ESTÁ ACTIVO. El alumno podría necesitar reasignación.",
+                    tutorPreservado.getNombre(), tutorPreservado.getId()));
+            log.warn("Tutor preservado inactivo: {} (ID: {})", tutorPreservado.getNombre(), tutorPreservado.getId());
+
+        } else if (debePreservar && !tutorTieneCapacidad) {
+            resultado.setExitoso(true);
+            resultado.setMensaje(String.format("Motivo actualizado a %s (requiere preservar tutor)", motivoInactividad.toString()));
+            resultado.setSugerencia(String.format(
+                    "⚠️ AVISO: El tutor %s está a CAPACIDAD MÁXIMA (%d/%d). " +
+                    "Para mantener al alumno con este tutor, debe incrementar la capacidad a %d o más.",
+                    tutorPreservado.getNombre(), cargaActual, capacidadMax, cargaActual + 1));
+            log.warn("Tutor sin capacidad disponible: {} (ID: {}), Carga: {}/{}",
+                    tutorPreservado.getNombre(), tutorPreservado.getId(), cargaActual, capacidadMax);
+
+        } else if (debePreservar && tutorTieneCapacidad) {
+            resultado.setExitoso(true);
+            resultado.setMensaje(String.format("Motivo actualizado a %s - Tutor preservado tiene capacidad", motivoInactividad.toString()));
+            resultado.setSugerencia(String.format("✓ El tutor %s tiene %d cupo(s) disponible(s). El alumno puede reintegrarse cuando sea necesario.",
+                    tutorPreservado.getNombre(), cuposDisponibles));
+            log.info("Alumno preservado con tutor que tiene capacidad: {} ", alumno.getMatricula());
+
+        } else {
+            // No debe preservar, se liberará el cupo en la próxima ejecución de liberarCupos()
+            resultado.setExitoso(true);
+            resultado.setMensaje(String.format("Motivo actualizado a %s - Cupo será liberado en próximo proceso", motivoInactividad.toString()));
+            resultado.setSugerencia(String.format("El cupo será liberado del tutor %s en la próxima ejecución del proceso de liberación.",
+                    tutorPreservado.getNombre()));
+            log.info("Cupo será liberado para alumno: {} del tutor: {}", alumno.getMatricula(), tutorPreservado.getNombre());
+        }
+
+        // 10. Auditoría
+        auditoriaService.registrarLog(
+                null, // No hay procesoId en este contexto
+                TipoAccion.RESOLUCION_MOTIVO,
+                "ALUMNO_INACTIVO",
+                alumnoInactivo.getId(),
+                String.format("Motivo de inactividad actualizado de %s a %s", motivoAnterior, motivoInactividad),
+                String.format("{\"motivo\":\"%s\",\"cupoLiberado\":%s}", motivoAnterior, !debePreservar),
+                String.format("{\"motivo\":\"%s\",\"cupoLiberado\":%s}", motivoInactividad, alumnoInactivo.getCupoLiberado()),
+                "USUARIO"
+        );
+
+        return resultado;
     }
 
 }

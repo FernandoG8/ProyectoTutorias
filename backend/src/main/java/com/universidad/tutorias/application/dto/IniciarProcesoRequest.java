@@ -19,7 +19,7 @@ public class IniciarProcesoRequest {
     private MultipartFile archivo;
 
     @NotBlank(message = "El semestre académico es obligatorio")
-    @Pattern(regexp = "\\d{4}-[12]", message = "Formato inválido. Use: YYYY-1 o YYYY-2")
+    @Pattern(regexp = "^\\d{4}-\\d{4}-F[12]$", message = "Formato inválido. Use: YYYY-F1 o YYYY-F2")
     private String semestreAcademico;
 
     @NotBlank(message = "El usuario es obligatorio")

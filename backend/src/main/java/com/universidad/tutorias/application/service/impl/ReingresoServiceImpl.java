@@ -7,9 +7,11 @@ package com.universidad.tutorias.application.service.impl;
 import com.universidad.tutorias.application.dto.AlumnoExcelDTO;
 import com.universidad.tutorias.application.service.AuditoriaService;
 import com.universidad.tutorias.application.service.ReingresoService;
+import com.universidad.tutorias.application.service.SemestreService;
 import com.universidad.tutorias.domain.entity.Alumno;
 import com.universidad.tutorias.domain.entity.AlumnoInactivo;
 import com.universidad.tutorias.domain.entity.Asignacion;
+import com.universidad.tutorias.domain.entity.Semestre;
 import com.universidad.tutorias.domain.entity.Tutor;
 import com.universidad.tutorias.domain.enums.EstadoAlumno;
 import com.universidad.tutorias.domain.enums.SeveridadAlerta;
@@ -39,6 +41,7 @@ public class ReingresoServiceImpl implements ReingresoService {
     private final AsignacionRepository asignacionRepository;
     private final AlertaProcesoRepository alertaRepository;
     private final AuditoriaService auditoriaService;
+    private final SemestreService semestreService;
 
     @Override
     @Transactional
@@ -92,11 +95,22 @@ public class ReingresoServiceImpl implements ReingresoService {
                         alumno.setTutorActual(tutor);
                         alumnoRepository.save(alumno);
 
+                        // Obtener semestre activo para la asignación
+                        Optional<Semestre> semestreActivo = semestreService.obtenerSemestreActivo();
+                        if (semestreActivo.isEmpty()) {
+                            log.warn("No hay un semestre activo disponible para registrar la asignación de reingreso del alumno {}",
+                                    alumno.getMatricula());
+                            noAsignados.add(alumno);
+                            continue;
+                        }
+
                         // Crear asignación de reingreso
                         Asignacion asignacion = new Asignacion();
                         asignacion.setAlumno(alumno);
                         asignacion.setTutor(tutor);
+                        asignacion.setSemestre(semestreActivo.get());
                         asignacion.setTipoAsignacion(TipoAsignacion.REINGRESO);
+                        asignacion.setSemestreAcademico(semestreActivo.get().getCodigo());
                         asignacionRepository.save(asignacion);
 
                         // Actualizar carga del tutor

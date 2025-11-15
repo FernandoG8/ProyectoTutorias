@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -6,12 +5,13 @@ import { useMutation } from "@tanstack/react-query";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { startAssignmentProcess } from "@/services/asignaciones-service";
-import { useSemestreStore } from "@/store/semestre-store";
-import { useAuthStore } from "@/store/auth-store";
 
 const schema = z.object({
+  semestreAcademico: z
+    .string()
+    .min(1, "Indica el semestre académico.")
+    .regex(/\d{4}-[12]/, "Usa el formato YYYY-1 o YYYY-2."),
   usuario: z.string().min(1, "Ingresa el usuario responsable."),
   archivo: z
     .custom<FileList>(
@@ -24,53 +24,32 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 export const ListUploadPage = () => {
-  const user = useAuthStore((state) => state.user);
-  const { semestreActivo, fetchSemestreActivo } = useSemestreStore();
-
-  useEffect(() => {
-    fetchSemestreActivo();
-  }, [fetchSemestreActivo]);
-
   const {
     register,
     handleSubmit,
     reset,
-    setValue,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      usuario: user?.username ?? "",
+      semestreAcademico: "",
+      usuario: "",
     },
   });
-
-  useEffect(() => {
-    if (user?.username) {
-      setValue("usuario", user.username);
-    }
-  }, [user?.username, setValue]);
 
   const { mutateAsync, isPending, isSuccess } = useMutation({
     mutationFn: startAssignmentProcess,
-    onSuccess: () => {
-      reset({ usuario: user?.username ?? "", archivo: undefined });
-    },
   });
 
   const onSubmit = async (values: FormValues) => {
-    if (!semestreActivo) {
-      alert("Debe configurar un semestre activo antes de iniciar el proceso.");
-      return;
-    }
-
     const file = values.archivo.item(0);
     if (!file) return;
-
     await mutateAsync({
       archivo: file,
-      semestreAcademico: semestreActivo.codigo, // Formato YYYY-YYYY-F1
+      semestreAcademico: values.semestreAcademico,
       usuario: values.usuario,
     });
+    reset();
   };
 
   return (
@@ -81,46 +60,30 @@ export const ListUploadPage = () => {
           Utiliza esta opción para lanzar la asignación automática con un archivo prevalidado.
         </p>
 
-        {!semestreActivo && (
-          <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
-            <div className="flex items-start gap-2">
-              <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
-              <div>
-                <p className="text-sm font-semibold text-amber-900">No hay semestre activo</p>
-                <p className="text-xs text-amber-700 mt-1">
-                  Debe configurar un semestre activo antes de iniciar el proceso.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {semestreActivo && (
-          <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-              <div>
-                <p className="text-sm font-semibold text-emerald-900">
-                  Semestre Activo: {semestreActivo.codigo}
-                </p>
-                <p className="text-xs text-emerald-700">{semestreActivo.nombre}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
         <form className="mt-6 space-y-5" onSubmit={handleSubmit(onSubmit)}>
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-text" htmlFor="archivo">
-              Archivo
-            </label>
-            <Input id="archivo" type="file" accept=".xlsx,.xls" {...register("archivo")} />
-            <p className="text-xs text-slate-500">
-              El archivo debe incluir las columnas: matrícula, nombre, carrera, semestre.
-            </p>
-            {errors.archivo && (
-              <p className="text-sm text-red-600">{errors.archivo.message as string}</p>
-            )}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-text" htmlFor="semestreAcademico">
+                Semestre académico
+              </label>
+              <Input
+                id="semestreAcademico"
+                placeholder="2025-1"
+                {...register("semestreAcademico")}
+              />
+              {errors.semestreAcademico && (
+                <p className="text-sm text-red-600">{errors.semestreAcademico.message}</p>
+              )}
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-text" htmlFor="archivo">
+                Archivo
+              </label>
+              <Input id="archivo" type="file" accept=".csv,.xlsx,.xls" {...register("archivo")} />
+              {errors.archivo && (
+                <p className="text-sm text-red-600">{errors.archivo.message as string}</p>
+              )}
+            </div>
           </div>
 
           <div className="space-y-1">

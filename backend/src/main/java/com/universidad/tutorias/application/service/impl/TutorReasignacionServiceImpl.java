@@ -3,9 +3,11 @@ package com.universidad.tutorias.application.service.impl;
 import com.universidad.tutorias.application.dto.CambioTutorRequestDTO;
 import com.universidad.tutorias.application.dto.CambioTutorResponseDTO;
 import com.universidad.tutorias.application.service.AuditoriaService;
+import com.universidad.tutorias.application.service.SemestreService;
 import com.universidad.tutorias.application.service.TutorReasignacionService;
 import com.universidad.tutorias.domain.entity.Alumno;
 import com.universidad.tutorias.domain.entity.Asignacion;
+import com.universidad.tutorias.domain.entity.Semestre;
 import com.universidad.tutorias.domain.entity.Tutor;
 import com.universidad.tutorias.domain.enums.TipoAccion;
 import com.universidad.tutorias.domain.enums.TipoAsignacion;
@@ -30,6 +32,7 @@ public class TutorReasignacionServiceImpl implements TutorReasignacionService {
     private final TutorRepository tutorRepository;
     private final AsignacionRepository asignacionRepository;
     private final AuditoriaService auditoriaService;
+    private final SemestreService semestreService;
 
     @Override
     @Transactional
@@ -64,6 +67,12 @@ public class TutorReasignacionServiceImpl implements TutorReasignacionService {
             throw new IllegalArgumentException("El semestre académico es obligatorio para registrar el cambio de tutor");
         }
 
+        // Obtener la entidad Semestre por código
+        Semestre semestre = semestreService.obtenerPorCodigo(semestreNormalizado);
+        if (semestre == null) {
+            throw new EntityNotFoundException("Semestre no encontrado con código: " + semestreNormalizado);
+        }
+
         int cargaOrigenAntes = tutorOrigen.getCargaActual();
         int cargaDestinoAntes = tutorDestino.getCargaActual();
 
@@ -82,6 +91,7 @@ public class TutorReasignacionServiceImpl implements TutorReasignacionService {
         Asignacion asignacion = new Asignacion();
         asignacion.setAlumno(alumno);
         asignacion.setTutor(tutorDestino);
+        asignacion.setSemestre(semestre);
         asignacion.setTipoAsignacion(TipoAsignacion.REASIGNACION);
         asignacion.setSemestreAcademico(semestreNormalizado);
         asignacion.setFechaAsignacion(fechaCambio);

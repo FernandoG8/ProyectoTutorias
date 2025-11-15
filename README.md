@@ -1,196 +1,302 @@
-# Sistema de Gestión de Tutorías
+# ProyectoTutoriasBackend - Sistema de Gestión de Titorías
 
-## Backend
+![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
+![Version](https://img.shields.io/badge/version-1.0.0--REFACTORED-blue)
+![Java](https://img.shields.io/badge/java-21-orange)
+![Spring Boot](https://img.shields.io/badge/spring--boot-3.3.0-green)
+![React](https://img.shields.io/badge/react-18-blue)
 
-### Stack Tecnológico
-- Java 21
-- Spring Boot 3.3
-- Spring Data JPA / Hibernate
-- Spring Security con JWT en cookies HttpOnly
-- Maven
-- MySQL (producción) / H2 (tests)
+## 📖 Descripción General
 
----
+Sistema REST API + Frontend para la gestión integral de titorías académicas. Administra alumnos, tutores, asignaciones, semestres, reportes y diagnóstico del sistema.
 
-## Requisitos Previos (Backend)
-- Java 21 (`java -version`)
-- Maven 3.9+
-- Servidor MySQL 8.x
+**[👉 Ver Documentación Completa →](./docs/README.md)**
 
 ---
 
-## Instalación Backend
-1. Clonar el repositorio.
-2. Crear una base de datos vacía en MySQL.
-3. Ejecutar los scripts en `backend/docs/sql/` (si alguno falla no afecta).
+## ⚡ Inicio Rápido
 
-## Importacion con el dump
-1. Ejecutar el dump.sql
-2. Se generara el schema y las tablas 
-- (Existe el dump, pueden importarlo. Ya incluye la creacion del Schema).
-## Importacion con el dump
-1. Ejecutar el dumpsinSchema.sql
-2. Se generara el schema y las tablas 
-- (Existe el dump, pueden importarlo.No  incluye la creacion del Schema deberan crear la base de datos con: **`gestion_tutorias`**).
+### Backend
 
-
-
----
-
-## Configuración Backend
-Editar `backend/src/main/resources/application.properties` o usar:
-
-- `application-dev.properties`
-- `application-prod.properties`
-
-Variables importantes (llenalos con tus credenciales de tu gestor de base de datos): 
-```
-spring.datasource.url=
-spring.datasource.username=
-spring.datasource.password=
-jwt.secret=
-```
-
----
-
-## Ejecutar Backend
-Desde `backend/`:
 ```bash
-./mvnw spring-boot:run
+# 1. Clonar y navegar
+git clone <repo-url>
+cd ProyectoTutoriasBackend/backend
+
+# 2. Compilar
+mvn clean compile
+
+# 3. Ejecutar
+mvn spring-boot:run
 ```
 
----
+**API disponible en**: `http://localhost:8080`
 
-## Ejecutar Tests Backend
+### Frontend
+
 ```bash
-./mvnw test
-```
-
----
-
-## Estructura del Proyecto Backend
-```
-src/main/java/com/universidad/tutorias   Código principal
-src/test/java/com/universidad/tutorias   Tests
-docs/                                    Documentación e Insomnia
-docs/sql/                                Scripts SQL
-```
-
----
-
-## Convenciones Backend
-- Uso de `@RequiredArgsConstructor`
-- Validaciones con `jakarta.validation`
-- `cargaActual` de tutores sincronizada con asignaciones activas  
-
----
-
-# Frontend (React + Vite + Tailwind)
-
-## Stack Tecnológico
-- React 18
-- Vite 5
-- TypeScript
-- TailwindCSS 3.x
-- React Router
-- TanStack Query
-- Zustand
-- Axios
-- Shadcn/UI
-
----
-
-## Requisitos Previos (Frontend)
-- Node.js 18+
-- npm 9+
-
-Verificación:
-```bash
-node -v
-npm -v
-```
-
----
-
-## Instalación del Frontend
-```bash
+# 1. Instalar dependencias
 cd frontend/tutoring-frontend
 npm install
-```
 
-Crear archivo (Verifica si es necesari, creo que solo con e build jala) `.env`:
-```
-VITE_API_URL=http://localhost:8080
-```
-
----
-
-## Ejecutar el Frontend
-```bash
+# 2. Ejecutar desarrollo
 npm run dev
 ```
 
-Disponible en:  
-👉 http://localhost:5173/
+**Frontend disponible en**: `http://localhost:5173`
 
----
+### Con Docker
 
-## Compilar Producción
 ```bash
-npm run build
-```
-
-Genera:
-```
-dist/
+docker-compose up -d
 ```
 
 ---
 
-## Estructura del Proyecto Frontend
+## 📚 Documentación Rápida
+
+| Tema | Ubicación |
+|------|-----------|
+| Documentación Completa | [docs/README.md](./docs/README.md) |
+| Endpoints API | [docs/api/](./docs/api/) |
+| Arquitectura | [docs/arquitectura/](./docs/arquitectura/) |
+| Guías Prácticas | [docs/guias/](./docs/guias/) |
+| Despliegue | [docs/deployment/](./docs/deployment/) |
+| Mantenimiento | [docs/mantenimiento/](./docs/mantenimiento/) |
+
+---
+
+## 🏗️ Estructura del Proyecto
+
 ```
-tutoring-frontend/
-│ src/
-│   pages/           Vistas principales
-│   components/      Componentes UI
-│   services/        Consumidores API
-│   store/           Zustand (auth, UI, sesión)
-│   hooks/           Hooks
-│   lib/             Utilidades
-│   types/           Tipos globales
-│   App.tsx          Rutas
+ProyectoTutoriasBackend/
+├── backend/                        ← Spring Boot 3.3, Java 21
+│   ├── src/main/java/             Código principal
+│   ├── src/test/java/             Tests
+│   ├── pom.xml                    Dependencias Maven
+│   └── application.properties      Configuración
+├── frontend/tutoring-frontend/     ← React 18 + Vite
+│   ├── src/
+│   ├── package.json
+│   └── vite.config.ts
+├── docs/                           ← Documentación centralizada
+│   ├── api/                        Referencia de endpoints
+│   ├── arquitectura/               Diseño del sistema
+│   ├── guias/                      Tutoriales
+│   ├── mantenimiento/              Operaciones
+│   └── deployment/                 Despliegue
+└── README.md                       ← Este archivo
 ```
 
 ---
 
-## Autenticación
-- Cookies HttpOnly manejadas automáticamente por el navegador
-- Axios configurado con `withCredentials: true`
-- Manejo de sesión en Zustand
+## 🛠️ Stack Tecnológico
 
-Ejemplo:
-```ts
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
-  withCredentials: true,
-});
+### Backend
+- **Java 21** - Lenguaje principal
+- **Spring Boot 3.3** - Framework
+- **Spring Data JPA** - Acceso a datos
+- **Spring Security** - Autenticación (JWT + Cookies)
+- **Maven** - Gestión de dependencias
+- **PostgreSQL/MySQL** - Base de datos
+- **Hibernate** - ORM
+- **JUnit 5 + Mockito** - Testing
+
+### Frontend
+- **React 18** - UI library
+- **Vite 5** - Build tool
+- **TypeScript** - Type safety
+- **TailwindCSS** - Estilos
+- **React Router** - Navegación
+- **TanStack Query** - State management
+- **Zustand** - Global state
+- **Axios** - HTTP client
+
+---
+
+## 🔐 Características Principales
+
+✅ **Gestión Completa**
+- CRUD de alumnos, tutores y semestres
+- Asignación inteligente de tutores
+- Seguimiento de capacidad
+
+✅ **Seguridad**
+- Autenticación JWT
+- Autorización por roles
+- Validación de entrada
+- CORS configurado
+
+✅ **Reportes**
+- Exportación a Excel
+- Generación de PDF
+- Estadísticas por semestre
+
+✅ **Mantenimiento**
+- Diagnóstico del sistema
+- Sincronización automática
+- Validación de integridad
+
+---
+
+## 📋 Requisitos Previos
+
+### Backend
+- Java 21+
+- Maven 3.8+
+- PostgreSQL 12+ o MySQL 8+
+
+### Frontend
+- Node.js 18+
+- npm 9+
+
+### Ambos
+- Docker (opcional, para despliegue)
+- Git
+
+---
+
+## 🚀 Configuración
+
+### Backend
+```bash
+cd backend
+# Editar aplicación.properties con:
+spring.datasource.url=jdbc:mysql://localhost:3306/gestion_tutorias
+spring.datasource.username=root
+spring.datasource.password=tu_contraseña
+jwt.secret=tu_jwt_secret_aqui
+```
+
+### Frontend
+```bash
+cd frontend/tutoring-frontend
+# El archivo .env es opcional (usa valores por defecto)
+echo "VITE_API_URL=http://localhost:8080" > .env
 ```
 
 ---
 
-## Consideraciones CORS
-Si React no puede conectarse:
+## 🎯 Endpoints Principales
 
-### Backend debe permitir:
-- `Access-Control-Allow-Origin: http://localhost:5173`
-- `Access-Control-Allow-Credentials: true`
+```
+# Alumnos
+GET    /api/alumnos
+POST   /api/alumnos
+GET    /api/alumnos/{id}
+PUT    /api/alumnos/{id}
+DELETE /api/alumnos/{id}
 
-### Frontend debe usar:
-```ts
-withCredentials: true
+# Tutores
+GET    /api/tutores
+POST   /api/tutores
+GET    /api/tutores/{id}
+PUT    /api/tutores/{id}
+
+# Semestres
+GET    /api/semestres
+POST   /api/semestres
+GET    /api/semestres/activo
+POST   /api/semestres/{id}/activar
+
+# Mantenimiento
+GET    /api/mantenimiento/diagnostico
+GET    /api/mantenimiento/validar-integridad
+POST   /api/mantenimiento/sincronizar-tutores
+
+# Reportes
+GET    /api/reportes/alumnos
+GET    /api/reportes/carreras
+POST   /api/reportes/exportar
+```
+
+**[Ver referencia completa →](./docs/api/)**
+
+---
+
+## 🧪 Testing
+
+```bash
+cd backend
+
+# Ejecutar todos los tests
+mvn test
+
+# Tests específicos
+mvn test -Dtest=AlumnoControllerTest
+
+# Con cobertura
+mvn test jacoco:report
 ```
 
 ---
 
-## Licencia
-Proyecto académico — Universidad Autónoma de Campeche.
+## 📝 Notas Importantes
+
+### Cambios Recientes (v1.0.0-REFACTORED)
+- ✅ Estandarización de respuestas API con `ApiResponse<T>`
+- ✅ 4 nuevos manejadores de excepciones
+- ✅ DTOs tipificados para todas las respuestas
+- ✅ Eliminación de `Map<String, Object>`
+
+[Leer detalles →](./docs/guias/refactorizacion-2025.md)
+
+### Base de Datos
+El proyecto incluye scripts SQL en `backend/docs/sql/`:
+- Creación de schema y tablas
+- Datos iniciales
+- Dumps de ejemplo
+
+### Seguridad
+- Las cookies JWT se envían como HttpOnly
+- Frontend usa `withCredentials: true` en Axios
+- CORS está configurado para desarrollo y producción
+
+---
+
+## 🐛 Reportar Problemas
+
+Encontraste un error? Abre un issue en GitHub con:
+- Descripción clara
+- Pasos para reproducir
+- Logs/stacktraces
+- Ambiente (OS, versiones)
+
+---
+
+## 🤝 Contribuir
+
+1. Fork del proyecto
+2. Crear rama feature (`git checkout -b feature/nueva-feature`)
+3. Commit cambios (`git commit -m 'feat: descripción'`)
+4. Push (`git push origin feature/nueva-feature`)
+5. Abrir Pull Request
+
+Consulta [guía de contribución →](./docs/guias/02-contribucion.md)
+
+---
+
+## 📞 Soporte
+
+- **Documentación**: [./docs/README.md](./docs/README.md)
+- **Problemas frecuentes**: [Troubleshooting](./docs/guias/01-quick-start.md#troubleshooting)
+- **Issues**: GitHub Issues
+- **Email**: soporte@proyecto-tutorias.edu
+
+---
+
+## 📄 Licencia
+
+Proyecto académico - Universidad Autónoma de Campeche
+
+---
+
+<div align="center">
+
+**[📚 Documentación Completa](./docs/README.md)** | **[🔗 Endpoints API](./docs/api/)** | **[🏗️ Arquitectura](./docs/arquitectura/)**
+
+Versión 1.0.0-REFACTORED (2025-11-14)
+
+Made with ❤️ para la gestión de titorías académicas
+
+</div>

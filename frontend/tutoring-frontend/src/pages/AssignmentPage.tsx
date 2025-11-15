@@ -3,42 +3,34 @@ import dayjs from "dayjs";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useNavigate } from "react-router-dom";
 import {
   useMutation,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
-import { AlertCircle, CheckCircle2, Calendar, Upload, ArrowRight } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { DataTable } from "@/components/ui/DataTable";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { Modal } from "@/components/ui/Modal";
 import {
   getAssignmentProcessStatus,
   listAssignmentProcesses,
   startAssignmentProcess,
 } from "@/services/asignaciones-service";
-import {
-  listSemestres,
-  createSemestre,
-  activateSemestre,
-} from "@/services/semestres-service";
-import { useSemestreStore } from "@/store/semestre-store";
-import { useAuthStore } from "@/store/auth-store";
 import type {
   AssignmentProcessSummary,
   EstadoProceso,
   EstadoProcesoResponse,
-  Semestre,
-  SemestreCreateInput,
 } from "@/types";
 
 const schema = z.object({
+  semestreAcademico: z
+    .string()
+    .min(1, "Ingresa el semestre académico.")
+    .regex(/\d{4}-[12]/, "Usa el formato AAAA-1 o AAAA-2."),
   usuario: z.string().min(1, "Indica el usuario responsable."),
   archivo: z
     .custom<FileList>((file) => file instanceof FileList && file.length > 0)
@@ -60,41 +52,19 @@ const formatStatus = (estado: EstadoProceso) => estadoLabels[estado] ?? estadoLa
 
 export const AssignmentPage = () => {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
-  const user = useAuthStore((state) => state.user);
-  const { semestreActivo, fetchSemestreActivo } = useSemestreStore();
   const [selectedProcessId, setSelectedProcessId] = useState<number | null>(null);
-  const [showSemestreModal, setShowSemestreModal] = useState(false);
-  const [semestreToActivate, setSemestreToActivate] = useState<Semestre | null>(null);
 
   const {
     register,
     handleSubmit,
     reset,
-    setValue,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      usuario: user?.username ?? "",
+      semestreAcademico: "",
+      usuario: "",
     },
-  });
-
-  // Cargar semestre activo al montar
-  useEffect(() => {
-    fetchSemestreActivo();
-  }, [fetchSemestreActivo]);
-
-  useEffect(() => {
-    if (user?.username) {
-      setValue("usuario", user.username);
-    }
-  }, [user?.username, setValue]);
-
-  const { data: semestres = [] } = useQuery<Semestre[]>({
-    queryKey: ["semestres"],
-    queryFn: () => listSemestres(),
-    enabled: showSemestreModal,
   });
 
   const processesQuery = useQuery<AssignmentProcessSummary[]>({
@@ -108,18 +78,8 @@ export const AssignmentPage = () => {
     enabled: selectedProcessId !== null,
     refetchInterval: (query) => {
       const data = query.state.data;
-      if (!data) return 3000;
-      return data.estado === "COMPLETADO" || data.estado === "FALLIDO" ? false : 3000;
-    },
-  });
-
-  const activateMutation = useMutation({
-    mutationFn: activateSemestre,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["semestres"] });
-      fetchSemestreActivo();
-      setShowSemestreModal(false);
-      setSemestreToActivate(null);
+      if (!data) return 4000;
+      return data.estado === "COMPLETADO" || data.estado === "FALLIDO" ? false : 4000;
     },
   });
 
@@ -130,30 +90,18 @@ export const AssignmentPage = () => {
       if (result.procesoId) {
         setSelectedProcessId(result.procesoId);
       }
-      reset({ usuario: user?.username ?? "", archivo: undefined });
     },
   });
 
   const onSubmit = async (values: FormValues) => {
-    if (!semestreActivo) {
-      setShowSemestreModal(true);
-      return;
-    }
-
     const file = values.archivo.item(0);
     if (!file) return;
-
     await mutateAsync({
       archivo: file,
-      semestreAcademico: semestreActivo.codigo, // Usar formato completo YYYY-YYYY-F1
+      semestreAcademico: values.semestreAcademico,
       usuario: values.usuario,
     });
-  };
-
-  const handleActivateSemestre = async (semestre: Semestre) => {
-    if (window.confirm(`¿Activar el semestre ${semestre.codigo}? Se desactivarán todos los demás semestres.`)) {
-      await activateMutation.mutateAsync(semestre.id);
-    }
+    reset({ semestreAcademico: values.semestreAcademico, usuario: values.usuario, archivo: undefined });
   };
 
   const processes = processesQuery.data ?? [];
@@ -237,107 +185,60 @@ export const AssignmentPage = () => {
 
   return (
     <div className="space-y-6">
-      {/* Alerta de semestre activo */}
-      {!semestreActivo && (
-        <Card className="border-amber-300 bg-amber-50/50">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-amber-900">
-                No hay semestre activo configurado
-              </p>
-              <p className="mt-1 text-xs text-amber-700">
-                Debe crear y activar un semestre académico antes de iniciar un proceso de asignación.
-              </p>
-              <div className="mt-3 flex gap-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => navigate("/semestres")}
-                >
-                  <Calendar className="h-4 w-4 mr-1" />
-                  Gestionar Semestres
-                </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => setShowSemestreModal(true)}
-                >
-                  Activar Semestre Existente
-                </Button>
-              </div>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {semestreActivo && (
-        <Card className="border-emerald-200 bg-emerald-50/50">
-          <div className="flex items-center gap-3">
-            <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-            <div>
-              <p className="text-sm font-semibold text-emerald-900">
-                Semestre Activo: {semestreActivo.codigo}
-              </p>
-              <p className="text-xs text-emerald-700">{semestreActivo.nombre}</p>
-            </div>
-          </div>
-        </Card>
-      )}
-
       <div className="grid gap-6 lg:grid-cols-[2fr,3fr]">
         <Card>
           <div className="space-y-2">
             <h2 className="text-lg font-semibold text-text">Iniciar proceso de asignación</h2>
             <p className="text-sm text-slate-600">
-              Sube el archivo oficial de alumnos. El proceso utilizará el semestre activo configurado.
+              Sube el archivo oficial de alumnos, define el semestre académico y monitorea el avance del proceso en tiempo real.
             </p>
           </div>
 
           <form className="mt-6 space-y-5" onSubmit={handleSubmit(onSubmit)}>
-            {semestreActivo && (
-              <div className="rounded-lg border border-border bg-slate-50 px-4 py-3">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Semestre Académico</p>
-                <p className="mt-1 text-sm font-semibold text-text">{semestreActivo.codigo}</p>
-                <p className="text-xs text-slate-500">{semestreActivo.nombre}</p>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-text" htmlFor="semestreAcademico">
+                  Semestre académico
+                </label>
+                <Input
+                  id="semestreAcademico"
+                  placeholder="2025-1"
+                  {...register("semestreAcademico")}
+                />
+                <p className="text-xs text-slate-500">Utiliza el formato AAAA-1 o AAAA-2.</p>
+                {errors.semestreAcademico && (
+                  <p className="text-sm text-rose-600">{errors.semestreAcademico.message}</p>
+                )}
               </div>
-            )}
-
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-text" htmlFor="usuario">
-                Usuario responsable
-              </label>
-              <Input
-                id="usuario"
-                placeholder="coord_tutorias"
-                {...register("usuario")}
-              />
-              <p className="text-xs text-slate-500">Este nombre se registrará en la auditoría del proceso.</p>
-              {errors.usuario && (
-                <p className="text-sm text-rose-600">{errors.usuario.message}</p>
-              )}
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-text" htmlFor="usuario">
+                  Usuario responsable
+                </label>
+                <Input
+                  id="usuario"
+                  placeholder="coord_tutorias"
+                  {...register("usuario")}
+                />
+                <p className="text-xs text-slate-500">Este nombre se registrará en la auditoría del proceso.</p>
+                {errors.usuario && (
+                  <p className="text-sm text-rose-600">{errors.usuario.message}</p>
+                )}
+              </div>
             </div>
 
             <div className="space-y-1">
               <label className="text-sm font-medium text-text" htmlFor="archivo">
                 Archivo de alumnos
               </label>
-              <Input id="archivo" type="file" accept=".xlsx,.xls" {...register("archivo")} />
-              <p className="text-xs text-slate-500">
-                El archivo debe incluir las columnas: matrícula, nombre, carrera, semestre.
-              </p>
+              <Input id="archivo" type="file" accept=".csv,.xlsx,.xls" {...register("archivo")} />
+              <p className="text-xs text-slate-500">El archivo debe incluir las columnas oficiales publicadas por Secretaría Académica.</p>
               {errors.archivo && (
                 <p className="text-sm text-rose-600">{errors.archivo.message as string}</p>
               )}
             </div>
 
             <div className="flex items-center gap-3">
-              <Button
-                loading={isPending}
-                type="submit"
-                disabled={!semestreActivo}
-              >
-                <Upload className="h-4 w-4 mr-1" />
+              <Button loading={isPending} type="submit">
                 Ejecutar proceso
               </Button>
               {startResponse && (
@@ -359,12 +260,6 @@ export const AssignmentPage = () => {
             {startResponse && (
               <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
                 {startResponse.mensaje ?? "Proceso registrado. Puedes monitorear el estado en el panel de seguimiento."}
-              </p>
-            )}
-
-            {!semestreActivo && (
-              <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">
-                Debe configurar un semestre activo antes de iniciar el proceso.
               </p>
             )}
           </form>
@@ -474,62 +369,6 @@ export const AssignmentPage = () => {
           )}
         </div>
       </Card>
-
-      {/* Modal para activar semestre */}
-      <Modal
-        open={showSemestreModal}
-        title="Activar Semestre Académico"
-        description="Selecciona un semestre para activar. Solo puede haber un semestre activo a la vez."
-        onClose={() => {
-          setShowSemestreModal(false);
-          setSemestreToActivate(null);
-        }}
-      >
-        <div className="space-y-3">
-          {semestres.length === 0 ? (
-            <p className="text-sm text-slate-600">No hay semestres disponibles. Crea uno primero.</p>
-          ) : (
-            semestres.map((semestre) => (
-              <div
-                key={semestre.id}
-                className={`flex items-center justify-between rounded-lg border p-3 ${
-                  semestre.activo
-                    ? "border-emerald-300 bg-emerald-50"
-                    : "border-border hover:border-primary/40"
-                }`}
-              >
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-text">{semestre.codigo}</span>
-                    {semestre.activo && <Badge variant="success" className="text-xs">Activo</Badge>}
-                  </div>
-                  <p className="text-xs text-slate-500">{semestre.nombre}</p>
-                </div>
-                {!semestre.activo && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleActivateSemestre(semestre)}
-                    loading={activateMutation.isPending}
-                  >
-                    Activar
-                  </Button>
-                )}
-              </div>
-            ))
-          )}
-          <div className="pt-3 border-t">
-            <Button
-              variant="primary"
-              onClick={() => navigate("/semestres")}
-              className="w-full"
-            >
-              Crear Nuevo Semestre
-              <ArrowRight className="h-4 w-4 ml-1" />
-            </Button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 };

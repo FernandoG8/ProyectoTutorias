@@ -150,15 +150,7 @@ export const SemestresPage = () => {
     error,
   } = useQuery<Semestre[]>({
     queryKey: ["semestres"],
-    queryFn: async () => {
-      try {
-        const result = await listSemestres();
-        return Array.isArray(result) ? result : [];
-      } catch (err) {
-        console.error("Error al cargar semestres:", err);
-        throw err;
-      }
-    },
+    queryFn: () => listSemestres(),
   });
 
   const {
@@ -236,27 +228,13 @@ export const SemestresPage = () => {
   };
 
   if (error) {
-    const errorMessage = error instanceof Error 
-      ? error.message 
-      : "Error desconocido al cargar los semestres";
-    
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-center">
           <XCircle className="mx-auto h-12 w-12 text-rose-500" />
-          <p className="mt-4 text-sm font-semibold text-rose-600">
-            Error al cargar los semestres
+          <p className="mt-4 text-sm text-rose-600">
+            Error al cargar los semestres. Intente nuevamente.
           </p>
-          <p className="mt-2 text-xs text-slate-500">
-            {errorMessage}
-          </p>
-          <Button
-            variant="secondary"
-            className="mt-4"
-            onClick={() => queryClient.invalidateQueries({ queryKey: ["semestres"] })}
-          >
-            Reintentar
-          </Button>
         </div>
       </div>
     );

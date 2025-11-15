@@ -94,8 +94,11 @@ public class ReporteConsultaService {
 
     private List<ReporteAlumnoDTO> mapearAsignaciones(List<Asignacion> asignaciones) {
         return asignaciones.stream()
-                .sorted(Comparator.comparing(a -> a.getAlumno().getMatricula()))
                 .map(this::mapearAsignacion)
+                .sorted(Comparator
+                        .comparing(ReporteAlumnoDTO::getSemestre,
+                                Comparator.nullsLast(Comparator.naturalOrder()))  // Semestre ascendente (1, 2, 3, 4...)
+                        .thenComparing(ReporteAlumnoDTO::getMatricula))  // Luego por matrícula ascendente
                 .collect(Collectors.toList());
     }
 

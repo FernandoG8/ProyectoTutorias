@@ -4,9 +4,7 @@
 
 package com.universidad.tutorias.infrastructure.exception;
 
-import com.universidad.tutorias.domain.exception.SemestreException;
-import com.universidad.tutorias.domain.exception.SemestreNotFoundException;
-import com.universidad.tutorias.domain.exception.SemestreValidationException;
+import com.universidad.tutorias.domain.exception.*;
 import com.universidad.tutorias.infrastructure.controller.response.ApiErrorResponse;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
@@ -116,6 +114,38 @@ public class GlobalExceptionHandler {
         log.warn("Error de semestre: {}", ex.getMessage());
         ApiErrorResponse error = ApiErrorResponse.error("ERROR_SEMESTRE", ex.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+
+    @ExceptionHandler(CapacidadExcedidaException.class)
+    public ResponseEntity<ApiErrorResponse> handleCapacidadExcedida(CapacidadExcedidaException ex) {
+        log.warn("Capacidad excedida: {}", ex.getMessage());
+        ApiErrorResponse error = ApiErrorResponse.error("CAPACIDAD_EXCEDIDA",
+                "No hay capacidad disponible: " + ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+    }
+
+    @ExceptionHandler(DuplicadoException.class)
+    public ResponseEntity<ApiErrorResponse> handleDuplicado(DuplicadoException ex) {
+        log.warn("Recurso duplicado: {}", ex.getMessage());
+        ApiErrorResponse error = ApiErrorResponse.error("RECURSO_DUPLICADO",
+                "Ya existe un registro similar: " + ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+    }
+
+    @ExceptionHandler(SinTutorDisponibleException.class)
+    public ResponseEntity<ApiErrorResponse> handleSinTutorDisponible(SinTutorDisponibleException ex) {
+        log.warn("Sin tutor disponible: {}", ex.getMessage());
+        ApiErrorResponse error = ApiErrorResponse.error("SIN_TUTOR_DISPONIBLE",
+                "No hay tutores disponibles para esta asignación: " + ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+    }
+
+    @ExceptionHandler(AlumnoInactivoException.class)
+    public ResponseEntity<ApiErrorResponse> handleAlumnoInactivo(AlumnoInactivoException ex) {
+        log.warn("Alumno inactivo: {}", ex.getMessage());
+        ApiErrorResponse error = ApiErrorResponse.error("ALUMNO_INACTIVO",
+                "El alumno está inactivo y no puede realizar esta operación: " + ex.getMessage());
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(error);
     }
 
     @ExceptionHandler(Exception.class)
