@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.universidad.tutorias.application.service.impl.SearchQuerySanitizer.SearchTokens;
 
@@ -56,7 +57,7 @@ public class AlumnoSearchServiceImpl implements AlumnoSearchService {
         List<AlumnoSearchResultDTO> mapped = results.getContent()
                 .stream()
                 .map(this::mapAlumnoResult)
-                .toList();
+                .collect(Collectors.toList());
 
         return new PageImpl<>(mapped, pageable, results.getTotalElements());
     }
@@ -84,7 +85,7 @@ public class AlumnoSearchServiceImpl implements AlumnoSearchService {
         return page.getContent()
                 .stream()
                 .map(this::mapAlumnoResult)
-                .toList();
+                .collect(Collectors.toList());
     }
 
     @Override

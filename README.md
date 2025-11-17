@@ -45,6 +45,8 @@ npm run dev
 
 **Frontend disponible en**: `http://localhost:5173`
 
+**[📖 Ver documentación completa del frontend →](./docs/frontend/README.md)**
+
 ### Con Docker
 
 ```bash
@@ -58,6 +60,7 @@ docker-compose up -d
 | Tema | Ubicación |
 |------|-----------|
 | Documentación Completa | [docs/README.md](./docs/README.md) |
+| **Documentación Frontend** | **[docs/frontend/README.md](./docs/frontend/README.md)** |
 | Endpoints API | [docs/api/](./docs/api/) |
 | Arquitectura | [docs/arquitectura/](./docs/arquitectura/) |
 | Guías Prácticas | [docs/guias/](./docs/guias/) |
@@ -82,6 +85,7 @@ ProyectoTutoriasBackend/
 ├── docs/                           ← Documentación centralizada
 │   ├── api/                        Referencia de endpoints
 │   ├── arquitectura/               Diseño del sistema
+│   ├── frontend/                   Documentación del frontend React
 │   ├── guias/                      Tutoriales
 │   ├── mantenimiento/              Operaciones
 │   └── deployment/                 Despliegue
@@ -293,9 +297,9 @@ Proyecto académico - Universidad Autónoma de Campeche
 
 <div align="center">
 
-**[📚 Documentación Completa](./docs/README.md)** | **[🔗 Endpoints API](./docs/api/)** | **[🏗️ Arquitectura](./docs/arquitectura/)**
+**[📚 Documentación Completa](./docs/README.md)** | **[🔗 Endpoints API](./docs/api/)** | **[🏗️ Arquitectura](./docs/arquitectura/)** | **[⚛️ Frontend](./docs/frontend/README.md)**
 
-Versión 1.0.0-REFACTORED (2025-11-14)
+Versión 1.0.0-REFACTORED (2025-11-17)
 
 Made with ❤️ para la gestión de titorías académicas
 

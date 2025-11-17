@@ -16,6 +16,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -38,9 +39,10 @@ class AlumnoSearchServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        Object[] row = new Object[]{1L, "202101234", "Juan Pérez", "INGENIERIA", 5, "ACTIVO", 800};
-        @SuppressWarnings("unchecked")
-        List<Object[]> rowList = (List<Object[]>) (List<?>) List.of(row);
+        // Object array structure: [id, matricula, nombre, carrera, semestre, estado, ranking, tutor_id, tutor_nombre, tutor_carrera]
+        Object[] row = new Object[]{1L, "202101234", "Juan Pérez", "INGENIERIA", 5, "ACTIVO", 800, 10L, "Dr. García", "INGENIERIA"};
+        List<Object[]> rowList = new ArrayList<>();
+        rowList.add(row);
         samplePage = new PageImpl<>(rowList, PageRequest.of(0, 20), 1);
     }
 
