@@ -42,4 +42,31 @@ public interface AlumnoRepository extends JpaRepository<Alumno, Long>, JpaSpecif
 
     @Query("SELECT DISTINCT UPPER(a.carrera) FROM Alumno a")
     List<String> findDistinctCarreras();
+
+    /**
+     * Busca alumnos activos que no han sido marcados como egresados o con baja definitiva.
+     * Excluye automáticamente alumnos cuyo ID existe en tablas de histórico.
+     */
+    @Query("""
+            SELECT a FROM Alumno a
+            WHERE a.estado = :estado
+            AND NOT EXISTS (SELECT 1 FROM AlumnoEgresado ae WHERE ae.alumno.id = a.id)
+            AND NOT EXISTS (SELECT 1 FROM AlumnoBajaDefinitiva abd WHERE abd.alumno.id = a.id)
+            ORDER BY a.matricula
+            """)
+    List<Alumno> findByEstadoExcludingResolved(@Param("estado") EstadoAlumno estado);
+
+    /**
+     * Busca alumnos por estado y carrera, excluyendo egresados y bajas definitivas.
+     */
+    @Query("""
+            SELECT a FROM Alumno a
+            WHERE a.estado = :estado
+            AND a.carrera = :carrera
+            AND NOT EXISTS (SELECT 1 FROM AlumnoEgresado ae WHERE ae.alumno.id = a.id)
+            AND NOT EXISTS (SELECT 1 FROM AlumnoBajaDefinitiva abd WHERE abd.alumno.id = a.id)
+            ORDER BY a.matricula
+            """)
+    List<Alumno> findByEstadoAndCarreraExcludingResolved(@Param("estado") EstadoAlumno estado,
+                                                          @Param("carrera") String carrera);
 }

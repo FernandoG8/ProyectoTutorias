@@ -90,4 +90,69 @@ public interface AsignacionRepository extends JpaRepository<Asignacion, Long> {
     @Deprecated
     @Query("SELECT DISTINCT a.semestre.codigo FROM Asignacion a ORDER BY a.semestre.codigo DESC")
     List<String> findDistinctSemestreAcademico();
+
+    /**
+     * Obtiene asignaciones de un tutor excluyendo alumnos egresados o con baja definitiva.
+     */
+    @Query("""
+            SELECT a FROM Asignacion a
+            JOIN FETCH a.alumno
+            JOIN FETCH a.tutor
+            WHERE a.tutor.id = :tutorId
+            AND NOT EXISTS (SELECT 1 FROM AlumnoEgresado ae WHERE ae.alumno.id = a.alumno.id)
+            AND NOT EXISTS (SELECT 1 FROM AlumnoBajaDefinitiva abd WHERE abd.alumno.id = a.alumno.id)
+            ORDER BY a.alumno.matricula
+            """)
+    List<Asignacion> findByTutorIdExcludingResolved(@Param("tutorId") Long tutorId);
+
+    /**
+     * Cuenta asignaciones de un tutor con alumnos activos que no sean egresados ni baja definitiva.
+     */
+    @Query("""
+            SELECT COUNT(a) FROM Asignacion a
+            WHERE a.tutor.id = :tutorId
+            AND a.alumno.estado = 'ACTIVO'
+            AND NOT EXISTS (SELECT 1 FROM AlumnoEgresado ae WHERE ae.alumno.id = a.alumno.id)
+            AND NOT EXISTS (SELECT 1 FROM AlumnoBajaDefinitiva abd WHERE abd.alumno.id = a.alumno.id)
+            """)
+    int countByTutorIdExcludingResolved(@Param("tutorId") Long tutorId);
+
+    /**
+     * Obtiene asignaciones por carrera y semestre excluyendo alumnos egresados o baja definitiva.
+     */
+    @Query("""
+            SELECT a FROM Asignacion a
+            JOIN FETCH a.alumno
+            JOIN FETCH a.tutor
+            WHERE UPPER(a.alumno.carrera) = :carrera
+            AND a.semestre.id = :semestreId
+            AND NOT EXISTS (SELECT 1 FROM AlumnoEgresado ae WHERE ae.alumno.id = a.alumno.id)
+            AND NOT EXISTS (SELECT 1 FROM AlumnoBajaDefinitiva abd WHERE abd.alumno.id = a.alumno.id)
+            ORDER BY a.tutor.nombre, a.alumno.matricula
+            """)
+    List<Asignacion> findByCarreraAndSemestreExcludingResolved(@Param("carrera") String carrera,
+                                                                @Param("semestreId") Long semestreId);
+
+    /**
+     * Cuenta asignaciones por semestre excluyendo alumnos resueltos.
+     */
+    @Query("""
+            SELECT COUNT(a) FROM Asignacion a
+            WHERE a.semestre.id = :semestreId
+            AND NOT EXISTS (SELECT 1 FROM AlumnoEgresado ae WHERE ae.alumno.id = a.alumno.id)
+            AND NOT EXISTS (SELECT 1 FROM AlumnoBajaDefinitiva abd WHERE abd.alumno.id = a.alumno.id)
+            """)
+    Long countBySemestreIdExcludingResolved(@Param("semestreId") Long semestreId);
+
+    /**
+     * Cuenta asignaciones activas por semestre excluyendo alumnos resueltos.
+     */
+    @Query("""
+            SELECT COUNT(a) FROM Asignacion a
+            WHERE a.semestre.id = :semestreId
+            AND a.alumno.estado = 'ACTIVO'
+            AND NOT EXISTS (SELECT 1 FROM AlumnoEgresado ae WHERE ae.alumno.id = a.alumno.id)
+            AND NOT EXISTS (SELECT 1 FROM AlumnoBajaDefinitiva abd WHERE abd.alumno.id = a.alumno.id)
+            """)
+    Long countActivosBySemestreIdExcludingResolved(@Param("semestreId") Long semestreId);
 }
