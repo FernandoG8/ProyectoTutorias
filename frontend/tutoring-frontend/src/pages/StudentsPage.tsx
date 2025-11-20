@@ -1,14 +1,14 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
-import { RotateCw } from "lucide-react";
+import { RotateCw, Users } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { DataTable } from "@/components/ui/DataTable";
 import { Skeleton } from "@/components/ui/Skeleton";
-// import { FormField } from "@/components/ui/FormField";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { SearchInput } from "@/components/SearchInput";
 import { listStudents, searchStudents, autocompleteStudents } from "@/services/alumnos-service";
 import { useDebounce } from "@/lib/use-debounce";
@@ -173,21 +173,29 @@ export const StudentsPage = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-2">
-        <h1
-          className="text-3xl font-bold"
-          style={{ color: colors.semantic.text.primary }}
-        >
-          Gestión de Alumnos
-        </h1>
-        <p
-          className="text-sm max-w-3xl"
-          style={{ color: colors.semantic.text.secondary }}
-        >
-          Consulta y administra los alumnos inscritos en el programa de tutorías.
-          Usa filtros para encontrar alumnos específicos por matrícula, estado o carrera.
-        </p>
-      </div>
+      <PageHeader
+        icon={<Users className="h-8 w-8" style={{ color: colors.primary[600] }} />}
+        title="Gestión de Alumnos"
+        description="Consulta y administra los alumnos inscritos. Usa filtros para encontrar alumnos específicos por matrícula, estado o carrera."
+        stats={[
+          {
+            label: "Total Alumnos",
+            value: pagedStudents?.totalElements ?? 0,
+          },
+          {
+            label: "Activos",
+            value: pagedStudents?.totalElements ?? 0,
+          },
+          {
+            label: "Inactivos",
+            value: 0,
+          },
+          {
+            label: "Sin tutor",
+            value: 0,
+          },
+        ]}
+      />
 
       {/* Filters Card */}
       <Card>
