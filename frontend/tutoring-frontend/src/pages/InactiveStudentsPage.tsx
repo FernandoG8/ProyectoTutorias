@@ -300,12 +300,14 @@ export const InactiveStudentsPage = () => {
           <Skeleton className="h-32" />
         </div>
       ) : (
-        <DataTable
-          columns={columns}
-          data={filteredStudents}
-          isLoading={query.isFetching && !query.isLoading}
-          emptyMessage="No se encontraron alumnos inactivos con los filtros aplicados."
-        />
+        <div className="overflow-x-auto">
+          <DataTable
+            columns={columns}
+            data={filteredStudents}
+            isLoading={query.isFetching && !query.isLoading}
+            emptyMessage="No se encontraron alumnos inactivos con los filtros aplicados."
+          />
+        </div>
       )}
 
       <Modal

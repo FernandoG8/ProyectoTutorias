@@ -340,12 +340,14 @@ export const TutorsPage = () => {
             </div>
           </div>
         </Card>
-        <DataTable
-          columns={tableColumns}
-          data={displayTutors}
-          isLoading={isLoading}
-          emptyMessage="No hay tutores registrados aún."
-        />
+        <div className="overflow-x-auto">
+          <DataTable
+            columns={tableColumns}
+            data={displayTutors}
+            isLoading={isLoading}
+            emptyMessage="No hay tutores registrados aún."
+          />
+        </div>
 
         {selectedTutor && tutorDetail && (
           <Card>

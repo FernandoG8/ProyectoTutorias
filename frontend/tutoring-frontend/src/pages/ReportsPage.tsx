@@ -320,12 +320,14 @@ export const ReportsPage = () => {
                 <Skeleton className="h-24" />
               </div>
             ) : (
-              <DataTable
-                columns={columns}
-                data={filteredRows}
-                isLoading={reportQuery.isFetching && !reportQuery.isLoading}
-                emptyMessage="Consulta un semestre para obtener información consolidada."
-              />
+              <div className="overflow-x-auto">
+                <DataTable
+                  columns={columns}
+                  data={filteredRows}
+                  isLoading={reportQuery.isFetching && !reportQuery.isLoading}
+                  emptyMessage="Consulta un semestre para obtener información consolidada."
+                />
+              </div>
             )}
           </div>
         </div>

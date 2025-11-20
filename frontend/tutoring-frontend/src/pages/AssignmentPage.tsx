@@ -381,12 +381,14 @@ export const AssignmentPage = () => {
               <Skeleton className="h-24" />
             </div>
           ) : (
-            <DataTable
-              columns={columns}
-              data={processes}
-              isLoading={processesQuery.isFetching && !processesQuery.isLoading}
-              emptyMessage="No se han registrado procesos todavía."
-            />
+            <div className="overflow-x-auto">
+              <DataTable
+                columns={columns}
+                data={processes}
+                isLoading={processesQuery.isFetching && !processesQuery.isLoading}
+                emptyMessage="No se han registrado procesos todavía."
+              />
+            </div>
           )}
         </div>
       </Card>

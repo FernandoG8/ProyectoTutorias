@@ -343,12 +343,14 @@ export const StudentsPage = () => {
           <Skeleton className="h-32" />
         </div>
       ) : (
-        <DataTable
-          columns={columns}
-          data={filteredStudents}
-          isLoading={isFetching && !isLoading}
-          emptyMessage="No se encontraron alumnos con los filtros aplicados."
-        />
+        <div className="overflow-x-auto">
+          <DataTable
+            columns={columns}
+            data={filteredStudents}
+            isLoading={isFetching && !isLoading}
+            emptyMessage="No se encontraron alumnos con los filtros aplicados."
+          />
+        </div>
       )}
     </div>
   );

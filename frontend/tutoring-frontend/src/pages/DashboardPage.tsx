@@ -269,12 +269,14 @@ export const DashboardPage = () => {
             Consulta el resultado de las ejecuciones realizadas.
           </p>
         </div>
-        <DataTable
-          columns={processColumns}
-          data={allProcesses}
-          isLoading={allProcessesLoading}
-          emptyMessage="Aún no se han registrado procesos."
-        />
+        <div className="overflow-x-auto">
+          <DataTable
+            columns={processColumns}
+            data={allProcesses}
+            isLoading={allProcessesLoading}
+            emptyMessage="Aún no se han registrado procesos."
+          />
+        </div>
       </section>
     </div>
   );

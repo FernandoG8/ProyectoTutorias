@@ -287,12 +287,14 @@ export const SemestresPage = () => {
         </Card>
       ) : (
         <Card>
-          <DataTable
-            columns={columns(handleActivate, handleDelete, handleViewStats)}
-            data={semestres}
-            isLoading={isLoading}
-            emptyMessage="No hay semestres registrados"
-          />
+          <div className="overflow-x-auto">
+            <DataTable
+              columns={columns(handleActivate, handleDelete, handleViewStats)}
+              data={semestres}
+              isLoading={isLoading}
+              emptyMessage="No hay semestres registrados"
+            />
+          </div>
         </Card>
       )}
 
