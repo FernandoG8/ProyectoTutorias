@@ -23,6 +23,15 @@ Bienvenido a la documentación centralizada del proyecto. Esta carpeta contiene 
 - **[Endpoints de Asignaciones](./api/04-asignaciones.md)** - Asignación de tutores a alumnos
 - **[Endpoints de Mantenimiento](./api/05-mantenimiento.md)** - Diagnóstico y sincronización
 
+### 📌 Módulo de Asignaciones de Tutores (Fase 4 ✅)
+
+- **[Documentación de Asignaciones](./asignaciones/README.md)** - Guía completa del módulo
+- **[Overview del Módulo](./asignaciones/01-overview.md)** - Visión general y conceptos
+- **[Arquitectura](./asignaciones/02-arquitectura.md)** - Separación de responsabilidades
+- **[Flujo Completo](./asignaciones/05-flujo-completo.md)** - End-to-end con diagramas
+- **[Fase 4: Ejecución](./asignaciones/09-fase4-ejecucion.md)** - Endpoint /ejecutar implementado
+- **[Changelog](./asignaciones/25-changelog.md)** - Historial y cambios recientes
+
 ### 🔧 Mantenimiento y Operaciones
 
 - **[Proceso de Mantenimiento Seguro](./mantenimiento/01-proceso-seguro.md)** - Pasos para mantenimiento
@@ -54,6 +63,15 @@ Bienvenido a la documentación centralizada del proyecto. Esta carpeta contiene 
 docs/
 ├── README.md                    ← Estás aquí
 ├── CHANGELOG.md                 ← Registro de cambios
+├── asignaciones/                ← NUEVO: Módulo de Asignaciones (Fase 4)
+│   ├── README.md
+│   ├── 00-indice.md
+│   ├── 01-overview.md
+│   ├── 02-arquitectura.md
+│   ├── 05-flujo-completo.md
+│   ├── 09-fase4-ejecucion.md
+│   ├── 25-changelog.md
+│   └── (docs 10-24 para fases futuras)
 ├── guias/                       ← Guías prácticas
 │   ├── 01-quick-start.md
 │   ├── 02-contribucion.md
@@ -88,13 +106,16 @@ docs/
 
 | Tema | Ubicación |
 |------|-----------|
+| **Entender módulo de asignaciones** | [Documentación Asignaciones](./asignaciones/README.md) |
+| **Flujo de asignación (Fase 4)** | [Flujo Completo](./asignaciones/05-flujo-completo.md) |
+| **Implementación Endpoint /ejecutar** | [Fase 4: Ejecución](./asignaciones/09-fase4-ejecucion.md) |
 | Crear nuevo alumno | [API Alumnos](./api/01-alumnos.md) |
 | Asignar tutor | [Endpoints Asignaciones](./api/04-asignaciones.md) |
 | Diagnosticar errores | [Diagnóstico](./mantenimiento/03-diagnostico.md) |
 | Desplegar en producción | [Docker Deployment](./deployment/01-docker.md) |
 | Entender la arquitectura | [Arquitectura General](./arquitectura/01-arquitectura-general.md) |
 | Contribuir al código | [Guía de Contribución](./guias/02-contribucion.md) |
-| Ver cambios recientes | [Changelog](./CHANGELOG.md) |
+| Ver cambios recientes | [Changelog Asignaciones](./asignaciones/25-changelog.md) |
 
 ---
 
@@ -109,5 +130,6 @@ Si no encuentras lo que buscas:
 
 ---
 
-**Última actualización**: 2025-11-14
-**Versión del Sistema**: 1.0.0-REFACTORED
+**Última actualización**: 2025-11-19
+**Versión del Sistema**: 4.0.0 (Fase 4 Completada)
+**Estado**: ✅ Producción - Módulo de Asignaciones implementado completamente
