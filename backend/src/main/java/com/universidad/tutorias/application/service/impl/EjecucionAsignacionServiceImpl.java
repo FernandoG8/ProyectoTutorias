@@ -1,12 +1,12 @@
 package com.universidad.tutorias.application.service.impl;
 
 import com.universidad.tutorias.application.dto.*;
-import com.universidad.tutorias.application.service.AsignacionService;
-import com.universidad.tutorias.application.service.EjecucionAsignacionService;
-import com.universidad.tutorias.application.service.SemestreService;
+import com.universidad.tutorias.application.service.*;
+import com.universidad.tutorias.domain.entity.Alumno;
 import com.universidad.tutorias.domain.entity.ProcesoAsignacion;
 import com.universidad.tutorias.domain.entity.Semestre;
 import com.universidad.tutorias.domain.enums.EstadoProceso;
+import com.universidad.tutorias.domain.exception.DomainValidationException;
 import com.universidad.tutorias.domain.repository.ProcesoAsignacionRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -50,6 +50,9 @@ public class EjecucionAsignacionServiceImpl implements EjecucionAsignacionServic
     private final AsignacionService asignacionService;
     private final ProcesoAsignacionRepository procesoRepository;
     private final SemestreService semestreService;
+    private final ComparadorAlumnosService comparadorAlumnosService;
+    private final InactivacionService inactivacionService;
+    private final ReingresoService reingresoService;
 
     @Override
     public EjecucionAsignacionResponse ejecutar(EjecutarAsignacionRequest request) {
@@ -60,47 +63,32 @@ public class EjecucionAsignacionServiceImpl implements EjecucionAsignacionServic
                 request.getAlumnosValidados().size(),
                 request.getSemestreId());
 
+        // ============================================
+        // 1. VALIDAR PRECONDICIONES
+        // ============================================
+
+        if (request.getSemestreId() == null || request.getSemestreId() <= 0) {
+            throw new DomainValidationException("semestreId inválido: " + request.getSemestreId());
+        }
+
+        if (request.getAlumnosValidados() == null || request.getAlumnosValidados().isEmpty()) {
+            throw new DomainValidationException("Lista de alumnos validados vacía");
+        }
+
+        // Validar que el semestre existe
+        Semestre semestre = semestreService.obtenerPorId(request.getSemestreId());
+        // Si no existe, obtenerPorId lanza excepción que será capturada por GlobalExceptionHandler
+
+        log.info("Semestre validado: {} ({})", semestre.getCodigo(), semestre.getNombre());
+
         try {
-            // ============================================
-            // 1. VALIDAR PRECONDICIONES
-            // ============================================
-
-            if (request.getSemestreId() == null || request.getSemestreId() <= 0) {
-                return construirRespuestaError(
-                        request,
-                        inicioMs,
-                        "semestreId inválido: " + request.getSemestreId()
-                );
-            }
-
-            if (request.getAlumnosValidados() == null || request.getAlumnosValidados().isEmpty()) {
-                return construirRespuestaError(
-                        request,
-                        inicioMs,
-                        "Lista de alumnos validados vacía"
-                );
-            }
-
-            // Validar que el semestre existe
-            Semestre semestre;
-            try {
-                semestre = semestreService.obtenerPorId(request.getSemestreId());
-            } catch (EntityNotFoundException e) {
-                return construirRespuestaError(
-                        request,
-                        inicioMs,
-                        "Semestre no encontrado con ID: " + request.getSemestreId()
-                );
-            }
-
-            log.info("Semestre validado: {} ({})", semestre.getCodigo(), semestre.getNombre());
 
             // ============================================
             // 2. CREAR PROCESO ASIGNACION EN BD
             // ============================================
 
             ProcesoAsignacion proceso = new ProcesoAsignacion();
-            proceso.setEstado(EstadoProceso.ASIGNANDO);
+            proceso.setEstado(EstadoProceso.INICIADO);
             proceso.setFechaInicio(LocalDateTime.now());
             proceso.setArchivoOrigen("[ENDPOINT /ejecutar]");
             proceso.setUsuarioEjecutor("SISTEMA");
@@ -108,6 +96,7 @@ public class EjecucionAsignacionServiceImpl implements EjecucionAsignacionServic
             proceso.setTotalAlumnosAsignados(0);
             proceso.setTotalErrores(0);
             proceso.setTotalWarnings(0);
+            proceso.setSemestre(semestre);
 
             proceso = procesoRepository.save(proceso);
 
@@ -124,11 +113,35 @@ public class EjecucionAsignacionServiceImpl implements EjecucionAsignacionServic
             log.info("Convertidos {} alumnos a formato interno", alumnosParaAsignar.size());
 
             // ============================================
-            // 4. INVOCAR AsignacionService
+            // 4. MARCAR INACTIVOS + LIBERAR CUPOS + REINGRESOS
+            // ============================================
+
+            proceso.setEstado(EstadoProceso.COMPARANDO);
+            procesoRepository.save(proceso);
+
+            List<Alumno> alumnosAInactivar = comparadorAlumnosService.identificarInactivos(alumnosParaAsignar, semestre.getId());
+            if (!alumnosAInactivar.isEmpty()) {
+                inactivacionService.marcarInactivos(alumnosAInactivar, proceso.getId(), semestre.getId());
+            }
+
+            proceso.setEstado(EstadoProceso.LIBERANDO_CUPOS);
+            procesoRepository.save(proceso);
+            inactivacionService.liberarCupos(proceso.getId());
+
+            List<Alumno> reingresosPendientes = reingresoService.procesarReingresos(
+                    alumnosParaAsignar,
+                    proceso.getId(),
+                    semestre.getId());
+
+            // ============================================
+            // 5. INVOCAR AsignacionService
             // ============================================
 
             ResultadoAsignacion resultado;
             try {
+                proceso.setEstado(EstadoProceso.ASIGNANDO);
+                procesoRepository.save(proceso);
+
                 resultado = asignacionService.asignarAlumnos(
                         alumnosParaAsignar,
                         proceso.getId(),
@@ -150,7 +163,7 @@ public class EjecucionAsignacionServiceImpl implements EjecucionAsignacionServic
             }
 
             // ============================================
-            // 5. PROCESAR RESULTADO Y CONSTRUIR RESPUESTA
+            // 6. PROCESAR RESULTADO Y CONSTRUIR RESPUESTA
             // ============================================
 
             long duracionMs = System.currentTimeMillis() - inicioMs;
@@ -163,14 +176,14 @@ public class EjecucionAsignacionServiceImpl implements EjecucionAsignacionServic
                     .alumnosAsignados(resultado.getTotalAsignados())
                     .alumnosConError(resultado.getTotalErrores())
                     .duracionMs(duracionMs)
-                    .detalles(construirDetalles(resultado, duracionMs))
+                    .detalles(construirDetalles(resultado, duracionMs, alumnosAInactivar.size(), reingresosPendientes.size()))
                     .porcentajeExito(calcularPorcentajeExito(resultado))
                     .erroresDetalle(resultado.getErrores() != null ?
                             convertirErrores(resultado.getErrores()) : Collections.emptyList())
                     .build();
 
             // ============================================
-            // 6. ACTUALIZAR ESTADO DEL PROCESO
+            // 7. ACTUALIZAR ESTADO DEL PROCESO
             // ============================================
 
             proceso.setEstado(EstadoProceso.COMPLETADO);
@@ -249,15 +262,20 @@ public class EjecucionAsignacionServiceImpl implements EjecucionAsignacionServic
     /**
      * Construye los detalles de la respuesta.
      */
-    private String construirDetalles(ResultadoAsignacion resultado, long duracionMs) {
+    private String construirDetalles(ResultadoAsignacion resultado,
+                                     long duracionMs,
+                                     int inactivados,
+                                     int reingresosPendientes) {
         if (resultado.getTotalErrores() == 0) {
-            return String.format("%d alumnos asignados exitosamente en %dms",
-                    resultado.getTotalAsignados(), duracionMs);
+            return String.format("%d alumnos asignados, %d inactivados, %d reingresos pendientes en %dms",
+                    resultado.getTotalAsignados(), inactivados, reingresosPendientes, duracionMs);
         } else {
-            return String.format("%d de %d alumnos asignados. %d errores en %dms",
+            return String.format("%d de %d alumnos asignados. %d errores, %d inactivados, %d reingresos pendientes en %dms",
                     resultado.getTotalAsignados(),
                     resultado.getTotalProcesados(),
                     resultado.getTotalErrores(),
+                    inactivados,
+                    reingresosPendientes,
                     duracionMs);
         }
     }

@@ -3,6 +3,8 @@ package com.universidad.tutorias.infrastructure.controller;
 import com.universidad.tutorias.application.dto.AlumnoSearchResultDTO;
 import com.universidad.tutorias.application.enums.SearchSortOption;
 import com.universidad.tutorias.application.service.AlumnoSearchService;
+import com.universidad.tutorias.infrastructure.security.CookieAuthenticationFilter;
+import com.universidad.tutorias.infrastructure.security.JwtService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -37,6 +39,12 @@ class AlumnoSearchControllerTest {
 
     @MockBean
     private AlumnoSearchService alumnoSearchService;
+
+    @MockBean
+    private JwtService jwtService;
+
+    @MockBean
+    private CookieAuthenticationFilter cookieAuthenticationFilter;
 
     @Test
     void shouldRejectQueryShorterThanTwoCharacters() throws Exception {

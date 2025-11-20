@@ -5,8 +5,11 @@ import com.universidad.tutorias.application.service.AlumnoValidadorService;
 import com.universidad.tutorias.application.service.ExcelReaderService;
 import com.universidad.tutorias.application.service.ExcelValidacionYOrdenaService;
 import com.universidad.tutorias.domain.entity.Semestre;
+import com.universidad.tutorias.domain.exception.DomainValidationException;
 import com.universidad.tutorias.domain.repository.SemestreRepository;
+import com.universidad.tutorias.infrastructure.controller.response.ExcelValidationErrorDetail;
 import com.universidad.tutorias.infrastructure.exception.ExcelFormatoException;
+import com.universidad.tutorias.infrastructure.exception.ExcelValidationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -42,167 +45,93 @@ public class ExcelValidacionYOrdenaServiceImpl implements ExcelValidacionYOrdena
 
     /**
      * Valida, limpia y ordena un archivo Excel completo.
-     * 
+     *
      * FLUJO:
-     * 1. Leer Excel
-     * 2. Validar semestre existe
-     * 3. Validar datos de alumnos
-     * 4. Si hay errores → return error response
-     * 5. Si válido → limpiar, ordenar, convertir, return success response
+     * 1. Leer Excel → lanza ExcelFormatoException si hay error de formato
+     * 2. Validar semestre existe → lanza DomainValidationException si no existe
+     * 3. Limpiar datos
+     * 4. Validar datos de alumnos → acumula TODOS los errores
+     * 5. Si hay errores → lanza ExcelValidationException con lista de errores
+     * 6. Si válido → convertir, ordenar, retornar ExcelValidacionResponse con datos
+     *
+     * NOTA: Esta es la versión "antigua" que retorna response para compatibilidad.
+     * Se mantiene para no romper controladores que aún la usan.
      */
     @Override
     public ExcelValidacionResponse validarYProcesarExcel(MultipartFile archivo, Long semestreId) {
-        LocalDateTime inicio = LocalDateTime.now();
-        
-        try {
-            log.info("Iniciando validación de Excel para semestre ID: {}", semestreId);
-            
-            // STEP 1: Validar que semestre existe
-            Semestre semestre = semestreRepository.findById(semestreId)
-                    .orElseThrow(() -> new IllegalArgumentException(
-                            "Semestre con ID " + semestreId + " no encontrado"));
-            
-            log.info("Semestre validado: {} ({})", semestre.getNombre(), semestre.getCodigo());
-            
-            // STEP 2: Leer archivo Excel
-            List<AlumnoExcelDTO> alumnosExcel;
-            try {
-                alumnosExcel = excelReaderService.leerArchivo(archivo);
-                log.info("Excel leído exitosamente: {} filas", alumnosExcel.size());
-            } catch (ExcelFormatoException e) {
-                log.error("Error al leer Excel: {}", e.getMessage());
-                return ExcelValidacionResponse.builder()
-                        .status("ERROR")
-                        .message("Error al leer archivo Excel: " + e.getMessage())
-                        .timestamp(LocalDateTime.now())
-                        .totalFilas(0)
-                        .totalValidas(0)
-                        .totalErrores(1)
-                        .errors(List.of(ExcelErrorDTO.builder()
-                                .campo("archivo")
-                                .descripcion(e.getMessage())
-                                .tipoError("ERROR_FORMATO")
-                                .severidad("ERROR")
-                                .build()))
-                        .data(null)
-                        .build();
-            }
-            
-            // STEP 3: Limpiar datos crudos
-            limpiarDatos(alumnosExcel);
-            log.info("Datos limpiados y normalizados");
-            
-            // STEP 4: Validar alumnos (sin procesoId, usar null para validación previa)
-            // El validador ahora acepta null y no guarda errores en BD cuando no hay proceso
-            ResultadoValidacion resultadoValidacion = alumnoValidadorService.validarAlumnos(alumnosExcel, null);
-            log.info("Validación completada: {} válidos, {} errores",
-                    resultadoValidacion.getTotalValidos(),
-                    resultadoValidacion.getTotalErrores());
-            
-            // STEP 5: Si hay errores, retornar response de error
-            if (resultadoValidacion.getTotalErrores() > 0) {
-                log.warn("Validación encontró {} errores", resultadoValidacion.getTotalErrores());
-                
-                // Convertir ErrorValidacion a ExcelErrorDTO
-                List<ExcelErrorDTO> erroresDto = resultadoValidacion.getErrores().stream()
-                        .map(errorValidacion -> ExcelErrorDTO.builder()
-                                .filaExcel(Math.toIntExact(errorValidacion.getFilaExcel()))
-                                .campo(errorValidacion.getTipoError().toString())
-                                .valor(errorValidacion.getDatoErroneo())
-                                .descripcion(errorValidacion.getDescripcion())
-                                .tipoError(errorValidacion.getTipoError().toString())
-                                .severidad("ERROR")
-                                .build())
-                        .collect(Collectors.toList());
-                
-                int totalAlumnos = alumnosExcel.size();
-                int alumnosValidos = resultadoValidacion.getTotalValidos();
-                double porcentaje = totalAlumnos > 0 ? (alumnosValidos * 100.0 / totalAlumnos) : 0;
-                
-                return ExcelValidacionResponse.builder()
-                        .status("ERROR")
-                        .message(String.format("Se encontraron %d errores de validación en %d filas",
-                                resultadoValidacion.getTotalErrores(), totalAlumnos))
-                        .timestamp(LocalDateTime.now())
-                        .totalFilas(totalAlumnos)
-                        .totalValidas(alumnosValidos)
-                        .totalErrores(resultadoValidacion.getTotalErrores())
-                        .porcentajeExito(porcentaje)
-                        .errors(erroresDto)
-                        .data(null)
-                        .resumen(String.format(
-                                "Validación fallida: %d de %d filas tienen errores. " +
-                                "Por favor corrija los datos y vuelva a intentar.",
-                                resultadoValidacion.getTotalErrores(),
-                                totalAlumnos))
-                        .build();
-            }
-            
-            // STEP 6: Si válido, convertir, ordenar, retornar success
-            log.info("Todos los datos son válidos, procediendo a convertir y ordenar");
-            
-            // Convertir a AlumnoValidadoDTO
-            List<AlumnoValidadoDTO> alumnosValidados = convertirADtos(
-                    resultadoValidacion.getAlumnosValidos(),
-                    semestreId);
-            
-            // Ordenar por semestre (mayores primero)
-            List<AlumnoValidadoDTO> alumnosOrdenados = ordenarPorSemestre(alumnosValidados);
-            
-            log.info("Alumnos ordenados: {} alumnos listos para asignación", alumnosOrdenados.size());
-            
-            return ExcelValidacionResponse.builder()
-                    .status("OK")
-                    .message("Validación completada exitosamente. Datos listos para asignación.")
-                    .timestamp(LocalDateTime.now())
-                    .totalFilas(alumnosExcel.size())
-                    .totalValidas(alumnosOrdenados.size())
-                    .totalErrores(0)
-                    .porcentajeExito(100.0)
-                    .errors(List.of())
-                    .data(alumnosOrdenados)
-                    .resumen(String.format(
-                            "✓ %d alumnos validados exitosamente. " +
-                            "Ordenados por semestre (mayores primero, nuevo ingreso al final). " +
-                            "Listos para pasar al endpoint /ejecutar",
-                            alumnosOrdenados.size()))
-                    .build();
-            
-        } catch (IllegalArgumentException e) {
-            log.error("Validación fallida: {}", e.getMessage());
-            return ExcelValidacionResponse.builder()
-                    .status("ERROR")
-                    .message("Error de validación: " + e.getMessage())
-                    .timestamp(LocalDateTime.now())
-                    .totalFilas(0)
-                    .totalValidas(0)
-                    .totalErrores(1)
-                    .errors(List.of(ExcelErrorDTO.builder()
-                            .campo("general")
-                            .descripcion(e.getMessage())
-                            .tipoError("VALIDACION_FALLIDA")
-                            .severidad("ERROR")
-                            .build()))
-                    .data(null)
-                    .build();
-        } catch (Exception e) {
-            log.error("Error inesperado durante validación", e);
-            return ExcelValidacionResponse.builder()
-                    .status("ERROR")
-                    .message("Error inesperado: " + e.getMessage())
-                    .timestamp(LocalDateTime.now())
-                    .totalFilas(0)
-                    .totalValidas(0)
-                    .totalErrores(1)
-                    .errors(List.of(ExcelErrorDTO.builder()
-                            .campo("general")
-                            .descripcion("Error inesperado: " + e.getMessage())
-                            .tipoError("ERROR_SISTEMA")
-                            .severidad("ERROR")
-                            .build()))
-                    .data(null)
-                    .build();
+        log.info("Iniciando validación de Excel para semestre ID: {}", semestreId);
+
+        // Validar que semestre existe
+        Semestre semestre = semestreRepository.findById(semestreId)
+                .orElseThrow(() -> new DomainValidationException(
+                        "Semestre con ID " + semestreId + " no encontrado"));
+
+        log.info("Semestre validado: {} ({})", semestre.getNombre(), semestre.getCodigo());
+
+        // Leer archivo Excel - puede lanzar ExcelFormatoException
+        List<AlumnoExcelDTO> alumnosExcel = excelReaderService.leerArchivo(archivo);
+        log.info("Excel leído exitosamente: {} filas", alumnosExcel.size());
+
+        // Limpiar datos crudos
+        limpiarDatos(alumnosExcel);
+        log.info("Datos limpiados y normalizados");
+
+        // Validar alumnos (sin procesoId, usar null para validación previa)
+        ResultadoValidacion resultadoValidacion = alumnoValidadorService.validarAlumnos(alumnosExcel, null);
+        log.info("Validación completada: {} válidos, {} errores",
+                resultadoValidacion.getTotalValidos(),
+                resultadoValidacion.getTotalErrores());
+
+        // Si hay errores, lanzar excepción con detalles estructurados
+        if (resultadoValidacion.getTotalErrores() > 0) {
+            log.warn("Validación encontró {} errores", resultadoValidacion.getTotalErrores());
+
+            // Convertir ErrorValidacion a ExcelValidationErrorDetail
+            List<ExcelValidationErrorDetail> excelErrors = resultadoValidacion.getErrores()
+                    .stream()
+                    .map(errorValidacion -> new ExcelValidationErrorDetail(
+                            Math.toIntExact(errorValidacion.getFilaExcel()),
+                            errorValidacion.getTipoError().toString(),
+                            errorValidacion.getDatoErroneo(),
+                            errorValidacion.getDescripcion()
+                    ))
+                    .collect(Collectors.toList());
+
+            int totalAlumnos = alumnosExcel.size();
+            throw new ExcelValidationException(
+                    String.format("Se encontraron %d errores de validación en %d filas",
+                            resultadoValidacion.getTotalErrores(), totalAlumnos),
+                    excelErrors
+            );
         }
+
+        // Si válido, convertir, ordenar, retornar success
+        log.info("Todos los datos son válidos, procediendo a convertir y ordenar");
+
+        List<AlumnoValidadoDTO> alumnosValidados = convertirADtos(
+                resultadoValidacion.getAlumnosValidos(),
+                semestreId);
+
+        List<AlumnoValidadoDTO> alumnosOrdenados = ordenarPorSemestre(alumnosValidados);
+
+        log.info("Alumnos ordenados: {} alumnos listos para asignación", alumnosOrdenados.size());
+
+        return ExcelValidacionResponse.builder()
+                .status("OK")
+                .message("Validación completada exitosamente. Datos listos para asignación.")
+                .timestamp(LocalDateTime.now())
+                .totalFilas(alumnosExcel.size())
+                .totalValidas(alumnosOrdenados.size())
+                .totalErrores(0)
+                .porcentajeExito(100.0)
+                .errors(List.of())
+                .data(alumnosOrdenados)
+                .resumen(String.format(
+                        "✓ %d alumnos validados exitosamente. " +
+                        "Ordenados por semestre (mayores primero, nuevo ingreso al final). " +
+                        "Listos para pasar al endpoint /ejecutar",
+                        alumnosOrdenados.size()))
+                .build();
     }
 
     /**

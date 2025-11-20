@@ -47,7 +47,7 @@ public class ReingresoServiceImpl implements ReingresoService {
 
     @Override
     @Transactional
-    public List<Alumno> procesarReingresos(List<AlumnoExcelDTO> alumnosReingreso, Long procesoId) {
+    public List<Alumno> procesarReingresos(List<AlumnoExcelDTO> alumnosReingreso, Long procesoId, Long semestreId) {
 
         log.info("Procesando reingresos para {} alumnos", alumnosReingreso.size());
 
@@ -97,22 +97,16 @@ public class ReingresoServiceImpl implements ReingresoService {
                         alumno.setTutorActual(tutor);
                         alumnoRepository.save(alumno);
 
-                        // Obtener semestre activo para la asignación
-                        Optional<Semestre> semestreActivo = semestreService.obtenerSemestreActivo();
-                        if (semestreActivo.isEmpty()) {
-                            log.warn("No hay un semestre activo disponible para registrar la asignación de reingreso del alumno {}",
-                                    alumno.getMatricula());
-                            noAsignados.add(alumno);
-                            continue;
-                        }
+                        // Obtener semestre solicitado para la asignación
+                        Semestre semestre = semestreService.obtenerPorId(semestreId);
 
                         // Crear asignación de reingreso
                         Asignacion asignacion = new Asignacion();
                         asignacion.setAlumno(alumno);
                         asignacion.setTutor(tutor);
-                        asignacion.setSemestre(semestreActivo.get());
+                        asignacion.setSemestre(semestre);
                         asignacion.setTipoAsignacion(TipoAsignacion.REINGRESO);
-                        asignacion.setSemestreAcademico(semestreActivo.get().getCodigo());
+                        asignacion.setSemestreAcademico(semestre.getCodigo());
                         asignacionRepository.save(asignacion);
 
                         // Actualizar carga del tutor con lock y validación previa ya aplicada

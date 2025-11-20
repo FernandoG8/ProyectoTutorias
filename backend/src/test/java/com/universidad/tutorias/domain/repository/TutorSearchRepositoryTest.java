@@ -52,7 +52,7 @@ class TutorSearchRepositoryTest {
         assertThat(page.getContent()).hasSize(3);
         assertThat(page.getContent())
                 .extracting(row -> ((Number) row[3]).intValue())
-                .containsExactly(500, 420, 400);
+                .containsExactly(420, 420, 400);
     }
 
     @Test

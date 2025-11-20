@@ -7,7 +7,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        casal: "#315762",
+        casal: "#2f2b46",
         gallery: "#EFEFEF",
         primary: "#2C3E50",
         secondary: "#34495E",

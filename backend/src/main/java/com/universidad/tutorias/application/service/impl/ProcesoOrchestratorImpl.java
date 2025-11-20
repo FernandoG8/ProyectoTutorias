@@ -95,7 +95,7 @@ public class ProcesoOrchestratorImpl implements ProcesoOrchestrator {
             // FASE 4: Procesar reingresos (alumnos que estaban inactivos y vuelven)
             log.info("[Proceso {}] FASE 4: Procesamiento de reingresos", procesoId);
             List<Alumno> reingresosPendientes = reingresoService.procesarReingresos(
-                    validacion.getAlumnosValidos(), procesoId
+                    validacion.getAlumnosValidos(), procesoId, semestreId
             );
 
             // FASE 5: Asignar alumnos nuevos

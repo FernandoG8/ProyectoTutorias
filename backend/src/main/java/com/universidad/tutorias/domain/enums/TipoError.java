@@ -9,6 +9,7 @@ public enum TipoError {
     ASIGNACION_DUPLICADA("Asignación Duplicada"),
     CAPACIDAD_EXCEDIDA("Capacidad Excedida"),
     SIN_TUTOR_DISPONIBLE("Sin Tutor Disponible"),
+    DATOS_INCONSISTENTES("Datos Inconsistentes con BD"),
     ERROR_SISTEMA("Error de Sistema");
 
     private final String descripcion;

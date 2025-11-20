@@ -219,7 +219,7 @@ public class AsignacionController {
      * - Construir respuesta con errores o datos ordenados
      *
      * FLUJO:
-     * 1. Si hay errores → return {status="ERROR", errors=[]}
+     * 1. Si hay errores → GlobalExceptionHandler lanza ExcelValidationException (400)
      * 2. Si todo ok → return {status="OK", data=alumnosOrdenados[]}
      *
      * USADO POR:
@@ -228,6 +228,11 @@ public class AsignacionController {
      *
      * NEXT STEP:
      * - Si respuesta es OK, pasar data[] al endpoint POST /ejecutar
+     *
+     * Las excepciones son manejadas por GlobalExceptionHandler:
+     * - ExcelFormatoException → 400 BAD_REQUEST
+     * - ExcelValidationException → 400 BAD_REQUEST con lista de errores
+     * - DomainValidationException → 400 BAD_REQUEST
      */
     @PostMapping("/validar-excel")
     public ResponseEntity<ApiResponse<ExcelValidacionResponse>> validarExcel(
@@ -236,44 +241,10 @@ public class AsignacionController {
 
         log.info("Validando Excel para semestre ID: {}", semestreId);
 
-        try {
-            ExcelValidacionResponse respuesta = excelValidacionService.validarYProcesarExcel(archivo, semestreId);
+        ExcelValidacionResponse respuesta = excelValidacionService.validarYProcesarExcel(archivo, semestreId);
 
-            // Si hay errores, retornar con status 400
-            if ("ERROR".equals(respuesta.getStatus())) {
-                log.warn("Validación fallida: {} errores encontrados", respuesta.getTotalErrores());
-                return ResponseEntity
-                        .badRequest()
-                        .body(ApiResponse.success(respuesta, respuesta.getMessage()));
-            }
-
-            // Si todo ok, retornar con status 200 y datos ordenados
-            log.info("Validación exitosa: {} alumnos listos para asignación", respuesta.getTotalValidas());
-            return ResponseEntity.ok(ApiResponse.success(respuesta, respuesta.getMessage()));
-
-        } catch (Exception e) {
-            log.error("Error durante validación de Excel", e);
-
-            ExcelValidacionResponse errorResponse = ExcelValidacionResponse.builder()
-                    .status("ERROR")
-                    .message("Error inesperado durante validación: " + e.getMessage())
-                    .timestamp(LocalDateTime.now())
-                    .totalFilas(0)
-                    .totalValidas(0)
-                    .totalErrores(1)
-                    .errors(List.of(ExcelErrorDTO.builder()
-                            .campo("general")
-                            .descripcion(e.getMessage())
-                            .tipoError("ERROR_SISTEMA")
-                            .severidad("ERROR")
-                            .build()))
-                    .data(null)
-                    .build();
-
-            return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ApiResponse.success(errorResponse, "Error del sistema"));
-        }
+        log.info("Validación exitosa: {} alumnos listos para asignación", respuesta.getTotalValidas());
+        return ResponseEntity.ok(ApiResponse.success(respuesta, respuesta.getMessage()));
     }
 
     /**
@@ -293,7 +264,7 @@ public class AsignacionController {
      * - Retornar estadísticas completas
      *
      * FLUJO:
-     * 1. Validar precondiciones (semestreId, lista no vacía)
+     * 1. Validar precondiciones (semestreId, lista no vacía) → lanza DomainValidationException si falla
      * 2. Crear ProcesoAsignacion
      * 3. Invocar EjecucionAsignacionService.ejecutar()
      * 4. Retornar resultado con status (OK/PARTIAL/ERROR)
@@ -302,6 +273,7 @@ public class AsignacionController {
      * - Los datos YA están validados, este endpoint es "lógica pura"
      * - No revalida Excel, confía en precondiciones
      * - Respeta el orden de semestres para liberar cupos
+     * - GlobalExceptionHandler maneja todas las excepciones
      *
      * RESPUESTA:
      * - status: "OK" (todos), "PARTIAL" (algunos), "ERROR" (ninguno)
@@ -319,42 +291,18 @@ public class AsignacionController {
                 request.getAlumnosValidados().size(),
                 request.getSemestreId());
 
-        try {
-            // Invocar el servicio de ejecución
-            EjecucionAsignacionResponse respuesta = ejecucionAsignacionService.ejecutar(request);
+        EjecucionAsignacionResponse respuesta = ejecucionAsignacionService.ejecutar(request);
 
-            // Determinar HTTP status basado en respuesta
-            HttpStatus httpStatus = "ERROR".equals(respuesta.getStatus()) ?
-                    HttpStatus.INTERNAL_SERVER_ERROR :
-                    HttpStatus.OK;
+        // Determinar HTTP status basado en respuesta
+        HttpStatus httpStatus = "ERROR".equals(respuesta.getStatus()) ?
+                HttpStatus.INTERNAL_SERVER_ERROR :
+                HttpStatus.OK;
 
-            log.info("Asignación completada con status: {}", respuesta.getStatus());
+        log.info("Asignación completada con status: {}", respuesta.getStatus());
 
-            return ResponseEntity
-                    .status(httpStatus)
-                    .body(ApiResponse.success(respuesta, respuesta.getMessage()));
-
-        } catch (Exception e) {
-            log.error("Error inesperado durante ejecución de asignación", e);
-
-            EjecucionAsignacionResponse errorResponse = EjecucionAsignacionResponse.builder()
-                    .status("ERROR")
-                    .message("Error del sistema durante asignación")
-                    .timestamp(LocalDateTime.now())
-                    .totalAlumnos(request.getAlumnosValidados() != null ?
-                            request.getAlumnosValidados().size() : 0)
-                    .alumnosAsignados(0)
-                    .alumnosConError(request.getAlumnosValidados() != null ?
-                            request.getAlumnosValidados().size() : 0)
-                    .detalles("Error inesperado: " + e.getMessage())
-                    .porcentajeExito(0.0)
-                    .erroresDetalle(Collections.emptyList())
-                    .build();
-
-            return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ApiResponse.success(errorResponse, "Error del sistema"));
-        }
+        return ResponseEntity
+                .status(httpStatus)
+                .body(ApiResponse.success(respuesta, respuesta.getMessage()));
     }
 
     private AlertaDTO convertirAlertaDTO(AlertaProceso alerta) {

@@ -19,7 +19,7 @@ public class TutorSearchRepository {
     private static final String SCORE_EXPRESSION = """
             CASE
                 WHEN LOWER(t.nombre) = :normalizedQuery THEN 500
-                WHEN LOWER(t.nombre) LIKE CONCAT(:likeQuery, '%') ESCAPE '\\\\' THEN 420
+                WHEN LOWER(t.nombre) LIKE CONCAT(:likeQuery, '%') THEN 420
                 WHEN LOWER(t.nombre) REGEXP CONCAT('(^| )', :regexQuery) THEN 400
                 WHEN INSTR(LOWER(t.nombre), :normalizedQuery) > 0 THEN 200
                 ELSE 0
@@ -29,7 +29,7 @@ public class TutorSearchRepository {
     private static final String MATCH_CONDITION = """
             (
                 LOWER(t.nombre) = :normalizedQuery
-                OR LOWER(t.nombre) LIKE CONCAT(:likeQuery, '%') ESCAPE '\\\\'
+                OR LOWER(t.nombre) LIKE CONCAT(:likeQuery, '%')
                 OR LOWER(t.nombre) REGEXP CONCAT('(^| )', :regexQuery)
                 OR INSTR(LOWER(t.nombre), :normalizedQuery) > 0
             )

@@ -8,7 +8,6 @@ import com.universidad.tutorias.application.service.SemestreService;
 import com.universidad.tutorias.domain.entity.Semestre;
 import com.universidad.tutorias.domain.repository.*;
 import com.universidad.tutorias.domain.entity.Asignacion;
-import com.universidad.tutorias.domain.entity.Alumno;
 import com.universidad.tutorias.domain.enums.EstadoAlumno;
 import com.universidad.tutorias.infrastructure.controller.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,7 +32,6 @@ public class DashboardController {
 
     private final SemestreService semestreService;
     private final AsignacionRepository asignacionRepository;
-    private final AlumnoRepository alumnoRepository;
     private final TutorRepository tutorRepository;
     private final ProcesoAsignacionRepository procesoRepository;
 
@@ -69,17 +67,21 @@ public class DashboardController {
 
         // Obtener estadísticas
         List<Asignacion> asignaciones = asignacionRepository.findBySemestreId(semestreId);
-        List<Alumno> alumnosActivos = alumnoRepository.findByEstadoWithTutor(EstadoAlumno.ACTIVO);
+        List<Asignacion> asignacionesActivas = asignaciones.stream()
+                .filter(a -> a.getAlumno().getEstado() == EstadoAlumno.ACTIVO)
+                .toList();
 
-        int totalAlumnos = alumnosActivos.size();
-        int alumnosConTutor = (int) alumnosActivos.stream()
-            .filter(a -> a.getTutorActual() != null)
-            .count();
+        Set<Long> alumnosActivosIds = asignacionesActivas.stream()
+                .map(a -> a.getAlumno().getId())
+                .collect(Collectors.toSet());
+        int totalAlumnos = alumnosActivosIds.size();
+        int alumnosConTutor = totalAlumnos;
 
-        int totalTutores = (int) asignaciones.stream()
-            .map(a -> a.getTutor().getId())
-            .distinct()
-            .count();
+        int tutoresConAsignaciones = (int) asignacionesActivas.stream()
+                .map(a -> a.getTutor().getId())
+                .distinct()
+                .count();
+        int tutoresActivos = tutorRepository.findAllActivos().size();
 
         Map<String, Object> stats = new HashMap<>();
         stats.put("semestre", semestre.getCodigo());
@@ -87,10 +89,11 @@ public class DashboardController {
         stats.put("total_alumnos", totalAlumnos);
         stats.put("alumnos_con_tutor", alumnosConTutor);
         stats.put("alumnos_sin_tutor", totalAlumnos - alumnosConTutor);
-        stats.put("total_tutores", totalTutores);
-        stats.put("total_asignaciones", asignaciones.size());
+        stats.put("total_tutores", tutoresActivos);
+        stats.put("tutores_con_asignaciones", tutoresConAsignaciones);
+        stats.put("total_asignaciones", asignacionesActivas.size());
         stats.put("promedio_alumnos_por_tutor",
-            totalTutores > 0 ? (double) totalAlumnos / totalTutores : 0.0);
+            tutoresConAsignaciones > 0 ? (double) totalAlumnos / tutoresConAsignaciones : 0.0);
         stats.put("porcentaje_cobertura",
             totalAlumnos > 0 ? (double) alumnosConTutor / totalAlumnos * 100 : 0.0);
 
