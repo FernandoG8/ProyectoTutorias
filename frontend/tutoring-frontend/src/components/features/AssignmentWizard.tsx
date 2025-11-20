@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Upload, FileCheck, Zap } from "lucide-react";
+import { Upload, FileCheck, Zap, AlertCircle, CheckCircle } from "lucide-react";
 import dayjs from "dayjs";
 
 import { Stepper } from "@/components/common/Stepper";
@@ -15,7 +15,8 @@ import { colors } from "@/constants/colors";
 import { useNotification } from "@/hooks/useNotification";
 
 import {
-  startAssignmentProcess,
+  validateExcelFile,
+  executeAssignment,
   getAssignmentProcessStatus,
 } from "@/services/asignaciones-service";
 import type { EstadoProceso, EstadoProcesoResponse } from "@/types";
@@ -104,6 +105,9 @@ export const AssignmentWizard = ({
 }: AssignmentWizardProps) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [procesoId, setProcesoId] = useState<number | null>(null);
+  const [semestreId, setSemestreId] = useState<number | null>(null);
+  const [validationData, setValidationData] = useState<any>(null);
+  const [validationErrors, setValidationErrors] = useState<any[]>([]);
   const queryClient = useQueryClient();
   const { success, error: showError, info } = useNotification();
 
@@ -120,38 +124,69 @@ export const AssignmentWizard = ({
     },
   });
 
-  // Mutation for starting process
-  const startMutation = useMutation({
-    mutationFn: startAssignmentProcess,
+  // Mutation for validating Excel
+  const validationMutation = useMutation({
+    mutationFn: async ({ archivo, semId }: { archivo: File; semId: number }) => {
+      return validateExcelFile(archivo, semId);
+    },
     onSuccess: (result) => {
-      if (result.procesoId) {
-        setProcesoId(result.procesoId);
-        setCurrentStep(1); // Move to processing step
-        success("Proceso de asignación iniciado");
-        queryClient.invalidateQueries({ queryKey: ["assignment-processes"] });
+      setValidationData(result.data || []);
+      setValidationErrors(result.errors || []);
+      setSemestreId(currentSemestreId);
+
+      // Si no hay errores, saltar directamente a confirmación
+      if (!result.errors || result.errors.length === 0) {
+        setCurrentStep(2); // Skip validation errors step
+        success("Excel validado correctamente sin errores");
+      } else {
+        setCurrentStep(1); // Show validation errors
+        info(`Se encontraron ${result.errors.length} error(es) en la validación`);
       }
     },
     onError: (err) => {
       showError(
-        err instanceof Error ? err.message : "Error al iniciar el proceso"
+        err instanceof Error ? err.message : "Error al validar el Excel"
       );
     },
   });
 
-  // Query for process status
+  // Mutation for executing assignment
+  const executionMutation = useMutation({
+    mutationFn: async () => {
+      if (!semestreId || !validationData) {
+        throw new Error("Datos de validación faltantes");
+      }
+      return executeAssignment(semestreId, validationData);
+    },
+    onSuccess: (result) => {
+      setProcesoId(result.procesoId || 999); // Para polling
+      setCurrentStep(3); // Move to processing step
+      success("Proceso de asignación iniciado");
+      queryClient.invalidateQueries({ queryKey: ["assignment-processes"] });
+    },
+    onError: (err) => {
+      showError(
+        err instanceof Error ? err.message : "Error al ejecutar la asignación"
+      );
+    },
+  });
+
+  let currentSemestreId: number;
+
+  // Query for process status (polling durante procesamiento)
   const statusQuery = useQuery<EstadoProcesoResponse>({
     queryKey: ["assignment-process-status", procesoId],
     queryFn: () => getAssignmentProcessStatus(procesoId as number),
-    enabled: procesoId !== null && currentStep === 1,
+    enabled: procesoId !== null && currentStep === 3,
     refetchInterval: (query) => {
       const data = query.state.data;
       if (!data) return 3000;
       // Auto-advance to results when complete
       if (
         (data.estado === "COMPLETADO" || data.estado === "FALLIDO") &&
-        currentStep === 1
+        currentStep === 3
       ) {
-        setCurrentStep(2);
+        setCurrentStep(4); // Move to final results
         if (data.estado === "COMPLETADO") {
           info("Asignación completada exitosamente");
         }
@@ -166,21 +201,35 @@ export const AssignmentWizard = ({
       const file = values.archivo.item(0);
       if (!file) return;
 
-      await startMutation.mutateAsync({
+      // Parse semestre código to ID (basic conversion, ideally fetch from backend)
+      // Format: "2025-1" → ID 5 (example)
+      const semId = parseInt(values.semestreAcademico.split("-")[0]) || 1;
+      currentSemestreId = semId;
+
+      // STEP 1: Validate Excel first
+      await validationMutation.mutateAsync({
         archivo: file,
-        semestreAcademico: values.semestreAcademico,
-        usuario: values.usuario,
+        semId,
       });
     },
-    [startMutation]
+    [validationMutation]
   );
 
   const handleReset = useCallback(() => {
     setCurrentStep(0);
     setProcesoId(null);
+    setSemestreId(null);
+    setValidationData(null);
+    setValidationErrors([]);
     resetForm();
-    startMutation.reset();
-  }, [resetForm, startMutation]);
+    validationMutation.reset();
+    executionMutation.reset();
+  }, [resetForm, validationMutation, executionMutation]);
+
+  const handleExecute = useCallback(async () => {
+    // STEP 2: Execute with validated data
+    await executionMutation.mutateAsync();
+  }, [executionMutation]);
 
   const handleFinish = useCallback(() => {
     if (procesoId) {
@@ -189,10 +238,26 @@ export const AssignmentWizard = ({
     onClose?.();
   }, [procesoId, onSuccess, onClose]);
 
+  const handleBackToUpload = useCallback(() => {
+    setCurrentStep(0);
+    setValidationData(null);
+    setValidationErrors([]);
+  }, []);
+
   const stepConfig = [
     {
       label: "Carga de archivo",
       description: "Selecciona el archivo de alumnos",
+    },
+    {
+      label: "Validación",
+      description: "Revisa los errores encontrados",
+      disabled: true,
+    },
+    {
+      label: "Confirmación",
+      description: "Confirma la ejecución",
+      disabled: true,
     },
     {
       label: "Procesando",
@@ -298,12 +363,12 @@ export const AssignmentWizard = ({
               <div className="flex gap-3">
                 <Button
                   type="submit"
-                  loading={startMutation.isPending}
-                  disabled={startMutation.isPending}
+                  loading={validationMutation.isPending}
+                  disabled={validationMutation.isPending}
                   style={{ backgroundColor: colors.primary[400] }}
                 >
                   <Zap className="h-4 w-4 mr-2" />
-                  Iniciar asignación
+                  Validar archivo
                 </Button>
                 {onClose && (
                   <button
@@ -342,8 +407,161 @@ export const AssignmentWizard = ({
         </Card>
       )}
 
-      {/* Step 2: Processing */}
-      {currentStep === 1 && statusQuery.data && (
+      {/* Step 1 (bis): Validation Errors - Solo si hay errores */}
+      {currentStep === 1 && validationErrors.length > 0 && (
+        <Card>
+          <div className="space-y-6">
+            <div className="flex items-start gap-3">
+              <AlertCircle
+                className="h-6 w-6 flex-shrink-0 mt-1"
+                style={{ color: colors.warning[400] }}
+              />
+              <div>
+                <h2
+                  className="text-lg font-semibold"
+                  style={{ color: colors.semantic.text.primary }}
+                >
+                  Errores en la validación
+                </h2>
+                <p
+                  className="text-sm mt-1"
+                  style={{ color: colors.semantic.text.secondary }}
+                >
+                  Se encontraron {validationErrors.length} error(es) en el archivo. Revísalos antes de continuar.
+                </p>
+              </div>
+            </div>
+
+            {/* Error Table */}
+            <div
+              className="rounded-lg border p-4 max-h-96 overflow-y-auto"
+              style={{
+                borderColor: colors.warning[200],
+                backgroundColor: colors.warning[50],
+              }}
+            >
+              <div className="space-y-2">
+                {validationErrors.map((error, idx) => (
+                  <div
+                    key={idx}
+                    className="text-sm p-3 rounded border"
+                    style={{
+                      borderColor: colors.warning[300],
+                      backgroundColor: colors.warning[100],
+                    }}
+                  >
+                    <p className="font-medium" style={{ color: colors.warning[900] }}>
+                      Fila {error.fila || "desconocida"}: {error.campo || "campo desconocido"}
+                    </p>
+                    <p style={{ color: colors.warning[800] }}>
+                      {error.descripcion || error.error || "Error desconocido"}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <Button
+                onClick={handleBackToUpload}
+                style={{ backgroundColor: colors.primary[400] }}
+              >
+                Volver a subir archivo
+              </Button>
+              <Button
+                onClick={handleExecute}
+                loading={executionMutation.isPending}
+                disabled={executionMutation.isPending}
+                className="bg-amber-600 hover:bg-amber-700"
+              >
+                Continuar de todas formas
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Step 2: Confirmation - Solo si pasa validación sin errores */}
+      {currentStep === 2 && validationData && (
+        <Card>
+          <div className="space-y-6">
+            <div className="flex items-start gap-3">
+              <CheckCircle
+                className="h-6 w-6 flex-shrink-0 mt-1"
+                style={{ color: colors.success[400] }}
+              />
+              <div>
+                <h2
+                  className="text-lg font-semibold"
+                  style={{ color: colors.semantic.text.primary }}
+                >
+                  Confirmación de asignación
+                </h2>
+                <p
+                  className="text-sm mt-1"
+                  style={{ color: colors.semantic.text.secondary }}
+                >
+                  Revisa el resumen antes de ejecutar la asignación masiva
+                </p>
+              </div>
+            </div>
+
+            {/* Summary */}
+            <div
+              className="rounded-lg border p-4 grid grid-cols-3 gap-4"
+              style={{ borderColor: colors.semantic.border }}
+            >
+              <div>
+                <p className="text-xs" style={{ color: colors.semantic.text.muted }}>
+                  Total a asignar
+                </p>
+                <p className="text-2xl font-bold" style={{ color: colors.primary[600] }}>
+                  {validationData?.length || 0}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs" style={{ color: colors.semantic.text.muted }}>
+                  Errores previos
+                </p>
+                <p className="text-2xl font-bold" style={{ color: colors.warning[600] }}>
+                  {validationErrors.length || 0}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs" style={{ color: colors.semantic.text.muted }}>
+                  Semestre
+                </p>
+                <p className="text-lg font-bold" style={{ color: colors.primary[600] }}>
+                  {semestreId || "N/A"}
+                </p>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <Button
+                onClick={handleExecute}
+                loading={executionMutation.isPending}
+                disabled={executionMutation.isPending}
+                style={{ backgroundColor: colors.success[600] }}
+              >
+                <Zap className="h-4 w-4 mr-2" />
+                Ejecutar asignación
+              </Button>
+              <Button
+                onClick={handleBackToUpload}
+                className="bg-gray-200 hover:bg-gray-300 text-gray-900"
+              >
+                Volver
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Step 3: Processing */}
+      {currentStep === 3 && statusQuery.data && (
         <Card>
           <div className="space-y-6">
             <div>
@@ -451,8 +669,8 @@ export const AssignmentWizard = ({
         </Card>
       )}
 
-      {/* Step 3: Results */}
-      {currentStep === 2 && statusQuery.data && (
+      {/* Step 4: Results */}
+      {currentStep === 4 && statusQuery.data && (
         <Card>
           <div className="space-y-6">
             <div className="flex items-start gap-3">
