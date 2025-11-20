@@ -4,18 +4,18 @@
  */
 
 export const colors = {
-  // Primary Brand Color
+  // Primary Brand Color - CASAL Palette
   primary: {
-    50: '#DBEAFE',
-    100: '#BFDBFE',
-    200: '#93C5FD',
-    300: '#60A5FA',
-    400: '#3B82F6', // Main
-    500: '#1D4ED8',
-    600: '#1E40AF',
-    700: '#1E3A8A',
-    800: '#1E3A8A',
-    900: '#172554',
+    50: '#F0F5F7',
+    100: '#D4E3E8',
+    200: '#A8C7D0',
+    300: '#7CABBA',
+    400: '#315762', // Main - CASAL
+    500: '#2A4B52',
+    600: '#1F3840',
+    700: '#152530',
+    800: '#0C1318',
+    900: '#060A0D',
   },
 
   // Success / Positive
@@ -90,12 +90,12 @@ export const colors = {
 
   // Semantic Colors
   semantic: {
-    background: '#F8FAFC',
+    background: '#EFEFEF', // Gallery
     surface: '#FFFFFF',
     border: '#E2E8F0',
     text: {
-      primary: '#1E293B',
-      secondary: '#64748B',
+      primary: '#0F172A',
+      secondary: '#475569',
       muted: '#94A3B8',
       light: '#CBD5E1',
     },
@@ -107,7 +107,7 @@ export const colors = {
 
   // Gradient combinations
   gradients: {
-    primary: 'from-blue-400 to-blue-600',
+    primary: 'from-casal to-casal/80',
     success: 'from-green-400 to-emerald-600',
     warning: 'from-amber-400 to-orange-600',
     danger: 'from-red-400 to-rose-600',
@@ -128,11 +128,11 @@ export const colorVariants = {
 
   // Buttons
   button: {
-    primary: 'bg-blue-500 hover:bg-blue-600 text-white',
+    primary: 'bg-casal hover:bg-casal/90 text-white',
     secondary: 'bg-gray-200 hover:bg-gray-300 text-gray-900',
     success: 'bg-green-500 hover:bg-green-600 text-white',
     danger: 'bg-red-500 hover:bg-red-600 text-white',
-    outline: 'border border-blue-500 text-blue-500 hover:bg-blue-50',
+    outline: 'border border-casal text-casal hover:bg-casal/5',
   },
 
   // Alerts
@@ -145,7 +145,7 @@ export const colorVariants = {
 
   // Form inputs with error
   input: {
-    default: 'border-gray-300 focus:border-blue-500 focus:ring-blue-500',
+    default: 'border-gray-300 focus:border-casal focus:ring-casal',
     error: 'border-red-500 focus:border-red-500 focus:ring-red-500 bg-red-50',
     success: 'border-green-500 focus:border-green-500 focus:ring-green-500',
   },

@@ -50,18 +50,14 @@ export const Topbar = () => {
 
   return (
     <header
-      className="sticky top-0 z-10 flex items-center justify-between border-b bg-white px-6 py-4 shadow-sm"
-      style={{ borderColor: colors.semantic.border }}
+      className="sticky top-0 z-10 flex items-center justify-between border-b bg-casal text-white px-6 py-4 shadow-sm"
+      style={{ borderColor: colors.primary[600] }}
     >
       {/* Left Section: Menu Toggle & Title */}
       <div className="flex items-center gap-4 flex-1">
         <button
           onClick={toggleSidebar}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-lg border transition-colors duration-200 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2"
-          style={{
-            borderColor: colors.semantic.border,
-            color: colors.semantic.text.primary,
-          }}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-lg border transition-colors duration-200 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-offset-2 text-white border-white/30"
           type="button"
           aria-label="Alternar menú"
           title="Mostrar/ocultar menú"
@@ -70,14 +66,12 @@ export const Topbar = () => {
         </button>
         <div className="min-w-0">
           <p
-            className="text-xs font-semibold uppercase tracking-wider"
-            style={{ color: colors.semantic.text.secondary }}
+            className="text-xs font-semibold uppercase tracking-wider text-white/70"
           >
             Módulo actual
           </p>
           <h1
-            className="text-xl font-bold truncate"
-            style={{ color: colors.semantic.text.primary }}
+            className="text-xl font-bold truncate text-white"
           >
             {activeRoute}
           </h1>
@@ -90,26 +84,22 @@ export const Topbar = () => {
 
         {/* User Profile Card */}
         <div
-          className="flex items-center gap-3 rounded-lg border px-4 py-2 bg-gray-50"
-          style={{ borderColor: colors.semantic.border }}
+          className="flex items-center gap-3 rounded-lg border px-4 py-2 bg-white/10 border-white/20"
         >
           <div className="text-right">
             <p
-              className="text-sm font-semibold"
-              style={{ color: colors.semantic.text.primary }}
+              className="text-sm font-semibold text-white"
             >
               {user?.username ?? "Invitado"}
             </p>
             <p
-              className="text-xs"
-              style={{ color: colors.semantic.text.secondary }}
+              className="text-xs text-white/70"
             >
               {roleLabel}
             </p>
           </div>
           <div
-            className="flex h-10 w-10 items-center justify-center rounded-lg text-sm font-semibold text-white"
-            style={{ backgroundColor: colors.primary[400] }}
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-sm font-semibold text-casal bg-white"
             title={user?.username ?? "Usuario"}
           >
             {initials}
