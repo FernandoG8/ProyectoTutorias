@@ -138,7 +138,7 @@ const columns = (
 
 export const SemestresPage = () => {
   const queryClient = useQueryClient();
-  const { semestreActivo, fetchSemestreActivo } = useSemestreStore();
+  const { semestreActivo, fetchSemestreActivo, resetFetchAttempt } = useSemestreStore();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedSemestreId, setSelectedSemestreId] = useState<number | null>(null);
   const [statsModalOpen, setStatsModalOpen] = useState(false);
@@ -172,6 +172,8 @@ export const SemestresPage = () => {
     mutationFn: createSemestre,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["semestres"] });
+      // Reset fetch attempt to allow re-fetching the active semester
+      resetFetchAttempt();
       setIsCreateModalOpen(false);
       reset();
     },

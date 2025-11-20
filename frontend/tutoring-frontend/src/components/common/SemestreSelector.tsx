@@ -5,13 +5,14 @@ import { Badge } from "@/components/ui/Badge";
 import { Skeleton } from "@/components/ui/Skeleton";
 
 export function SemestreSelector() {
-  const { semestreActivo, isLoading, error, fetchSemestreActivo } = useSemestreStore();
+  const { semestreActivo, isLoading, error, hasAttemptedFetch, fetchSemestreActivo } = useSemestreStore();
 
   useEffect(() => {
-    if (!semestreActivo && !isLoading && !error) {
+    // Only fetch if we haven't attempted yet
+    if (!hasAttemptedFetch && !isLoading) {
       fetchSemestreActivo();
     }
-  }, [semestreActivo, isLoading, error, fetchSemestreActivo]);
+  }, [hasAttemptedFetch, isLoading, fetchSemestreActivo]);
 
   if (isLoading) {
     return (
