@@ -12,6 +12,11 @@ import type {
   EstadoProcesoResponse,
   IniciarProcesoResponse,
   StartAssignmentProcessInput,
+  // Nuevos DTOs para nueva lógica (FASE 4C)
+  AlumnoValidadoDTO,
+  ExcelValidacionResponse,
+  EjecutarAsignacionRequest,
+  EjecucionAsignacionResponse,
 } from "@/types";
 
 /**
@@ -158,24 +163,53 @@ export const requestTutorChange = async (
  * - Leer y parsear Excel
  * - Validar estructura y datos
  * - Reportar TODOS los errores
- * - Ordenar alumnos por semestre
+ * - Ordenar alumnos por semestre (mayores primero)
  * - NO modifica la BD
  *
+ * PRECONDICIONES:
+ * - archivo debe ser Excel (.xlsx, .xls)
+ * - semestreId debe ser número (NOT string)
+ * - semestreId debe existir en BD
+ *
  * RESPUESTA:
- * - status: "OK" (sin errores) | "PARTIAL" (con errores) | "ERROR" (validación fallida)
- * - data: [] (alumnos validados si status=OK)
- * - errors: [] (detalles de errores si existen)
+ * - status: "OK" (sin errores) | "ERROR" (validación fallida) | "WARNING" (advertencias)
+ * - data: AlumnoValidadoDTO[] (alumnos validados y ORDENADOS si status=OK)
+ * - errors: ExcelErrorDTO[] (detalles de errores si status=ERROR)
+ *
+ * EJEMPLO DE USO:
+ * ```typescript
+ * const response = await validateExcelFile(file, 5); // 5 = semestreId
+ * if (response.status === "OK") {
+ *   // Guardar response.data para usar en executeAssignment()
+ *   setValidationData(response.data);
+ * } else if (response.status === "ERROR") {
+ *   // Mostrar tabla de errores: response.errors
+ * }
+ * ```
  */
 export const validateExcelFile = async (
   archivo: File,
   semestreId: number,
-): Promise<any> => {
+): Promise<ExcelValidacionResponse> => {
   try {
+    // Validar precondiciones localmente
+    if (!archivo) {
+      throw new Error("Archivo es requerido");
+    }
+    if (typeof semestreId !== "number" || semestreId <= 0) {
+      throw new Error("Semestre debe ser un número válido");
+    }
+    if (!["application/vnd.ms-excel",
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"]
+          .includes(archivo.type)) {
+      throw new Error("El archivo debe ser Excel (.xlsx, .xls)");
+    }
+
     const formData = new FormData();
     formData.append("archivo", archivo);
     formData.append("semestreId", semestreId.toString());
 
-    const { data } = await api.post<ApiResponse<any>>(
+    const { data } = await api.post<ApiResponse<ExcelValidacionResponse>>(
       API_URLS.asignaciones.validarExcel,
       formData,
       {
@@ -185,9 +219,15 @@ export const validateExcelFile = async (
       },
     );
 
+    // Validar respuesta
+    if (!data || !data.data) {
+      throw new Error("Respuesta del servidor inválida");
+    }
+
     return data.data;
   } catch (error) {
-    throw new Error(`Error al validar Excel: ${extractErrorMessage(error)}`);
+    const mensaje = error instanceof Error ? error.message : "Error desconocido";
+    throw new Error(`Error al validar Excel: ${extractErrorMessage(error) || mensaje}`);
   }
 };
 
@@ -195,10 +235,13 @@ export const validateExcelFile = async (
  * Ejecuta la asignación con datos previamente validados
  * POST /api/asignaciones/ejecutar
  *
- * PRECONDICIONES:
+ * PRECONDICIONES (CRÍTICAS):
  * - Los datos DEBEN venir de validateExcelFile() con status="OK"
- * - Los alumnos DEBEN estar ordenados por semestre
- * - semestreId DEBE coincidir
+ * - Los alumnos YA están validados (NO revalidar)
+ * - Los alumnos YA están limpios (NO normalizar)
+ * - Los alumnos YA están ORDENADOS por semestre (NO reordenar)
+ * - semestreId debe ser número y coincidir con los alumnos
+ * - La lista NO puede estar vacía
  *
  * RESPONSABILIDADES:
  * - Crear registros de Asignacion
@@ -207,30 +250,64 @@ export const validateExcelFile = async (
  * - Best-effort error handling (continúa si hay errores parciales)
  *
  * RESPUESTA:
- * - status: "OK" (todos OK) | "PARTIAL" (algunos con error) | "ERROR" (ninguno)
+ * - status: "OK" (todos) | "PARTIAL" (algunos con error) | "ERROR" (ninguno)
  * - totalAlumnos: Total procesado
  * - alumnosAsignados: Exitosos
  * - alumnosConError: Fallidos
  * - duracionMs: Tiempo total
- * - erroresDetalle: [] (lista de errores si hay)
+ * - erroresDetalle: Lista de errores (si status != "OK")
+ *
+ * EJEMPLO DE USO:
+ * ```typescript
+ * const response = await executeAssignment(semestreId, validationData);
+ * if (response.status === "OK" || response.status === "PARTIAL") {
+ *   showResults(response);
+ * } else {
+ *   error("Fallo la asignación: " + response.message);
+ * }
+ * ```
  */
 export const executeAssignment = async (
   semestreId: number,
-  alumnosValidados: any[],
-): Promise<any> => {
+  alumnosValidados: AlumnoValidadoDTO[],
+): Promise<EjecucionAsignacionResponse> => {
   try {
-    const payload = {
+    // Validar precondiciones localmente
+    if (typeof semestreId !== "number" || semestreId <= 0) {
+      throw new Error("Semestre debe ser un número válido");
+    }
+    if (!Array.isArray(alumnosValidados) || alumnosValidados.length === 0) {
+      throw new Error("Lista de alumnos no puede estar vacía");
+    }
+
+    // Validar que todos los alumnos tengan semestreId
+    const allValid = alumnosValidados.every(
+      (a) => a.semestreId && typeof a.semestreId === "number"
+    );
+    if (!allValid) {
+      throw new Error("Algunos alumnos no tienen semestre válido");
+    }
+
+    const payload: EjecutarAsignacionRequest = {
       semestreId,
-      alumnosValidados,
+      alumnosValidados,                    // DIRECTO, SIN MODIFICAR
+      simular: false,                      // Ejecutar de verdad
+      reporteDetallado: false,             // Solo resumen
     };
 
-    const { data } = await api.post<ApiResponse<any>>(
+    const { data } = await api.post<ApiResponse<EjecucionAsignacionResponse>>(
       API_URLS.asignaciones.ejecutar,
       payload,
     );
 
+    // Validar respuesta
+    if (!data || !data.data) {
+      throw new Error("Respuesta del servidor inválida");
+    }
+
     return data.data;
   } catch (error) {
-    throw new Error(`Error al ejecutar asignación: ${extractErrorMessage(error)}`);
+    const mensaje = error instanceof Error ? error.message : "Error desconocido";
+    throw new Error(`Error al ejecutar asignación: ${extractErrorMessage(error) || mensaje}`);
   }
 };

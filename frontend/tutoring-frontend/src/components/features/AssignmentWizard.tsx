@@ -19,7 +19,7 @@ import {
   executeAssignment,
   getAssignmentProcessStatus,
 } from "@/services/asignaciones-service";
-import type { EstadoProceso, EstadoProcesoResponse } from "@/types";
+import type { EstadoProceso, EstadoProcesoResponse, EjecucionAsignacionResponse } from "@/types";
 
 /**
  * Assignment Wizard Component
@@ -150,6 +150,9 @@ export const AssignmentWizard = ({
     },
   });
 
+  // Estado para almacenar resultado de ejecución
+  const [executionResult, setExecutionResult] = useState<EjecucionAsignacionResponse | null>(null);
+
   // Mutation for executing assignment
   const executionMutation = useMutation({
     mutationFn: async () => {
@@ -159,9 +162,11 @@ export const AssignmentWizard = ({
       return executeAssignment(semestreId, validationData);
     },
     onSuccess: (result) => {
-      setProcesoId(result.procesoId || 999); // Para polling
-      setCurrentStep(3); // Move to processing step
-      success("Proceso de asignación iniciado");
+      // Guardar resultado
+      setExecutionResult(result);
+      // Saltar directamente a resultados (sin polling)
+      setCurrentStep(4);
+      success("Asignación completada: " + result.message);
       queryClient.invalidateQueries({ queryKey: ["assignment-processes"] });
     },
     onError: (err) => {
@@ -173,7 +178,7 @@ export const AssignmentWizard = ({
 
   let currentSemestreId: number;
 
-  // Query for process status (polling durante procesamiento)
+  // Query for process status (kept for backward compatibility with old /iniciar flow)
   const statusQuery = useQuery<EstadoProcesoResponse>({
     queryKey: ["assignment-process-status", procesoId],
     queryFn: () => getAssignmentProcessStatus(procesoId as number),
@@ -670,120 +675,129 @@ export const AssignmentWizard = ({
       )}
 
       {/* Step 4: Results */}
-      {currentStep === 4 && statusQuery.data && (
-        <Card>
-          <div className="space-y-6">
-            <div className="flex items-start gap-3">
-              <FileCheck
-                className="h-6 w-6 flex-shrink-0 mt-1"
-                style={{
-                  color:
-                    statusQuery.data.estado === "COMPLETADO"
-                      ? colors.success[400]
-                      : colors.danger[400],
-                }}
-              />
-              <div>
-                <h2
-                  className="text-lg font-semibold"
-                  style={{ color: colors.semantic.text.primary }}
-                >
-                  {statusQuery.data.estado === "COMPLETADO"
-                    ? "Asignación completada"
-                    : "Procesamiento fallido"}
-                </h2>
-                <p
-                  className="text-sm mt-1"
-                  style={{ color: colors.semantic.text.secondary }}
-                >
-                  {statusQuery.data.estado === "COMPLETADO"
-                    ? `Se asignaron ${statusQuery.data?.progreso?.alumnosAsignados ?? 0} estudiantes exitosamente`
-                    : `Ocurrieron ${statusQuery.data?.progreso?.errores ?? 0} errores durante el procesamiento`}
-                </p>
-              </div>
-            </div>
+      {currentStep === 4 && (executionResult || statusQuery.data) && (() => {
+        // Unify both response formats (new /ejecutar and old /iniciar polling)
+        const isSuccess =
+          executionResult?.status === "OK" || statusQuery.data?.estado === "COMPLETADO";
+        const totalProcesados =
+          executionResult?.totalAlumnos ?? statusQuery.data?.progreso?.alumnosProcesados ?? 0;
+        const asignados =
+          executionResult?.alumnosAsignados ?? statusQuery.data?.progreso?.alumnosAsignados ?? 0;
+        const errores =
+          executionResult?.alumnosConError ?? statusQuery.data?.progreso?.errores ?? 0;
 
-            {/* Summary */}
-            <div
-              className="rounded-lg border p-4"
-              style={{ borderColor: colors.semantic.border }}
-            >
-              <div className="grid grid-cols-3 gap-4">
+        return (
+          <Card>
+            <div className="space-y-6">
+              <div className="flex items-start gap-3">
+                <FileCheck
+                  className="h-6 w-6 flex-shrink-0 mt-1"
+                  style={{
+                    color: isSuccess ? colors.success[400] : colors.danger[400],
+                  }}
+                />
                 <div>
-                  <p className="text-xs" style={{ color: colors.semantic.text.muted }}>
-                    Total Procesados
-                  </p>
-                  <p className="text-2xl font-bold" style={{ color: colors.primary[600] }}>
-                    {statusQuery.data?.progreso?.alumnosProcesados ?? 0}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs" style={{ color: colors.semantic.text.muted }}>
-                    Asignados
-                  </p>
-                  <p className="text-2xl font-bold" style={{ color: colors.success[600] }}>
-                    {statusQuery.data?.progreso?.alumnosAsignados ?? 0}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs" style={{ color: colors.semantic.text.muted }}>
-                    Errores
-                  </p>
-                  <p className="text-2xl font-bold" style={{ color: colors.danger[600] }}>
-                    {statusQuery.data?.progreso?.errores ?? 0}
+                  <h2
+                    className="text-lg font-semibold"
+                    style={{ color: colors.semantic.text.primary }}
+                  >
+                    {isSuccess ? "Asignación completada" : "Procesamiento fallido"}
+                  </h2>
+                  <p
+                    className="text-sm mt-1"
+                    style={{ color: colors.semantic.text.secondary }}
+                  >
+                    {isSuccess
+                      ? `Se asignaron ${asignados} estudiantes exitosamente`
+                      : `Ocurrieron ${errores} errores durante el procesamiento`}
                   </p>
                 </div>
               </div>
-            </div>
 
-            {/* Error List */}
-            {(statusQuery.data?.progreso?.errores ?? 0) > 0 && (
+              {/* Summary */}
               <div
-                className="rounded-lg border p-4 max-h-64 overflow-y-auto"
-                style={{
-                  borderColor: colors.danger[200],
-                  backgroundColor: colors.danger[50],
-                }}
+                className="rounded-lg border p-4"
+                style={{ borderColor: colors.semantic.border }}
               >
-                <p className="text-sm font-medium" style={{ color: colors.danger[900] }}>
-                  {(statusQuery.data?.progreso?.errores ?? 0) === 1 ? "Error encontrado" : "Errores encontrados"}:
-                </p>
-                <p className="mt-2 text-xs" style={{ color: colors.danger[800] }}>
-                  Se registraron {statusQuery.data?.progreso?.errores ?? 0} error{(statusQuery.data?.progreso?.errores ?? 0) !== 1 ? "es" : ""} durante el procesamiento.
-                </p>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <p className="text-xs" style={{ color: colors.semantic.text.muted }}>
+                      Total Procesados
+                    </p>
+                    <p className="text-2xl font-bold" style={{ color: colors.primary[600] }}>
+                      {totalProcesados}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs" style={{ color: colors.semantic.text.muted }}>
+                      Asignados
+                    </p>
+                    <p className="text-2xl font-bold" style={{ color: colors.success[600] }}>
+                      {asignados}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs" style={{ color: colors.semantic.text.muted }}>
+                      Errores
+                    </p>
+                    <p className="text-2xl font-bold" style={{ color: colors.danger[600] }}>
+                      {errores}
+                    </p>
+                </div>
               </div>
-            )}
-
-            {/* Timestamp */}
-            <p
-              className="text-xs"
-              style={{ color: colors.semantic.text.muted }}
-            >
-              Fecha de proceso: {dayjs(statusQuery.data?.fechaInicio).format("DD/MM/YYYY HH:mm")}
-            </p>
-
-            {/* Actions */}
-            <div className="flex gap-3">
-              <Button
-                onClick={handleFinish}
-                style={{ backgroundColor: colors.primary[400] }}
-              >
-                Finalizar
-              </Button>
-              <button
-                onClick={handleReset}
-                className="px-4 py-2 rounded-lg border transition-colors hover:bg-gray-50"
-                style={{
-                  borderColor: colors.semantic.border,
-                  color: colors.semantic.text.primary,
-                }}
-              >
-                Procesar otro archivo
-              </button>
             </div>
-          </div>
-        </Card>
-      )}
+
+              {/* Error List */}
+              {errores > 0 && (
+                <div
+                  className="rounded-lg border p-4 max-h-64 overflow-y-auto"
+                  style={{
+                    borderColor: colors.danger[200],
+                    backgroundColor: colors.danger[50],
+                  }}
+                >
+                  <p className="text-sm font-medium" style={{ color: colors.danger[900] }}>
+                    {errores === 1 ? "Error encontrado" : "Errores encontrados"}:
+                  </p>
+                  <p className="mt-2 text-xs" style={{ color: colors.danger[800] }}>
+                    Se registraron {errores} error{errores !== 1 ? "es" : ""} durante el procesamiento.
+                  </p>
+                </div>
+              )}
+
+              {/* Timestamp */}
+              <p
+                className="text-xs"
+                style={{ color: colors.semantic.text.muted }}
+              >
+                Fecha de proceso: {dayjs(
+                  executionResult?.timestamp || statusQuery.data?.fechaInicio
+                ).format("DD/MM/YYYY HH:mm")}
+              </p>
+            </div>
+          </Card>
+        );
+      })()}
+
+      {/* Actions */}
+      <div className="flex gap-3">
+        <Button
+          onClick={handleFinish}
+          style={{ backgroundColor: colors.primary[400] }}
+        >
+          Finalizar
+        </Button>
+        <button
+          onClick={handleReset}
+          className="px-4 py-2 rounded-lg border transition-colors hover:bg-gray-50"
+          style={{
+            borderColor: colors.semantic.border,
+            color: colors.semantic.text.primary,
+          }}
+        >
+          Procesar otro archivo
+        </button>
+      </div>
     </div>
   );
 };
