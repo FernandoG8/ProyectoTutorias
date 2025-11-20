@@ -141,3 +141,96 @@ export const requestTutorChange = async (
     throw new Error(`Error al solicitar cambio de tutor: ${extractErrorMessage(error)}`);
   }
 };
+
+// ============================================================
+// NUEVOS ENDPOINTS - WORKFLOW MEJORADO (FASE 4B)
+// ============================================================
+// Estos endpoints permiten:
+// 1. Validar Excel ANTES de ejecutar (para mostrar errores)
+// 2. Ejecutar SOLO con datos validados
+// 3. Mejor UX y control de flujo
+
+/**
+ * Valida un archivo Excel sin ejecutar la asignación
+ * POST /api/asignaciones/validar-excel
+ *
+ * RESPONSABILIDADES:
+ * - Leer y parsear Excel
+ * - Validar estructura y datos
+ * - Reportar TODOS los errores
+ * - Ordenar alumnos por semestre
+ * - NO modifica la BD
+ *
+ * RESPUESTA:
+ * - status: "OK" (sin errores) | "PARTIAL" (con errores) | "ERROR" (validación fallida)
+ * - data: [] (alumnos validados si status=OK)
+ * - errors: [] (detalles de errores si existen)
+ */
+export const validateExcelFile = async (
+  archivo: File,
+  semestreId: number,
+): Promise<any> => {
+  try {
+    const formData = new FormData();
+    formData.append("archivo", archivo);
+    formData.append("semestreId", semestreId.toString());
+
+    const { data } = await api.post<ApiResponse<any>>(
+      API_URLS.asignaciones.validarExcel,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      },
+    );
+
+    return data.data;
+  } catch (error) {
+    throw new Error(`Error al validar Excel: ${extractErrorMessage(error)}`);
+  }
+};
+
+/**
+ * Ejecuta la asignación con datos previamente validados
+ * POST /api/asignaciones/ejecutar
+ *
+ * PRECONDICIONES:
+ * - Los datos DEBEN venir de validateExcelFile() con status="OK"
+ * - Los alumnos DEBEN estar ordenados por semestre
+ * - semestreId DEBE coincidir
+ *
+ * RESPONSABILIDADES:
+ * - Crear registros de Asignacion
+ * - Actualizar cargas de tutores
+ * - Registrar auditoría
+ * - Best-effort error handling (continúa si hay errores parciales)
+ *
+ * RESPUESTA:
+ * - status: "OK" (todos OK) | "PARTIAL" (algunos con error) | "ERROR" (ninguno)
+ * - totalAlumnos: Total procesado
+ * - alumnosAsignados: Exitosos
+ * - alumnosConError: Fallidos
+ * - duracionMs: Tiempo total
+ * - erroresDetalle: [] (lista de errores si hay)
+ */
+export const executeAssignment = async (
+  semestreId: number,
+  alumnosValidados: any[],
+): Promise<any> => {
+  try {
+    const payload = {
+      semestreId,
+      alumnosValidados,
+    };
+
+    const { data } = await api.post<ApiResponse<any>>(
+      API_URLS.asignaciones.ejecutar,
+      payload,
+    );
+
+    return data.data;
+  } catch (error) {
+    throw new Error(`Error al ejecutar asignación: ${extractErrorMessage(error)}`);
+  }
+};

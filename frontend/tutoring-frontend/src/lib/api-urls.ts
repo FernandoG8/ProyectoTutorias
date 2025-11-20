@@ -32,11 +32,15 @@ export const API_URLS = {
     autocomplete: "/api/tutores/autocomplete",
   },
   asignaciones: {
+    // Workflow actual (mantener para compatibilidad)
     iniciar: "/api/asignaciones/iniciar",
     procesos: "/api/asignaciones/procesos",
     proceso: (id: number | string) => `/api/asignaciones/proceso/${id}`,
     alertas: (id: number | string) => `/api/asignaciones/proceso/${id}/alertas`,
     cambioTutor: "/api/asignaciones/cambio-tutor",
+    // Nuevos endpoints para workflow mejorado (FASE 4B)
+    validarExcel: "/api/asignaciones/validar-excel",
+    ejecutar: "/api/asignaciones/ejecutar",
   },
   reportes: {
     porCarrera: "/api/reportes/por-carrera",

@@ -14,7 +14,7 @@
    - ✅ Endpoint `/api/asignaciones/ejecutar` documentado
    - ✅ Estructura de DTOs mapeada
    - ✅ Flujo de datos identificado
-
+vamo
 2. **Arquitectura del Wizard Diseñada**
    - ✅ 4 pasos claramente definidos
    - ✅ Transiciones entre pasos mapeadas
