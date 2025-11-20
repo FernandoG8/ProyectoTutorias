@@ -1,9 +1,9 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Upload, FileCheck, Zap, AlertCircle, CheckCircle } from "lucide-react";
+import { Upload, FileCheck, Zap, AlertCircle, CheckCircle, X } from "lucide-react";
 import dayjs from "dayjs";
 
 import { Stepper } from "@/components/common/Stepper";
@@ -20,6 +20,12 @@ import {
   executeAssignment,
   getAssignmentProcessStatus,
 } from "@/services/asignaciones-service";
+import {
+  extractErrorMessage,
+  extractExcelErrors,
+  extractFieldErrors,
+  extractErrorCode,
+} from "@/lib/api-client";
 import type { EstadoProceso, EstadoProcesoResponse, EjecucionAsignacionResponse, Semestre } from "@/types";
 
 /**
@@ -52,12 +58,19 @@ import type { EstadoProceso, EstadoProcesoResponse, EjecucionAsignacionResponse,
  * - Responsive design for mobile/tablet
  */
 
+/**
+ * Formatea el tamaño de archivo en formato legible (KB, MB, etc.)
+ */
+const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return "0 Bytes";
+  const k = 1024;
+  const sizes = ["Bytes", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
+};
+
 const uploadSchema = z.object({
-  semestreId: z
-    .string()
-    .min(1, "Semestre académico requerido")
-    .transform((val) => parseInt(val, 10))
-    .refine((val) => !isNaN(val) && val > 0, "Semestre inválido"),
+  semestreId: z.string().min(1, "Semestre académico requerido"),
   usuario: z.string().min(1, "Usuario responsable requerido"),
   archivo: z
     .custom<FileList>(
@@ -112,6 +125,7 @@ export const AssignmentWizard = ({
   const [semestreId, setSemestreId] = useState<number | null>(null);
   const [validationData, setValidationData] = useState<any>(null);
   const [validationErrors, setValidationErrors] = useState<any[]>([]);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const queryClient = useQueryClient();
   const { success, error: showError, info } = useNotification();
 
@@ -120,7 +134,6 @@ export const AssignmentWizard = ({
     handleSubmit,
     formState: { errors },
     reset: resetForm,
-    watch,
   } = useForm<UploadFormValues>({
     resolver: zodResolver(uploadSchema),
     defaultValues: {
@@ -128,6 +141,31 @@ export const AssignmentWizard = ({
       usuario: "",
     },
   });
+
+  // Watch file input and update selectedFile state
+  useEffect(() => {
+    const fileInput = document.getElementById("archivo-input") as HTMLInputElement;
+    const handleFileChange = () => {
+      if (fileInput.files && fileInput.files.length > 0) {
+        setSelectedFile(fileInput.files[0]);
+      } else {
+        setSelectedFile(null);
+      }
+    };
+
+    if (fileInput) {
+      fileInput.addEventListener("change", handleFileChange);
+      return () => fileInput.removeEventListener("change", handleFileChange);
+    }
+  }, []);
+
+  // Block body scroll when modal is open (wizard is displayed)
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, []);
 
   // Mutation for validating Excel
   const validationMutation = useMutation({
@@ -149,9 +187,36 @@ export const AssignmentWizard = ({
       }
     },
     onError: (err) => {
-      showError(
-        err instanceof Error ? err.message : "Error al validar el Excel"
-      );
+      // Usar nuevos helpers para extraer errores del backend
+      const errorCode = extractErrorCode(err);
+      const excelErrors = extractExcelErrors(err);
+      const fieldErrors = extractFieldErrors(err);
+      const errorMessage = extractErrorMessage(err);
+
+      if (errorCode === "EXCEL_VALIDATION_ERROR" && excelErrors && excelErrors.length > 0) {
+        // Convertir excelErrors del backend al formato esperado por el componente
+        const formattedErrors = excelErrors.map((e) => ({
+          filaExcel: e.rowNumber,
+          campo: e.column,
+          valor: e.value,
+          descripcion: e.message,
+        }));
+        setValidationErrors(formattedErrors);
+        setCurrentStep(1);
+        info(`Se encontraron ${formattedErrors.length} error(es) en la validación`);
+      } else if (errorCode === "VALIDATION_ERROR" && fieldErrors && fieldErrors.length > 0) {
+        // Mostrar errores de campos
+        showError(`Error de validación: ${fieldErrors.map((f) => f.message).join(", ")}`);
+      } else if (errorCode === "DOMAIN_VALIDATION_ERROR") {
+        // Mostrar error de dominio (semestre no existe, etc.)
+        showError(errorMessage);
+      } else if (errorCode === "EXCEL_FORMAT_ERROR") {
+        // Error de formato de archivo
+        showError(errorMessage);
+      } else {
+        // Error genérico
+        showError(errorMessage || "Error al validar el Excel");
+      }
     },
   });
 
@@ -209,8 +274,12 @@ export const AssignmentWizard = ({
       const file = values.archivo.item(0);
       if (!file) return;
 
-      // Obtener semestreId del formulario (ya es número por el transform del schema)
-      const semId = values.semestreId;
+      // Obtener semestreId del formulario y convertir a número
+      const semId = parseInt(values.semestreId, 10);
+      if (isNaN(semId) || semId <= 0) {
+        showError("Semestre inválido");
+        return;
+      }
       setSemestreId(semId);
 
       // STEP 1: Validate Excel first
@@ -219,7 +288,7 @@ export const AssignmentWizard = ({
         semId,
       });
     },
-    [validationMutation]
+    [validationMutation, showError]
   );
 
   const handleReset = useCallback(() => {
@@ -228,6 +297,7 @@ export const AssignmentWizard = ({
     setSemestreId(null);
     setValidationData(null);
     setValidationErrors([]);
+    setSelectedFile(null);
     resetForm();
     validationMutation.reset();
     executionMutation.reset();
@@ -251,7 +321,9 @@ export const AssignmentWizard = ({
     setCurrentStep(0);
     setValidationData(null);
     setValidationErrors([]);
-  }, []);
+    setSelectedFile(null);
+    resetForm();
+  }, [resetForm]);
 
   const stepConfig = [
     {
@@ -368,27 +440,75 @@ export const AssignmentWizard = ({
                   />
                   <label
                     htmlFor="archivo-input"
-                    className="flex items-center justify-center gap-3 rounded-lg border-2 border-dashed px-6 py-8 cursor-pointer transition-colors hover:bg-gray-50"
-                    style={{ borderColor: colors.primary[300] }}
+                    className="flex items-center justify-between gap-3 rounded-lg border-2 border-dashed px-6 py-8 cursor-pointer transition-colors hover:bg-gray-50"
+                    style={{
+                      borderColor: selectedFile ? colors.success[300] : colors.primary[300],
+                      backgroundColor: selectedFile ? colors.success[50] : "transparent",
+                    }}
                   >
-                    <Upload
-                      className="h-5 w-5"
-                      style={{ color: colors.primary[400] }}
-                    />
-                    <div className="text-center">
-                      <p
-                        className="font-medium"
-                        style={{ color: colors.semantic.text.primary }}
-                      >
-                        Arrastra o haz clic para seleccionar
-                      </p>
-                      <p
-                        className="text-xs"
-                        style={{ color: colors.semantic.text.muted }}
-                      >
-                        CSV o Excel (máx. 10 MB)
-                      </p>
+                    <div className="flex items-center gap-3">
+                      {selectedFile ? (
+                        <FileCheck
+                          className="h-5 w-5 flex-shrink-0"
+                          style={{ color: colors.success[400] }}
+                        />
+                      ) : (
+                        <Upload
+                          className="h-5 w-5 flex-shrink-0"
+                          style={{ color: colors.primary[400] }}
+                        />
+                      )}
+                      <div className="text-left">
+                        {selectedFile ? (
+                          <>
+                            <p
+                              className="font-medium"
+                              style={{ color: colors.success[900] }}
+                            >
+                              {selectedFile.name}
+                            </p>
+                            <p
+                              className="text-xs"
+                              style={{ color: colors.success[700] }}
+                            >
+                              {formatFileSize(selectedFile.size)}
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p
+                              className="font-medium"
+                              style={{ color: colors.semantic.text.primary }}
+                            >
+                              Arrastra o haz clic para seleccionar
+                            </p>
+                            <p
+                              className="text-xs"
+                              style={{ color: colors.semantic.text.muted }}
+                            >
+                              CSV o Excel (máx. 10 MB)
+                            </p>
+                          </>
+                        )}
+                      </div>
                     </div>
+                    {selectedFile && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setSelectedFile(null);
+                          // Reset file input
+                          const input = document.getElementById("archivo-input") as HTMLInputElement;
+                          if (input) input.value = "";
+                        }}
+                        className="flex-shrink-0 p-1 rounded hover:bg-gray-200"
+                        style={{ color: colors.danger[600] }}
+                        title="Quitar archivo"
+                      >
+                        <X className="h-5 w-5" />
+                      </button>
+                    )}
                   </label>
                 </div>
                 {errors.archivo && (
@@ -402,7 +522,7 @@ export const AssignmentWizard = ({
                 <Button
                   type="submit"
                   loading={validationMutation.isPending}
-                  disabled={validationMutation.isPending}
+                  disabled={!selectedFile || validationMutation.isPending}
                   style={{ backgroundColor: colors.primary[400] }}
                 >
                   <Zap className="h-4 w-4 mr-2" />

@@ -115,7 +115,29 @@ export class ApiError extends Error {
 }
 
 /**
+ * Tipo para respuesta de error estandarizada del backend
+ */
+export interface BackendErrorResponse {
+  status: number;
+  error: string;
+  message: string;
+  path?: string;
+  timestamp?: string;
+  fieldErrors?: Array<{
+    field: string;
+    message: string;
+  }>;
+  excelErrors?: Array<{
+    rowNumber?: number;
+    column?: string;
+    value?: string;
+    message: string;
+  }>;
+}
+
+/**
  * Helper para extraer mensajes de error de las respuestas del backend
+ * Ahora soporta la estructura estandarizada de errores
  */
 export const extractErrorMessage = (error: unknown): string => {
   if (error instanceof ApiError) {
@@ -124,6 +146,7 @@ export const extractErrorMessage = (error: unknown): string => {
   if (axios.isAxiosError(error)) {
     if (error.response?.data) {
       const data = error.response.data as any;
+      // Soporta la estructura estandarizada de error del backend
       return data?.message || data?.error || error.message;
     }
     return error.message || "Error desconocido";
@@ -132,4 +155,45 @@ export const extractErrorMessage = (error: unknown): string => {
     return error.message;
   }
   return "Error desconocido";
+};
+
+/**
+ * Helper para extraer errores de validación de Excel
+ * Retorna los excelErrors si están disponibles
+ */
+export const extractExcelErrors = (error: unknown): BackendErrorResponse["excelErrors"] | null => {
+  if (axios.isAxiosError(error)) {
+    if (error.response?.data) {
+      const data = error.response.data as BackendErrorResponse;
+      return data?.excelErrors || null;
+    }
+  }
+  return null;
+};
+
+/**
+ * Helper para extraer errores de validación de campos
+ * Retorna los fieldErrors si están disponibles
+ */
+export const extractFieldErrors = (error: unknown): BackendErrorResponse["fieldErrors"] | null => {
+  if (axios.isAxiosError(error)) {
+    if (error.response?.data) {
+      const data = error.response.data as BackendErrorResponse;
+      return data?.fieldErrors || null;
+    }
+  }
+  return null;
+};
+
+/**
+ * Helper para obtener el tipo de error (error code)
+ */
+export const extractErrorCode = (error: unknown): string | null => {
+  if (axios.isAxiosError(error)) {
+    if (error.response?.data) {
+      const data = error.response.data as BackendErrorResponse;
+      return data?.error || null;
+    }
+  }
+  return null;
 };

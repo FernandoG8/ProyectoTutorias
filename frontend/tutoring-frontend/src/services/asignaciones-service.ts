@@ -226,8 +226,9 @@ export const validateExcelFile = async (
 
     return data.data;
   } catch (error) {
-    const mensaje = error instanceof Error ? error.message : "Error desconocido";
-    throw new Error(`Error al validar Excel: ${extractErrorMessage(error) || mensaje}`);
+    // El error ahora incluye la estructura estandarizada del backend
+    // Los errores se manejan en el componente usando extractExcelErrors, extractFieldErrors, etc.
+    throw error;
   }
 };
 
