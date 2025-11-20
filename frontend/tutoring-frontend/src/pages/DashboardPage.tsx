@@ -1,30 +1,22 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import { Users, GraduationCap, TrendingUp, AlertCircle } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { DataTable } from "@/components/ui/DataTable";
 import { DashboardSkeleton } from "@/components/common/DashboardSkeleton";
-// import { StatCard } from "@/components/common/StatCard";
-import { ProcessStatusCard } from "@/components/common/ProcessStatusCard";
-import { MetricsCard } from "@/components/common/MetricsCard";
+import { StatCard } from "@/components/common/StatCard";
+import { CarreraDistributionChart } from "@/components/dashboard/CarreraDistributionChart";
+import { TopSaturatedTutors } from "@/components/dashboard/TopSaturatedTutors";
+import { TutoresCompleteTable } from "@/components/dashboard/TutoresCompleteTable";
 import {
   getDashboardEstadisticas,
   getDistribucionTutores,
-  getProcesosRecientes,
 } from "@/services/dashboard-service";
 import { listAssignmentProcesses } from "@/services/asignaciones-service";
-import type { AssignmentProcessSummary, DistribucionTutor, ProcesoReciente } from "@/types";
+import type { AssignmentProcessSummary, DistribucionTutor, CarreraDistribution, TutorSaturation } from "@/types";
 import type { ColumnDef } from "@tanstack/react-table";
 import { colors } from "@/constants/colors";
+import { calculateSaturation, getSaturationState, CARRERA_COLORS } from "@/utils/dashboard-utils";
 
 const processColumns: ColumnDef<AssignmentProcessSummary>[] = [
   { header: "ID", accessorKey: "id" },
@@ -67,28 +59,35 @@ const processColumns: ColumnDef<AssignmentProcessSummary>[] = [
 ];
 
 export const DashboardPage = () => {
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+
   const {
     data: estadisticas,
     isLoading: estadisticasLoading,
+    refetch: refetchEstadisticas,
+    isFetching: isFetchingEstadisticas,
   } = useQuery({
     queryKey: ["dashboard-estadisticas"],
     queryFn: () => getDashboardEstadisticas(),
+    refetchInterval: 5 * 60 * 1000, // 5 minutes auto-refresh
+    staleTime: 2 * 60 * 1000, // 2 minutes
   });
 
   const {
     data: distribucionTutores = [],
     isLoading: distribucionLoading,
+    refetch: refetchDistribucion,
+    isFetching: isFetchingDistribucion,
   } = useQuery<DistribucionTutor[]>({
     queryKey: ["dashboard-distribucion-tutores"],
     queryFn: () => getDistribucionTutores(),
+    refetchInterval: 5 * 60 * 1000,
+    staleTime: 2 * 60 * 1000,
   });
 
-  const {
-    data: procesosRecientes = [],
-    isLoading: procesosLoading,
-  } = useQuery<ProcesoReciente[]>({
+  const { isLoading: procesosLoading } = useQuery({
     queryKey: ["dashboard-procesos-recientes"],
-    queryFn: () => getProcesosRecientes(5),
+    queryFn: () => Promise.resolve([]),
   });
 
   const {
@@ -99,174 +98,226 @@ export const DashboardPage = () => {
     queryFn: () => listAssignmentProcesses(),
   });
 
-  const chartData = useMemo(
-    () =>
-      distribucionTutores.map((tutor) => ({
-        nombre: tutor.tutor_nombre,
-        alumnos: tutor.alumnos_asignados,
-      })),
-    [distribucionTutores],
-  );
+  // Handle manual refresh
+  const handleRefresh = async () => {
+    setLastRefresh(new Date());
+    await Promise.all([refetchEstadisticas(), refetchDistribucion()]);
+  };
+
+  // Transform distribucion data to carrera distribution
+  const carreraDistribution = useMemo<CarreraDistribution[]>(() => {
+    if (!distribucionTutores.length) return [];
+
+    const grouped = distribucionTutores.reduce(
+      (acc, tutor) => {
+        const carrera = tutor.tutor_carrera;
+        if (!acc[carrera]) {
+          acc[carrera] = {
+            carrera,
+            nombreCompleto: CARRERA_COLORS[carrera]?.nombre || carrera,
+            totalTutores: 0,
+            totalAlumnos: 0,
+            capacidadMaxima: 0,
+            promedioAlumnos: 0,
+            estado: "bajo" as const,
+          };
+        }
+        acc[carrera].totalTutores += 1;
+        acc[carrera].totalAlumnos += tutor.alumnos_asignados;
+        acc[carrera].capacidadMaxima += tutor.capacidad_max;
+        return acc;
+      },
+      {} as Record<string, CarreraDistribution>,
+    );
+
+    return Object.values(grouped).map((carrera) => ({
+      ...carrera,
+      promedioAlumnos: carrera.totalAlumnos / carrera.totalTutores,
+      estado: getSaturationState(
+        calculateSaturation(carrera.totalAlumnos, carrera.capacidadMaxima),
+      ),
+    }));
+  }, [distribucionTutores]);
+
+  // Get top saturated tutors
+  const topSaturatedTutors = useMemo<TutorSaturation[]>(() => {
+    return distribucionTutores
+      .map((tutor) => {
+        const porcentajeSaturacion = calculateSaturation(
+          tutor.alumnos_asignados,
+          tutor.capacidad_max,
+        );
+        return {
+          id: tutor.tutor_id,
+          nombre: tutor.tutor_nombre,
+          carrera: tutor.tutor_carrera,
+          alumnosActuales: tutor.alumnos_asignados,
+          capacidadMaxima: tutor.capacidad_max,
+          porcentajeSaturacion,
+          estado: getSaturationState(porcentajeSaturacion),
+        };
+      })
+      .sort((a, b) => b.porcentajeSaturacion - a.porcentajeSaturacion)
+      .slice(0, 10);
+  }, [distribucionTutores]);
 
   const isLoading = estadisticasLoading || distribucionLoading || procesosLoading;
+  const isRefreshing = isFetchingEstadisticas || isFetchingDistribucion;
 
   if (isLoading) {
     return <DashboardSkeleton />;
   }
 
+  const getRefreshStatus = () => {
+    const now = new Date();
+    const diffMs = now.getTime() - lastRefresh.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+
+    if (diffMins === 0) return "Recién actualizado";
+    if (diffMins === 1) return "Hace 1 minuto";
+    return `Hace ${diffMins} minutos`;
+  };
+
   return (
     <div className="space-y-6">
-      {/* Key Metrics Section */}
+      {/* Header with refresh */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: colors.semantic.text.primary }}>
+            Dashboard
+          </h1>
+          <p style={{ color: colors.semantic.text.secondary }} className="text-sm">
+            Sistema de Gestión de Tutorías
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 transition-colors"
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
+              style={{ color: colors.semantic.text.muted }}
+            />
+            <span className="text-xs" style={{ color: colors.semantic.text.muted }}>
+              {getRefreshStatus()}
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {/* Section 1: KPI Cards */}
       <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <MetricsCard
-          label="Tutores Activos"
+        <StatCard
+          label="Total Tutores"
           value={estadisticas?.total_tutores ?? "--"}
-          color="primary"
-          icon={<Users className="h-5 w-5" />}
-          isLoading={estadisticasLoading}
-        />
-        <MetricsCard
-          label="Alumnos Asignados"
-          value={estadisticas?.alumnos_con_tutor ?? "--"}
-          color="success"
-          icon={<GraduationCap className="h-5 w-5" />}
-          subtitle={
-            estadisticas
-              ? `${estadisticas.alumnos_sin_tutor} sin tutor`
-              : undefined
-          }
-          isLoading={estadisticasLoading}
-        />
-        <MetricsCard
-          label="Promedio por Tutor"
-          value={estadisticas?.promedio_alumnos_por_tutor?.toFixed(1) ?? "--"}
-          color="info"
-          icon={<TrendingUp className="h-5 w-5" />}
-          isLoading={estadisticasLoading}
-        />
-        <MetricsCard
-          label="Cobertura"
-          value={estadisticas?.porcentaje_cobertura?.toFixed(1) ?? "--"}
-          unit="%"
-          color="warning"
-          icon={<AlertCircle className="h-5 w-5" />}
+          variant="primary"
           isLoading={estadisticasLoading}
           trend={
-            estadisticas &&
-            estadisticas.porcentaje_cobertura >= 85
-              ? "up"
-              : "down"
+            estadisticas && estadisticas.total_tutores > 0 ? "up" : undefined
           }
-          trendValue={
-            estadisticas &&
-            estadisticas.porcentaje_cobertura >= 85
-              ? "Meta alcanzada"
-              : "Necesita mejora"
+          comparison="activos"
+        />
+        <StatCard
+          label="Total Alumnos"
+          value={estadisticas?.alumnos_con_tutor ?? "--"}
+          variant="success"
+          isLoading={estadisticasLoading}
+          comparison={
+            estadisticas
+              ? `vs ${estadisticas.alumnos_sin_tutor} sin tutor`
+              : undefined
           }
+        />
+        <StatCard
+          label="Promedio por Tutor"
+          value={estadisticas?.promedio_alumnos_por_tutor?.toFixed(1) ?? "--"}
+          variant="warning"
+          isLoading={estadisticasLoading}
+          comparison="alumnos/tutor"
+        />
+        <StatCard
+          label="Desbalance"
+          value={`${estadisticas?.desbalance_porcentaje?.toFixed(0) ?? "--"}%`}
+          variant="danger"
+          isLoading={estadisticasLoading}
+          trend="up"
+          comparison="respecto al ideal"
         />
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-5">
-        <Card className="lg:col-span-3">
+      {/* Section 2-3: Carrera Distribution & Top Tutores */}
+      <section className="grid gap-6 lg:grid-cols-3">
+        {/* Carrera Distribution Chart */}
+        <Card className="lg:col-span-2">
           <div className="mb-6">
             <h2
               className="text-lg font-semibold mb-1"
               style={{ color: colors.semantic.text.primary }}
             >
-              Distribución de Tutores
+              Distribución de Tutores por Carrera
             </h2>
             <p
               className="text-sm"
               style={{ color: colors.semantic.text.secondary }}
             >
-              Alumnos asignados por docente en el período actual.
+              Carga de trabajo y capacidad por programa académico
             </p>
           </div>
-          <div className="h-80 -mx-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={chartData}
-                margin={{ top: 20, right: 30, left: 0, bottom: 50 }}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke={colors.semantic.border}
-                />
-                <XAxis
-                  dataKey="nombre"
-                  hide={chartData.length > 8}
-                  stroke={colors.semantic.text.muted}
-                />
-                <YAxis
-                  allowDecimals={false}
-                  stroke={colors.semantic.text.muted}
-                />
-                <Tooltip
-                  cursor={{ fill: colors.primary[100] }}
-                  contentStyle={{
-                    borderRadius: 8,
-                    border: `1px solid ${colors.semantic.border}`,
-                    backgroundColor: "white",
-                  }}
-                />
-                <Bar
-                  dataKey="alumnos"
-                  fill={colors.primary[400]}
-                  radius={[8, 8, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <CarreraDistributionChart
+            data={carreraDistribution}
+            isLoading={distribucionLoading}
+          />
         </Card>
 
-        <Card className="lg:col-span-2">
-          <h2
-            className="text-lg font-semibold mb-1"
-            style={{ color: colors.semantic.text.primary }}
-          >
-            Procesos recientes
-          </h2>
-          <p
-            className="text-sm mb-4"
-            style={{ color: colors.semantic.text.secondary }}
-          >
-            Seguimiento a los últimos procesos de asignación ejecutados.
-          </p>
-          <div className="space-y-3 max-h-96 overflow-y-auto">
-            {procesosRecientes.length > 0 ? (
-              procesosRecientes.map((proceso) => (
-                <ProcessStatusCard
-                  key={proceso.id}
-                  id={proceso.id}
-                  estado={proceso.estado as any}
-                  fechaInicio={proceso.fecha_inicio}
-                  fechaFin={proceso.fecha_fin ?? undefined}
-                  totalProcesados={proceso.total_procesados}
-                  totalAsignados={proceso.total_asignados}
-                  totalErrores={proceso.total_errores}
-                  archivo={proceso.archivo}
-                  usuario={proceso.usuario}
-                />
-              ))
-            ) : (
-              <p
-                className="text-sm py-4 text-center"
-                style={{ color: colors.semantic.text.muted }}
-              >
-                No se registran procesos recientes
-              </p>
-            )}
+        {/* Top Saturated Tutors */}
+        <Card>
+          <div className="mb-6">
+            <h2
+              className="text-lg font-semibold mb-1"
+              style={{ color: colors.semantic.text.primary }}
+            >
+              Top 10 Tutores Saturados
+            </h2>
+            <p
+              className="text-sm"
+              style={{ color: colors.semantic.text.secondary }}
+            >
+              Docentes con mayor carga de alumnos
+            </p>
           </div>
+          <TopSaturatedTutors
+            data={topSaturatedTutors}
+            isLoading={distribucionLoading}
+          />
         </Card>
       </section>
 
+      {/* Section 4: Complete Tutores Table */}
       <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-text">
-            Historial de procesos de asignación
+        <div>
+          <h2 className="text-lg font-semibold" style={{ color: colors.semantic.text.primary }}>
+            Tabla Completa de Tutores
           </h2>
-          <p className="text-sm text-slate-500">
-            Consulta el resultado de las ejecuciones realizadas.
+          <p className="text-sm" style={{ color: colors.semantic.text.secondary }}>
+            Detalle de todos los tutores, carga de alumnos y estado de saturación
+          </p>
+        </div>
+        <TutoresCompleteTable
+          data={distribucionTutores}
+          isLoading={distribucionLoading}
+        />
+      </section>
+
+      {/* Section 5: Assignment Processes (Legacy) */}
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-lg font-semibold" style={{ color: colors.semantic.text.primary }}>
+            Historial de Procesos de Asignación
+          </h2>
+          <p className="text-sm" style={{ color: colors.semantic.text.secondary }}>
+            Registro de ejecuciones de carga de asignaciones
           </p>
         </div>
         <div className="overflow-x-auto">

@@ -1,3 +1,6 @@
+export type Carrera = "ITS" | "ISC" | "IME" | "IMECA" | "IE" | "ICA";
+export type SaturationState = "crítico" | "alerta" | "normal" | "bajo";
+
 export interface DashboardEstadisticas {
   semestre: string;
   semestre_id: number;
@@ -8,15 +11,39 @@ export interface DashboardEstadisticas {
   total_asignaciones: number;
   promedio_alumnos_por_tutor: number;
   porcentaje_cobertura: number;
+  desbalance_porcentaje?: number;
+  desbalance_rango?: { min: number; max: number };
 }
 
 export interface DistribucionTutor {
   tutor_id: number;
   tutor_nombre: string;
-  tutor_carrera: string;
+  tutor_carrera: Carrera;
   alumnos_asignados: number;
   capacidad_max: number;
   carga_utilizada: number;
+  porcentaje_saturacion?: number;
+  estado?: SaturationState;
+}
+
+export interface CarreraDistribution {
+  carrera: Carrera;
+  nombreCompleto: string;
+  totalTutores: number;
+  totalAlumnos: number;
+  promedioAlumnos: number;
+  capacidadMaxima: number;
+  estado: SaturationState;
+}
+
+export interface TutorSaturation {
+  id: number;
+  nombre: string;
+  carrera: Carrera;
+  alumnosActuales: number;
+  capacidadMaxima: number;
+  porcentajeSaturacion: number;
+  estado: SaturationState;
 }
 
 export interface ProcesoReciente {

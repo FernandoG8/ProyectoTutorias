@@ -1,5 +1,6 @@
 import { Skeleton } from "@/components/ui/Skeleton";
 import { colors } from "@/constants/colors";
+import { ArrowUp, ArrowDown } from "lucide-react";
 
 /**
  * StatCard Component
@@ -8,11 +9,16 @@ import { colors } from "@/constants/colors";
  * - Dashboard metric cards
  * - KPI displays
  * - Quick statistics
+ * - Trending comparisons
  *
- * Simpler than MetricsCard - just value + label
- * Optimized for grid layouts
+ * Features:
+ * - Simple value + label
+ * - Optional trending arrows
+ * - Comparison with previous value
+ * - Loading skeleton state
+ * - Color variants
  *
- * Part of Week 3 Dashboard enhancements
+ * Part of Dashboard rediseño profesional SaaS
  */
 
 interface StatCardProps {
@@ -21,6 +27,10 @@ interface StatCardProps {
   suffix?: string;
   variant?: "primary" | "success" | "warning" | "danger";
   isLoading?: boolean;
+  trend?: "up" | "down" | null;
+  trendValue?: string | number;
+  previousValue?: number;
+  comparison?: string; // e.g., "vs 24 semana anterior"
 }
 
 const variantColors = {
@@ -48,6 +58,9 @@ export const StatCard = ({
   suffix,
   variant = "primary",
   isLoading,
+  trend,
+  trendValue,
+  comparison,
 }: StatCardProps) => {
   const { bg, text } = variantColors[variant];
 
@@ -59,9 +72,16 @@ export const StatCard = ({
       >
         <Skeleton className="h-4 w-24" />
         <Skeleton className="h-8 w-32" />
+        <Skeleton className="h-3 w-20" />
       </div>
     );
   }
+
+  const getTrendColor = () => {
+    if (trend === "up") return colors.success[600];
+    if (trend === "down") return colors.warning[600];
+    return colors.semantic.text.muted;
+  };
 
   return (
     <div
@@ -72,12 +92,12 @@ export const StatCard = ({
       }}
     >
       <p
-        className="text-sm font-medium mb-2"
+        className="text-sm font-medium mb-3"
         style={{ color: colors.semantic.text.secondary }}
       >
         {label}
       </p>
-      <div className="flex items-baseline gap-1">
+      <div className="flex items-baseline gap-1 mb-2">
         <p className="text-3xl font-bold" style={{ color: text }}>
           {value ?? "--"}
         </p>
@@ -87,6 +107,20 @@ export const StatCard = ({
           </p>
         )}
       </div>
+
+      {/* Trending indicators */}
+      {(trend || comparison) && (
+        <div className="flex items-center gap-1 text-xs" style={{ color: getTrendColor() }}>
+          {trend && (
+            <>
+              {trend === "up" && <ArrowUp className="h-3 w-3" />}
+              {trend === "down" && <ArrowDown className="h-3 w-3" />}
+            </>
+          )}
+          {trendValue && <span className="font-medium">{trendValue}</span>}
+          {comparison && <span>{comparison}</span>}
+        </div>
+      )}
     </div>
   );
 };
