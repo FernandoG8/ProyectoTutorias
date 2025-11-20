@@ -10,6 +10,7 @@ import { Stepper } from "@/components/common/Stepper";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { FormField } from "@/components/ui/FormField";
+import { Select } from "@/components/ui/Select";
 import { Badge } from "@/components/ui/Badge";
 import { colors } from "@/constants/colors";
 import { useNotification } from "@/hooks/useNotification";
@@ -19,7 +20,7 @@ import {
   executeAssignment,
   getAssignmentProcessStatus,
 } from "@/services/asignaciones-service";
-import type { EstadoProceso, EstadoProcesoResponse, EjecucionAsignacionResponse } from "@/types";
+import type { EstadoProceso, EstadoProcesoResponse, EjecucionAsignacionResponse, Semestre } from "@/types";
 
 /**
  * Assignment Wizard Component
@@ -52,10 +53,11 @@ import type { EstadoProceso, EstadoProcesoResponse, EjecucionAsignacionResponse 
  */
 
 const uploadSchema = z.object({
-  semestreAcademico: z
+  semestreId: z
     .string()
     .min(1, "Semestre académico requerido")
-    .regex(/\d{4}-[12]/, "Usa el formato YYYY-1 o YYYY-2"),
+    .transform((val) => parseInt(val, 10))
+    .refine((val) => !isNaN(val) && val > 0, "Semestre inválido"),
   usuario: z.string().min(1, "Usuario responsable requerido"),
   archivo: z
     .custom<FileList>(
@@ -95,11 +97,13 @@ const estadoLabels: Record<EstadoProceso, { label: string; badge: "info" | "warn
 };
 
 interface AssignmentWizardProps {
+  semestres: Semestre[];
   onClose?: () => void;
   onSuccess?: (procesoId: number) => void;
 }
 
 export const AssignmentWizard = ({
+  semestres,
   onClose,
   onSuccess,
 }: AssignmentWizardProps) => {
@@ -116,10 +120,11 @@ export const AssignmentWizard = ({
     handleSubmit,
     formState: { errors },
     reset: resetForm,
+    watch,
   } = useForm<UploadFormValues>({
     resolver: zodResolver(uploadSchema),
     defaultValues: {
-      semestreAcademico: "",
+      semestreId: "",
       usuario: "",
     },
   });
@@ -130,17 +135,17 @@ export const AssignmentWizard = ({
       return validateExcelFile(archivo, semId);
     },
     onSuccess: (result) => {
+      // Guardar datos de validación
       setValidationData(result.data || []);
       setValidationErrors(result.errors || []);
-      setSemestreId(currentSemestreId);
 
       // Si no hay errores, saltar directamente a confirmación
-      if (!result.errors || result.errors.length === 0) {
+      if (result.status === "OK" && (!result.errors || result.errors.length === 0)) {
         setCurrentStep(2); // Skip validation errors step
         success("Excel validado correctamente sin errores");
       } else {
         setCurrentStep(1); // Show validation errors
-        info(`Se encontraron ${result.errors.length} error(es) en la validación`);
+        info(`Se encontraron ${result.totalErrores || result.errors?.length || 0} error(es) en la validación`);
       }
     },
     onError: (err) => {
@@ -176,8 +181,6 @@ export const AssignmentWizard = ({
     },
   });
 
-  let currentSemestreId: number;
-
   // Query for process status (kept for backward compatibility with old /iniciar flow)
   const statusQuery = useQuery<EstadoProcesoResponse>({
     queryKey: ["assignment-process-status", procesoId],
@@ -206,10 +209,9 @@ export const AssignmentWizard = ({
       const file = values.archivo.item(0);
       if (!file) return;
 
-      // Parse semestre código to ID (basic conversion, ideally fetch from backend)
-      // Format: "2025-1" → ID 5 (example)
-      const semId = parseInt(values.semestreAcademico.split("-")[0]) || 1;
-      currentSemestreId = semId;
+      // Obtener semestreId del formulario (ya es número por el transform del schema)
+      const semId = values.semestreId;
+      setSemestreId(semId);
 
       // STEP 1: Validate Excel first
       await validationMutation.mutateAsync({
@@ -237,6 +239,8 @@ export const AssignmentWizard = ({
   }, [executionMutation]);
 
   const handleFinish = useCallback(() => {
+    // En el nuevo flujo, el procesoId no viene en la respuesta
+    // El historial se refrescará automáticamente desde la página principal
     if (procesoId) {
       onSuccess?.(procesoId);
     }
@@ -302,13 +306,42 @@ export const AssignmentWizard = ({
 
             <form className="space-y-4" onSubmit={handleSubmit(onUploadSubmit)}>
               <div className="grid gap-4 md:grid-cols-2">
-                <FormField
-                  label="Semestre académico"
-                  placeholder="2025-1"
-                  error={errors.semestreAcademico}
-                  required
-                  {...register("semestreAcademico")}
-                />
+                <div className="space-y-2">
+                  <label
+                    className="text-sm font-semibold"
+                    style={{ color: colors.semantic.text.primary }}
+                  >
+                    Semestre académico
+                    <span
+                      className="ml-1"
+                      style={{ color: colors.danger[400] }}
+                      aria-label="required"
+                    >
+                      *
+                    </span>
+                  </label>
+                  <Select
+                    {...register("semestreId")}
+                    style={{
+                      borderColor: errors.semestreId
+                        ? colors.danger[300]
+                        : colors.semantic.border,
+                      backgroundColor: errors.semestreId ? colors.danger[50] : "white",
+                    }}
+                  >
+                    <option value="">Selecciona un semestre</option>
+                    {semestres.map((sem) => (
+                      <option key={sem.id} value={sem.id}>
+                        {sem.codigo} - {sem.nombre}
+                      </option>
+                    ))}
+                  </Select>
+                  {errors.semestreId && (
+                    <p className="text-xs font-medium" style={{ color: colors.danger[600] }}>
+                      {errors.semestreId.message}
+                    </p>
+                  )}
+                </div>
                 <FormField
                   label="Usuario responsable"
                   placeholder="coord_tutorias"
@@ -456,11 +489,16 @@ export const AssignmentWizard = ({
                     }}
                   >
                     <p className="font-medium" style={{ color: colors.warning[900] }}>
-                      Fila {error.fila || "desconocida"}: {error.campo || "campo desconocido"}
+                      Fila {error.filaExcel || error.fila || "desconocida"}: {error.campo || "campo desconocido"}
                     </p>
                     <p style={{ color: colors.warning[800] }}>
                       {error.descripcion || error.error || "Error desconocido"}
                     </p>
+                    {error.valor && (
+                      <p className="text-xs mt-1" style={{ color: colors.warning[700] }}>
+                        Valor: {error.valor}
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>
@@ -538,7 +576,7 @@ export const AssignmentWizard = ({
                   Semestre
                 </p>
                 <p className="text-lg font-bold" style={{ color: colors.primary[600] }}>
-                  {semestreId || "N/A"}
+                  {semestres.find((s) => s.id === semestreId)?.codigo || semestreId || "N/A"}
                 </p>
               </div>
             </div>
@@ -748,7 +786,7 @@ export const AssignmentWizard = ({
             </div>
 
               {/* Error List */}
-              {errores > 0 && (
+              {errores > 0 && executionResult?.erroresDetalle && executionResult.erroresDetalle.length > 0 && (
                 <div
                   className="rounded-lg border p-4 max-h-64 overflow-y-auto"
                   style={{
@@ -756,12 +794,28 @@ export const AssignmentWizard = ({
                     backgroundColor: colors.danger[50],
                   }}
                 >
-                  <p className="text-sm font-medium" style={{ color: colors.danger[900] }}>
+                  <p className="text-sm font-medium mb-2" style={{ color: colors.danger[900] }}>
                     {errores === 1 ? "Error encontrado" : "Errores encontrados"}:
                   </p>
-                  <p className="mt-2 text-xs" style={{ color: colors.danger[800] }}>
-                    Se registraron {errores} error{errores !== 1 ? "es" : ""} durante el procesamiento.
-                  </p>
+                  <div className="space-y-2">
+                    {executionResult.erroresDetalle.map((error, idx) => (
+                      <div
+                        key={idx}
+                        className="text-sm p-2 rounded border"
+                        style={{
+                          borderColor: colors.danger[300],
+                          backgroundColor: colors.danger[100],
+                        }}
+                      >
+                        <p className="font-medium" style={{ color: colors.danger[900] }}>
+                          {error.matricula ? `Matrícula: ${error.matricula}` : `Alumno ID: ${error.alumnoId || "N/A"}`}
+                        </p>
+                        <p style={{ color: colors.danger[800] }}>
+                          {error.descripcion}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -774,30 +828,48 @@ export const AssignmentWizard = ({
                   executionResult?.timestamp || statusQuery.data?.fechaInicio
                 ).format("DD/MM/YYYY HH:mm")}
               </p>
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-4">
+                <Button
+                  onClick={handleFinish}
+                  style={{ backgroundColor: colors.primary[400] }}
+                >
+                  Finalizar
+                </Button>
+                <button
+                  onClick={handleReset}
+                  className="px-4 py-2 rounded-lg border transition-colors hover:bg-gray-50"
+                  style={{
+                    borderColor: colors.semantic.border,
+                    color: colors.semantic.text.primary,
+                  }}
+                >
+                  Procesar otro archivo
+                </button>
+              </div>
             </div>
           </Card>
         );
       })()}
 
-      {/* Actions */}
-      <div className="flex gap-3">
-        <Button
-          onClick={handleFinish}
-          style={{ backgroundColor: colors.primary[400] }}
-        >
-          Finalizar
-        </Button>
-        <button
-          onClick={handleReset}
-          className="px-4 py-2 rounded-lg border transition-colors hover:bg-gray-50"
-          style={{
-            borderColor: colors.semantic.border,
-            color: colors.semantic.text.primary,
-          }}
-        >
-          Procesar otro archivo
-        </button>
-      </div>
+      {/* Actions solo se muestran si no estamos en el paso de resultados */}
+      {currentStep !== 4 && (
+        <div className="flex gap-3">
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="px-4 py-2 rounded-lg border transition-colors hover:bg-gray-50"
+              style={{
+                borderColor: colors.semantic.border,
+                color: colors.semantic.text.primary,
+              }}
+            >
+              Cancelar
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 };

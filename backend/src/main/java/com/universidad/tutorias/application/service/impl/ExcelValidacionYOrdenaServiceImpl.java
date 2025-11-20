@@ -92,8 +92,9 @@ public class ExcelValidacionYOrdenaServiceImpl implements ExcelValidacionYOrdena
             limpiarDatos(alumnosExcel);
             log.info("Datos limpiados y normalizados");
             
-            // STEP 4: Validar alumnos (sin procesoId, usar -1 como placeholder)
-            ResultadoValidacion resultadoValidacion = alumnoValidadorService.validarAlumnos(alumnosExcel, -1L);
+            // STEP 4: Validar alumnos (sin procesoId, usar null para validación previa)
+            // El validador ahora acepta null y no guarda errores en BD cuando no hay proceso
+            ResultadoValidacion resultadoValidacion = alumnoValidadorService.validarAlumnos(alumnosExcel, null);
             log.info("Validación completada: {} válidos, {} errores",
                     resultadoValidacion.getTotalValidos(),
                     resultadoValidacion.getTotalErrores());

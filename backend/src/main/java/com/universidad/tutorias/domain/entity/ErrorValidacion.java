@@ -25,7 +25,7 @@ public class ErrorValidacion {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_proceso", nullable = false)
+    @JoinColumn(name = "id_proceso", nullable = true)
     private ProcesoAsignacion proceso;
 
     @Column(name = "fila_excel")
