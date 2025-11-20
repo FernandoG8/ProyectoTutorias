@@ -42,4 +42,15 @@ public class TutorSincronizacionServiceImpl implements TutorSincronizacionServic
         List<Long> ids = tutorRepository.findAllIds();
         ids.forEach(this::recalcularCargaTutor);
     }
+
+    @Override
+    @Transactional
+    public Tutor sincronizarYBloquearTutor(Long tutorId) {
+        // Primero recalcular carga real
+        recalcularCargaTutor(tutorId);
+
+        // Luego devolver el tutor con bloqueo pesimista y carga actualizada
+        return tutorRepository.findByIdForUpdate(tutorId)
+                .orElseThrow(() -> new EntityNotFoundException("Tutor no encontrado: " + tutorId));
+    }
 }

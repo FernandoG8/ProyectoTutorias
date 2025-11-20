@@ -6,7 +6,8 @@ public enum TipoAccion {
     LIBERACION_CUPOS("Liberación de Cupos"),
     ASIGNACION("Asignación de Tutor"),
     CAMBIO_TUTOR("Cambio de Tutor"),
-    RESOLUCION_MOTIVO("Resolución de Motivo");
+    RESOLUCION_MOTIVO("Resolución de Motivo"),
+    ELIMINACION_ASIGNACION("Eliminación de Asignación");
 
     private final String descripcion;
 

@@ -5,6 +5,7 @@ import com.universidad.tutorias.application.dto.CambioTutorResponseDTO;
 import com.universidad.tutorias.application.service.AuditoriaService;
 import com.universidad.tutorias.application.service.SemestreService;
 import com.universidad.tutorias.application.service.TutorReasignacionService;
+import com.universidad.tutorias.application.service.TutorSincronizacionService;
 import com.universidad.tutorias.domain.entity.Alumno;
 import com.universidad.tutorias.domain.entity.Asignacion;
 import com.universidad.tutorias.domain.entity.Semestre;
@@ -33,6 +34,7 @@ public class TutorReasignacionServiceImpl implements TutorReasignacionService {
     private final AsignacionRepository asignacionRepository;
     private final AuditoriaService auditoriaService;
     private final SemestreService semestreService;
+    private final TutorSincronizacionService tutorSincronizacionService;
 
     @Override
     @Transactional
@@ -40,11 +42,8 @@ public class TutorReasignacionServiceImpl implements TutorReasignacionService {
         Alumno alumno = alumnoRepository.findByIdForUpdate(request.getAlumnoId())
                 .orElseThrow(() -> new EntityNotFoundException("Alumno no encontrado con ID: " + request.getAlumnoId()));
 
-        Tutor tutorOrigen = tutorRepository.findByIdForUpdate(request.getTutorOrigenId())
-                .orElseThrow(() -> new EntityNotFoundException("Tutor origen no encontrado con ID: " + request.getTutorOrigenId()));
-
-        Tutor tutorDestino = tutorRepository.findByIdForUpdate(request.getTutorDestinoId())
-                .orElseThrow(() -> new EntityNotFoundException("Tutor destino no encontrado con ID: " + request.getTutorDestinoId()));
+        Tutor tutorOrigen = tutorSincronizacionService.sincronizarYBloquearTutor(request.getTutorOrigenId());
+        Tutor tutorDestino = tutorSincronizacionService.sincronizarYBloquearTutor(request.getTutorDestinoId());
 
         if (alumno.getTutorActual() == null || !alumno.getTutorActual().getId().equals(tutorOrigen.getId())) {
             throw new IllegalArgumentException("El alumno no está asignado al tutor de origen indicado");
@@ -88,13 +87,30 @@ public class TutorReasignacionServiceImpl implements TutorReasignacionService {
 
         LocalDateTime fechaCambio = LocalDateTime.now();
 
-        Asignacion asignacion = new Asignacion();
-        asignacion.setAlumno(alumno);
-        asignacion.setTutor(tutorDestino);
-        asignacion.setSemestre(semestre);
-        asignacion.setTipoAsignacion(TipoAsignacion.REASIGNACION);
-        asignacion.setSemestreAcademico(semestreNormalizado);
-        asignacion.setFechaAsignacion(fechaCambio);
+        // Buscar si existe asignación previa para este alumno en el semestre
+        Asignacion asignacion = asignacionRepository.findByAlumnoAndSemestreAcademico(
+                alumno.getId(), semestreNormalizado).orElse(null);
+
+        if (asignacion != null) {
+            // Actualizar asignación existente
+            asignacion.setTutor(tutorDestino);
+            asignacion.setTipoAsignacion(TipoAsignacion.NUEVO_INGRESO);
+            asignacion.setFechaAsignacion(fechaCambio);
+            log.info("Actualizando asignación existente {} para alumno {} en semestre {}",
+                    asignacion.getId(), alumno.getId(), semestreNormalizado);
+        } else {
+            // Crear nueva asignación si no existe
+            asignacion = new Asignacion();
+            asignacion.setAlumno(alumno);
+            asignacion.setTutor(tutorDestino);
+            asignacion.setSemestre(semestre);
+            asignacion.setTipoAsignacion(TipoAsignacion.NUEVO_INGRESO);
+            asignacion.setSemestreAcademico(semestreNormalizado);
+            asignacion.setFechaAsignacion(fechaCambio);
+            log.info("Creando nueva asignación para alumno {} en semestre {}",
+                    alumno.getId(), semestreNormalizado);
+        }
+
         asignacionRepository.save(asignacion);
 
         registrarAuditoria(alumno, tutorOrigen, tutorDestino, request, cargaOrigenAntes, cargaDestinoAntes, semestreNormalizado);

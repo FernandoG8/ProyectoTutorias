@@ -105,7 +105,7 @@ public class AlumnoCrudServiceImpl implements AlumnoCrudService {
             asignacion.setAlumno(guardado);
             asignacion.setTutor(tutor);
             asignacion.setSemestre(semestreActivo.get());
-            asignacion.setTipoAsignacion(TipoAsignacion.INICIAL);
+            asignacion.setTipoAsignacion(TipoAsignacion.NUEVO_INGRESO);
             asignacion.setSemestreAcademico(semestreActivo.get().getCodigo());
             asignacionRepository.save(asignacion);
 

@@ -7,12 +7,21 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface AsignacionRepository extends JpaRepository<Asignacion, Long> {
 
     @Query("SELECT a FROM Asignacion a WHERE a.alumno.id = :alumnoId ORDER BY a.fechaAsignacion DESC")
     List<Asignacion> findByAlumnoId(@Param("alumnoId") Long alumnoId);
+
+    @Query("SELECT a FROM Asignacion a WHERE a.alumno.id = :alumnoId AND a.semestreAcademico = :semestre")
+    Optional<Asignacion> findByAlumnoAndSemestreAcademico(@Param("alumnoId") Long alumnoId,
+                                                          @Param("semestre") String semestre);
+
+    @Query("SELECT a FROM Asignacion a WHERE a.alumno.id = :alumnoId AND a.semestre.id = :semestreId")
+    Optional<Asignacion> findByAlumnoAndSemestreId(@Param("alumnoId") Long alumnoId,
+                                                    @Param("semestreId") Long semestreId);
 
     @Query("SELECT a FROM Asignacion a WHERE a.tutor.id = :tutorId AND a.semestre.id = :semestreId")
     List<Asignacion> findByTutorAndSemestre(@Param("tutorId") Long tutorId,

@@ -208,16 +208,20 @@ public class AsignacionServiceImpl implements AsignacionService {
 
         boolean esAlumnoNuevo = (alumno == null);
         boolean mantuvoPrevio = false;
-        TipoAsignacion tipoAsignacion = TipoAsignacion.INICIAL;
+        TipoAsignacion tipoAsignacion = TipoAsignacion.NUEVO_INGRESO;
 
         if (!esAlumnoNuevo) {
-            // ALUMNO EXISTENTE - Validar duplicación en este semestre
-            boolean asignacionExiste = asignacionRepository.existsByAlumnoAndTutorAndSemestreId(
-                    alumno.getId(), tutor.getId(), semestre.getId());
-            if (asignacionExiste) {
+            // ALUMNO EXISTENTE - Validar si ya tiene asignación en este semestre (con cualquier tutor)
+            Optional<Asignacion> asignacionEnSemestre = asignacionRepository.findByAlumnoAndSemestreId(
+                    alumno.getId(), semestre.getId());
+
+            if (asignacionEnSemestre.isPresent()) {
+                Asignacion asignacionExistente = asignacionEnSemestre.get();
                 throw new DuplicadoException(String.format(
                         "El alumno %s ya cuenta con una asignación activa con el tutor %s para el semestre %s",
-                        alumno.getMatricula(), tutor.getNombre(), semestre.getCodigo()));
+                        alumno.getMatricula(),
+                        asignacionExistente.getTutor().getNombre(),
+                        semestre.getCodigo()));
             }
 
             // ============================================
@@ -248,7 +252,7 @@ public class AsignacionServiceImpl implements AsignacionService {
             } else {
                 // ❌ REASIGNAR a nuevo tutor
                 mantuvoPrevio = false;
-                tipoAsignacion = TipoAsignacion.REASIGNACION;
+                tipoAsignacion = TipoAsignacion.NUEVO_INGRESO;
 
                 String motivo = tutorAnterior == null ? "sin tutor previo" :
                                !tutorAnterior.getActivo() ? "tutor inactivo" :
@@ -276,7 +280,7 @@ public class AsignacionServiceImpl implements AsignacionService {
         } else {
             // ALUMNO NUEVO
             alumno = new Alumno();
-            tipoAsignacion = TipoAsignacion.INICIAL;
+            tipoAsignacion = TipoAsignacion.NUEVO_INGRESO;
             mantuvoPrevio = false;
 
             log.debug("Creando alumno nuevo: {}", alumnoDTO.getMatricula());

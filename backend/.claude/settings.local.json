@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd /mnt/c/Users/Fernando Gamaliel/IdeaProjects/ProyectoTutoriasBackend/backend && mvn -DskipTests clean compile:*)",
+      "Bash(cd /mnt/c/Users/Fernando Gamaliel/IdeaProjects/ProyectoTutoriasBackend/backend && mvn -DskipTests compile:*)",
+      "Bash(cd:*)",
+      "Bash(find:*)",
+      "Bash(mvn clean test:*)",
+      "Bash(mvn test:*)",
+      "Bash(mvn jacoco:report:*)",
+      "Bash(xargs:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
