@@ -14,15 +14,16 @@ import { listStudents, searchStudents } from "@/services/alumnos-service";
 import { useDebounce } from "@/lib/use-debounce";
 import { rankStudents } from "@/lib/search-rank";
 import { colors } from "@/constants/colors";
+import { CARRERA_COLORS, CARRERA_DISPLAY_ORDER } from "@/utils/dashboard-utils";
 import type { AlumnoPagedResponse, AlumnoResponse, EstadoAlumno, TutorResponse } from "@/types";
 
 const pageSize = 20;
+const SEMESTRE_OPTIONS = Array.from({ length: 12 }, (_, idx) => idx + 1);
 
 export const StudentsPage = () => {
   const [page, setPage] = useState(1);
-  const [estado, setEstado] = useState<EstadoAlumno | "TODOS">("TODOS");
   const [carrera, setCarrera] = useState("TODAS");
-  const [semestreCursante] = useState<number | "TODOS">("TODOS"); // Semestre del alumno (1, 2, 3)
+  const [semestreCursante, setSemestreCursante] = useState<number | "TODOS">("TODOS"); // Semestre del alumno (1, 2, 3)
   const [search, setSearch] = useState("");
   const [isSearchMode, setIsSearchMode] = useState(false);
 
@@ -91,14 +92,14 @@ export const StudentsPage = () => {
     isFetching,
     refetch,
   } = useQuery<AlumnoPagedResponse>({
-    queryKey: ["students", page, estado, carrera, semestreCursante, isSearchMode, debouncedSearch],
+    queryKey: ["students", page, carrera, semestreCursante, isSearchMode, debouncedSearch],
     queryFn: async () => {
       if (isSearchMode && debouncedSearch.length >= 2) {
         // Modo búsqueda: retorna resultados del search
         const results = await searchStudents({
           q: debouncedSearch,
-          estado: estado === "TODOS" ? undefined : estado as "ACTIVO" | "INACTIVO",
           carrera: carrera === "TODAS" ? undefined : carrera,
+          semestre: semestreCursante === "TODOS" ? undefined : semestreCursante,
           size: 100, // Mayor límite para búsqueda
           page: 1,
         });
@@ -110,7 +111,6 @@ export const StudentsPage = () => {
       return listStudents({
         page,
         limit: pageSize,
-        estado: estado === "TODOS" ? undefined : estado,
         carrera: carrera === "TODAS" ? undefined : carrera,
         semestre: semestreCursante === "TODOS" ? undefined : semestreCursante,
       });
@@ -129,15 +129,14 @@ export const StudentsPage = () => {
     return rankStudents(students, term);
   }, [students, debouncedSearch, isSearchMode]);
 
-  const carreraOptions = useMemo(() => {
-    const items = new Set<string>();
-    students.forEach((student) => {
-      if (student.carrera) {
-        items.add(student.carrera);
-      }
-    });
-    return Array.from(items).sort((a, b) => a.localeCompare(b));
-  }, [students]);
+  const carreraOptions = useMemo(
+    () =>
+      CARRERA_DISPLAY_ORDER.map((code) => ({
+        value: code,
+        label: `${code} • ${CARRERA_COLORS[code]?.nombre ?? ""}`.trim(),
+      })),
+    [],
+  );
 
   const totalPages = pagedStudents?.totalPages ?? 1;
 
@@ -179,23 +178,11 @@ export const StudentsPage = () => {
       <PageHeader
         icon={<Users className="h-8 w-8" style={{ color: colors.primary[600] }} />}
         title="Gestión de Alumnos"
-        description="Consulta y administra los alumnos inscritos. Usa filtros para encontrar alumnos específicos por matrícula, estado o carrera."
+        description="Consulta y administra los alumnos inscritos. Usa filtros por carrera, semestre o búsqueda de matrícula/nombre."
         stats={[
           {
             label: "Total Alumnos",
             value: pagedStudents?.totalElements ?? 0,
-          },
-          {
-            label: "Activos",
-            value: pagedStudents?.totalElements ?? 0,
-          },
-          {
-            label: "Inactivos",
-            value: 0,
-          },
-          {
-            label: "Sin tutor",
-            value: 0,
           },
         ]}
       />
@@ -240,28 +227,32 @@ export const StudentsPage = () => {
             <div>
               <label
                 className="text-sm font-semibold mb-2 block"
-                htmlFor="filter-status"
+                htmlFor="filter-semester"
                 style={{ color: colors.semantic.text.primary }}
               >
-                Estado
+                Semestre cursante
               </label>
               <Select
-                id="filter-status"
-                value={estado}
+                id="filter-semester"
+                value={semestreCursante.toString()}
                 onChange={(event) => {
                   setPage(1);
-                  setEstado(event.target.value as EstadoAlumno | "TODOS");
+                  const value = event.target.value;
+                  setSemestreCursante(value === "TODOS" ? "TODOS" : Number(value));
                 }}
               >
-                <option value="TODOS">Todos los estados</option>
-                <option value="ACTIVO">Activos</option>
-                <option value="INACTIVO">Inactivos</option>
+                <option value="TODOS">Todos los semestres</option>
+                {SEMESTRE_OPTIONS.map((sem) => (
+                  <option key={sem} value={sem}>
+                    Semestre {sem}
+                  </option>
+                ))}
               </Select>
               <p
                 className="text-xs mt-1"
                 style={{ color: colors.semantic.text.muted }}
               >
-                Filtra por estado académico
+                Filtra por semestre que cursa el alumno
               </p>
             </div>
 
@@ -283,8 +274,8 @@ export const StudentsPage = () => {
               >
                 <option value="TODAS">Todas las carreras</option>
                 {carreraOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
+                  <option key={option.value} value={option.value}>
+                    {option.label}
                   </option>
                 ))}
               </Select>

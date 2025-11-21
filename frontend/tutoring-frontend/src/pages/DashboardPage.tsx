@@ -254,7 +254,7 @@ export const DashboardPage = () => {
           <CarreraDistributionChart
             data={carreraDistribution}
             isLoading={distribucionLoading}
-            className="max-h-[360px]"
+            className="max-h-[460px] overflow-y-auto pr-2"
           />
         </Card>
       </section>

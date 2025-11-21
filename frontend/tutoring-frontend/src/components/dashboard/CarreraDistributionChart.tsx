@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { CarreraDistribution } from "@/types/dashboard";
-import { CARRERA_COLORS, SATURATION_COLORS } from "@/utils/dashboard-utils";
+import { CARRERA_COLORS, CARRERA_DISPLAY_ORDER, SATURATION_COLORS } from "@/utils/dashboard-utils";
 import { colors } from "@/constants/colors";
 
 interface CarreraDistributionChartProps {
@@ -30,10 +30,22 @@ export const CarreraDistributionChart = ({
   isLoading,
   className,
 }: CarreraDistributionChartProps) => {
+  const orderedData = useMemo(() => {
+    const orderIndex = new Map(
+      CARRERA_DISPLAY_ORDER.map((carrera, idx) => [carrera, idx]),
+    );
+    return [...data].sort((a, b) => {
+      return (
+        (orderIndex.get(a.carrera) ?? CARRERA_DISPLAY_ORDER.length) -
+        (orderIndex.get(b.carrera) ?? CARRERA_DISPLAY_ORDER.length)
+      );
+    });
+  }, [data]);
+
   // Calculate max for scaling
   const maxAlumnos = useMemo(
-    () => Math.max(...data.map((d) => d.totalAlumnos), 1),
-    [data],
+    () => Math.max(...orderedData.map((d) => d.totalAlumnos), 1),
+    [orderedData],
   );
 
   if (isLoading) {
@@ -61,8 +73,14 @@ export const CarreraDistributionChart = ({
 
   return (
     <div className={`space-y-4 ${className ?? ""}`}>
-      {data.map((carrera) => {
-        const carreraColor = CARRERA_COLORS[carrera.carrera];
+      {orderedData.map((carrera) => {
+        const carreraColor = CARRERA_COLORS[carrera.carrera] ?? {
+          hex: colors.primary[400],
+          bg: colors.neutral[100],
+          border: colors.semantic.border,
+          text: colors.semantic.text.primary,
+          nombre: carrera.carrera,
+        };
         const saturationColor = SATURATION_COLORS[carrera.estado];
         const percentage = (carrera.totalAlumnos / maxAlumnos) * 100;
 

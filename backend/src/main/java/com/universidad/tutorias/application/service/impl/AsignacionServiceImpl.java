@@ -208,9 +208,14 @@ public class AsignacionServiceImpl implements AsignacionService {
 
         boolean esAlumnoNuevo = (alumno == null);
         boolean mantuvoPrevio = false;
+        boolean estabaInactivo = false;
         TipoAsignacion tipoAsignacion = TipoAsignacion.NUEVO_INGRESO;
 
         if (!esAlumnoNuevo) {
+            // Capturar estado previo del alumno ANTES de cualquier modificación
+            // Esto es crítico para el caso de reingresos desde INACTIVO
+            estabaInactivo = (alumno.getEstado() == EstadoAlumno.INACTIVO);
+
             // ALUMNO EXISTENTE - Validar si ya tiene asignación en este semestre (con cualquier tutor)
             Optional<Asignacion> asignacionEnSemestre = asignacionRepository.findByAlumnoAndSemestreId(
                     alumno.getId(), semestre.getId());
@@ -247,8 +252,9 @@ public class AsignacionServiceImpl implements AsignacionService {
                 mantuvoPrevio = true;
                 tipoAsignacion = TipoAsignacion.REINGRESO;
 
-                log.debug("Alumno {} mantiene tutor anterior: {}",
-                         alumno.getMatricula(), tutor.getNombre());
+                log.debug("Alumno {} mantiene tutor anterior: {} (estado previo: {})",
+                         alumno.getMatricula(), tutor.getNombre(),
+                         estabaInactivo ? "INACTIVO" : "ACTIVO");
             } else {
                 // ❌ REASIGNAR a nuevo tutor
                 mantuvoPrevio = false;
@@ -315,17 +321,26 @@ public class AsignacionServiceImpl implements AsignacionService {
         // ACTUALIZAR CARGA DEL TUTOR
         // ============================================
 
-        // IMPORTANTE: Solo incrementar si NO mantuvo al tutor previo
-        if (!mantuvoPrevio) {
+        // IMPORTANTE: Incrementar carga en estos casos:
+        // 1. Nueva asignación (NO mantuvo tutor previo)
+        // 2. Reingreso desde INACTIVO (mantuvo tutor previo PERO estaba inactivo)
+        //    En este caso, cuando se marcó INACTIVO se liberó el cupo,
+        //    por lo tanto al regresar DEBE incrementarse nuevamente
+        if (!mantuvoPrevio || estabaInactivo) {
             tutor.incrementarCarga();
             tutorRepository.save(tutor);
 
-            log.debug("Carga del tutor {} incrementada a {}/{}",
+            String motivo = estabaInactivo ? "reingreso desde INACTIVO" :
+                           mantuvoPrevio ? "reingreso con tutor previo" :
+                           "nueva asignación";
+
+            log.debug("Carga del tutor {} incrementada a {}/{} (motivo: {})",
                      tutor.getNombre(),
                      tutor.getCargaActual(),
-                     tutor.getCapacidadMax());
+                     tutor.getCapacidadMax(),
+                     motivo);
         } else {
-            log.debug("Carga del tutor {} NO incrementada (mantuvo alumno previo)",
+            log.debug("Carga del tutor {} NO incrementada (mantuvo alumno previo que estaba ACTIVO)",
                      tutor.getNombre());
         }
 

@@ -58,7 +58,7 @@ export const TutorAlumnosChart = ({ data, isLoading, height }: TutorAlumnosChart
     [sortedData],
   );
 
-  const chartMinWidth = Math.max(sortedData.length * 48, 900);
+  const chartMinWidth = Math.max(sortedData.length * 40, 820);
   const chartHeight = height ?? 380;
 
   if (isLoading) {
@@ -113,7 +113,7 @@ export const TutorAlumnosChart = ({ data, isLoading, height }: TutorAlumnosChart
             <BarChart
               data={sortedData}
               margin={{ top: 10, right: 20, left: 0, bottom: 70 }}
-              barCategoryGap={8}
+              barCategoryGap={6}
             >
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={colors.neutral[200]} />
               <XAxis
@@ -155,7 +155,7 @@ export const TutorAlumnosChart = ({ data, isLoading, height }: TutorAlumnosChart
               <Bar
                 dataKey="alumnos_asignados"
                 radius={[8, 8, 0, 0]}
-                barSize={28}
+                barSize={20}
               >
                 {sortedData.map((entry) => (
                   <Cell key={entry.tutor_id} fill={entry.color} />
