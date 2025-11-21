@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, type FormEvent } from "react";
+import { useMemo, useState, useCallback, useEffect, type FormEvent } from "react";
 import dayjs from "dayjs";
 import { useForm, type Resolver, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,13 +13,17 @@ import { Badge } from "@/components/ui/Badge";
 import { DataTable } from "@/components/ui/DataTable";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Modal } from "@/components/ui/Modal";
+import { SearchInput } from "@/components/SearchInput";
 import {
   exportAlumnosPorTutor,
   exportCarrera,
   exportTodasLasCarreras,
+  exportTodosLosTutores,
   fetchReportePorCarrera,
 } from "@/services/reports-service";
-import { listTutors } from "@/services/tutors-service";
+import { searchTutors } from "@/services/tutors-service";
+import { listSemestres } from "@/services/semestres-service";
+import { useSemestreStore } from "@/store/semestre-store";
 import type { CarreraResumen, ReporteCarrera, TutorResponse } from "@/types";
 
 const tutorReportSchema = z.object({
@@ -31,7 +35,7 @@ const tutorReportSchema = z.object({
 const careerReportSchema = z.object({
   codigoCarrera: z.string().min(1, "Ingresa el código."),
   formato: z.enum(["PDF", "EXCEL"]),
-  periodo: z.string().min(1, "Indica el período."),
+  periodo: z.string().min(1, "Selecciona un semestre."),
 });
 
 interface CarreraRow extends CarreraResumen {
@@ -54,7 +58,9 @@ const saveBlob = (blob: Blob, filename: string) => {
 };
 
 export const ReportsPage = () => {
+  const { semestreActivo } = useSemestreStore();
   const [filters, setFilters] = useState({ semestre: "", carrera: "" });
+  const [resumenFormato, setResumenFormato] = useState<"PDF" | "EXCEL">("EXCEL");
   const [submittedFilters, setSubmittedFilters] = useState<{
     semestreAcademico: string;
     carrera?: string;
@@ -62,18 +68,21 @@ export const ReportsPage = () => {
   const [filtersError, setFiltersError] = useState<string | null>(null);
   const [searchCarrera, setSearchCarrera] = useState("");
   const [selectedCareer, setSelectedCareer] = useState<CarreraResumen | null>(null);
+  const [tutorSearch, setTutorSearch] = useState("");
+  const [tutorSuggestions, setTutorSuggestions] = useState<TutorResponse[]>([]);
 
   const {
     register: registerTutor,
     handleSubmit: handleSubmitTutor,
     formState: { errors: tutorErrors },
     reset: resetTutor,
+    setValue: setTutorValue,
   } = useForm<TutorReportForm>({
     resolver: zodResolver(tutorReportSchema) as Resolver<TutorReportForm>,
     defaultValues: {
       tutorId: 0,
       formato: "PDF",
-      periodo: "",
+      periodo: semestreActivo?.codigo || "",
     },
   });
 
@@ -87,14 +96,46 @@ export const ReportsPage = () => {
     defaultValues: {
       codigoCarrera: "",
       formato: "EXCEL",
-      periodo: "",
+      periodo: semestreActivo?.codigo || "",
     },
   });
 
-  const { data: tutors = [], isLoading: tutorsLoading } = useQuery<TutorResponse[]>({
-    queryKey: ["tutors"],
-    queryFn: () => listTutors(),
+  // Query para obtener semestres dinámicamente
+  const { data: semestres = [] } = useQuery({
+    queryKey: ["semestres"],
+    queryFn: () => listSemestres(),
   });
+
+  const tutorSearchQuery = useQuery({
+    queryKey: ["search-tutors-report", tutorSearch],
+    queryFn: () => searchTutors({ q: tutorSearch, limit: 10 }),
+    enabled: tutorSearch.length >= 2,
+  });
+
+  // Update suggestions when autocomplete query results change
+  const handleTutorSearchChange = useCallback((value: string) => {
+    setTutorSearch(value);
+    if (value.length < 2) {
+      setTutorSuggestions([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (tutorSearch.length >= 2 && tutorSearchQuery.data) {
+      setTutorSuggestions(tutorSearchQuery.data);
+    }
+  }, [tutorSearchQuery.data, tutorSearch]);
+
+  const handleTutorSelect = useCallback(
+    (item: TutorResponse | { id?: number; nombre: string }) => {
+      if ("id" in item && item.id) {
+        setTutorValue("tutorId", item.id);
+        setTutorSearch(item.nombre);
+        setTutorSuggestions([]);
+      }
+    },
+    [setTutorValue],
+  );
 
   const reportQuery = useQuery<ReporteCarrera>({
     queryKey: ["reporte-por-carrera", submittedFilters],
@@ -128,25 +169,35 @@ export const ReportsPage = () => {
   });
 
   const downloadAllMutation = useMutation({
-    mutationFn: (periodo?: string) => exportTodasLasCarreras({ formato: "EXCEL", periodo }),
+    mutationFn: (payload: { periodo?: string; formato: "PDF" | "EXCEL" }) =>
+      exportTodasLasCarreras({ formato: payload.formato, periodo: payload.periodo }),
   });
 
   const downloadCarreraMutation = useMutation({
-    mutationFn: (codigo: string) =>
-      exportCarrera(codigo, {
-        formato: "EXCEL",
-        periodo: submittedFilters?.semestreAcademico,
+    mutationFn: (payload: { codigo: string; formato: "PDF" | "EXCEL"; periodo?: string }) =>
+      exportCarrera(payload.codigo, {
+        formato: payload.formato,
+        periodo: payload.periodo,
       }),
   });
 
   const handleDownloadCarrera = useCallback(
     async (codigo: string) => {
       if (!submittedFilters) return;
-      const blob = await downloadCarreraMutation.mutateAsync(codigo);
-      saveBlob(blob, `reporte-carrera-${codigo}.xlsx`);
+      const blob = await downloadCarreraMutation.mutateAsync({
+        codigo,
+        formato: resumenFormato,
+        periodo: submittedFilters.semestreAcademico,
+      });
+      saveBlob(blob, `reporte-carrera-${codigo}.${resumenFormato === "PDF" ? "pdf" : "xlsx"}`);
     },
-    [downloadCarreraMutation, submittedFilters],
+    [downloadCarreraMutation, submittedFilters, resumenFormato],
   );
+
+  const downloadTutoresMutation = useMutation({
+    mutationFn: (payload: { periodo?: string; formato: "PDF" | "EXCEL" }) =>
+      exportTodosLosTutores({ formato: payload.formato, periodo: payload.periodo }),
+  });
 
   const columns: ColumnDef<CarreraRow>[] = useMemo(
     () => [
@@ -210,6 +261,8 @@ export const ReportsPage = () => {
     const blob = await tutorReportMutation.mutateAsync(values);
     saveBlob(blob, `reporte-tutor-${values.tutorId}.${values.formato === "PDF" ? "pdf" : "xlsx"}`);
     resetTutor({ tutorId: 0, formato: values.formato, periodo: "" });
+    setTutorSearch("");
+    setTutorSuggestions([]);
   };
 
   const onSubmitCareer: SubmitHandler<CareerReportForm> = async (values) => {
@@ -218,7 +271,7 @@ export const ReportsPage = () => {
       blob,
       `reporte-carrera-${values.codigoCarrera}.${values.formato === "PDF" ? "pdf" : "xlsx"}`,
     );
-    resetCareer({ codigoCarrera: "", formato: values.formato, periodo: "" });
+    resetCareer({ codigoCarrera: "", formato: values.formato, periodo: values.periodo });
   };
 
   const handleFiltersSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -235,8 +288,16 @@ export const ReportsPage = () => {
   };
 
   const handleDownloadAll = async () => {
-    const blob = await downloadAllMutation.mutateAsync(filters.semestre.trim() || undefined);
-    saveBlob(blob, `reportes-carreras-${filters.semestre.trim() || "todos"}.zip`);
+    const periodo = filters.semestre.trim() || undefined;
+    const blob = await downloadAllMutation.mutateAsync({ periodo, formato: resumenFormato });
+    const extension = resumenFormato === "PDF" ? "zip" : "zip";
+    saveBlob(blob, `reportes-carreras-${filters.semestre.trim() || "todos"}.${extension}`);
+  };
+
+  const handleDownloadAllTutors = async () => {
+    const periodo = filters.semestre.trim() || undefined;
+    const blob = await downloadTutoresMutation.mutateAsync({ periodo, formato: resumenFormato });
+    saveBlob(blob, `reportes-tutores-${filters.semestre.trim() || "todos"}.zip`);
   };
 
   return (
@@ -250,18 +311,24 @@ export const ReportsPage = () => {
             </p>
           </div>
 
-          <form className="grid gap-4 md:grid-cols-[2fr,2fr,1fr]" onSubmit={handleFiltersSubmit}>
+          <form className="grid gap-4 md:grid-cols-[2fr,2fr,1.2fr,1fr]" onSubmit={handleFiltersSubmit}>
             <div className="space-y-1">
               <label className="text-sm font-medium text-text" htmlFor="semestre-consulta">
                 Semestre académico
               </label>
-              <Input
+              <Select
                 id="semestre-consulta"
-                placeholder="2025-1"
                 value={filters.semestre}
                 onChange={(event) => setFilters((prev) => ({ ...prev, semestre: event.target.value }))}
-              />
-              <p className="text-xs text-slate-500">Campo obligatorio para sincronizar con el backend.</p>
+              >
+                <option value="">Selecciona un semestre</option>
+                {semestres.map((sem) => (
+                  <option key={sem.id} value={sem.codigo}>
+                    {sem.codigo} - {sem.nombre}
+                  </option>
+                ))}
+              </Select>
+              <p className="text-xs text-slate-500">Selecciona el semestre académico a consultar.</p>
             </div>
             <div className="space-y-1">
               <label className="text-sm font-medium text-text" htmlFor="carrera-consulta">
@@ -275,6 +342,20 @@ export const ReportsPage = () => {
               />
               <p className="text-xs text-slate-500">Ingresa el código de carrera si deseas limitar la consulta.</p>
             </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-text" htmlFor="formato-resumen">
+                Formato
+              </label>
+              <Select
+                id="formato-resumen"
+                value={resumenFormato}
+                onChange={(event) => setResumenFormato(event.target.value as "PDF" | "EXCEL")}
+              >
+                <option value="PDF">PDF</option>
+                <option value="EXCEL">Excel</option>
+              </Select>
+              <p className="text-xs text-slate-500">Elige el formato para exportar el resumen.</p>
+            </div>
             <div className="flex items-end gap-2">
               <Button type="submit" className="flex-1">
                 Consultar
@@ -287,6 +368,15 @@ export const ReportsPage = () => {
                 disabled={downloadAllMutation.isPending}
               >
                 Descargar ZIP
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                className="hidden sm:flex"
+                onClick={handleDownloadAllTutors}
+                disabled={downloadTutoresMutation.isPending}
+              >
+                ZIP tutores
               </Button>
             </div>
           </form>
@@ -340,22 +430,24 @@ export const ReportsPage = () => {
 
           <form className="mt-6 space-y-4" onSubmit={handleSubmitTutor(onSubmitTutor)}>
             <div className="space-y-1">
-              <label className="text-sm font-medium text-text" htmlFor="tutorId">
+              <label className="text-sm font-medium text-text" htmlFor="tutorSearch">
                 Tutor
               </label>
-              <Select id="tutorId" defaultValue="0" {...registerTutor("tutorId")} disabled={tutorsLoading}>
-                <option value="0" disabled>
-                  Selecciona un tutor
-                </option>
-                {tutors.map((tutor) => (
-                  <option key={tutor.id} value={tutor.id}>
-                    {tutor.nombre}
-                  </option>
-                ))}
-              </Select>
+              <SearchInput
+                id="tutorSearch"
+                placeholder="Ej. Juan Pérez"
+                value={tutorSearch}
+                onChange={handleTutorSearchChange}
+                onSelect={(item) => handleTutorSelect(item as TutorResponse)}
+                suggestions={tutorSuggestions}
+                suggestionsType="tutor"
+                isLoading={tutorSearch.length >= 2 && tutorSearchQuery.isFetching}
+              />
+              <input type="hidden" {...registerTutor("tutorId")} />
               {tutorErrors.tutorId && (
                 <p className="text-sm text-rose-600">{tutorErrors.tutorId.message}</p>
               )}
+              <p className="text-xs text-slate-500">Escribe 2+ caracteres para buscar por nombre.</p>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
@@ -372,7 +464,16 @@ export const ReportsPage = () => {
                 <label className="text-sm font-medium text-text" htmlFor="periodoTutor">
                   Período
                 </label>
-                <Input id="periodoTutor" placeholder="2025" {...registerTutor("periodo")} />
+                <Select id="periodoTutor" defaultValue={semestreActivo?.codigo || ""} {...registerTutor("periodo")}>
+                  <option value="" disabled>
+                    Selecciona un semestre
+                  </option>
+                  {semestres.map((sem) => (
+                    <option key={sem.id} value={sem.codigo}>
+                      {sem.codigo} - {sem.nombre}
+                    </option>
+                  ))}
+                </Select>
                 {tutorErrors.periodo && (
                   <p className="text-sm text-rose-600">{tutorErrors.periodo.message}</p>
                 )}
@@ -418,9 +519,18 @@ export const ReportsPage = () => {
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium text-text" htmlFor="periodoCarrera">
-                  Período
+                  Semestre académico
                 </label>
-                <Input id="periodoCarrera" placeholder="2025" {...registerCareer("periodo")} />
+                <Select id="periodoCarrera" defaultValue={semestreActivo?.codigo || ""} {...registerCareer("periodo")}>
+                  <option value="" disabled>
+                    Selecciona un semestre
+                  </option>
+                  {semestres.map((sem) => (
+                    <option key={sem.id} value={sem.codigo}>
+                      {sem.codigo} - {sem.nombre}
+                    </option>
+                  ))}
+                </Select>
                 {careerErrors.periodo && (
                   <p className="text-sm text-rose-600">{careerErrors.periodo.message}</p>
                 )}

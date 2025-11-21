@@ -104,8 +104,59 @@ export const useFetch = <T,>(url: string, skip = false) => {
   }, [url, skip]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    // Evita la dependencia circular usando una variable de control
+    let cancelled = false;
+
+    const loadData = async () => {
+      if (skip || cancelled) return;
+
+      dispatch({ type: "LOADING" });
+      try {
+        const { api } = await import("@/lib/api-client");
+        const response = await api.get<ApiResponse<T>>(url);
+
+        if (cancelled) return;
+
+        // Handle ApiResponse wrapper
+        const data = response.data.data ?? response.data;
+        dispatch({ type: "SUCCESS", payload: data as T });
+      } catch (error) {
+        if (cancelled) return;
+
+        let message = "Error al cargar datos";
+
+        // Distinguish between different error types
+        if (error instanceof Error) {
+          message = error.message;
+        } else if (typeof error === "object" && error !== null && "message" in error) {
+          message = (error as { message: string }).message;
+        } else if (typeof error === "string") {
+          message = error;
+        }
+
+        // More specific error handling based on error type
+        if (message.includes("Network")) {
+          message = "Error de conexión. Verifica tu internet e intenta de nuevo.";
+        } else if (message.includes("401") || message.includes("Unauthorized")) {
+          message = "No autorizado. Por favor inicia sesión de nuevo.";
+        } else if (message.includes("403") || message.includes("Forbidden")) {
+          message = "No tienes permiso para acceder a este recurso.";
+        } else if (message.includes("404")) {
+          message = "El recurso no fue encontrado.";
+        } else if (message.includes("500")) {
+          message = "Error en el servidor. Intenta más tarde.";
+        }
+
+        dispatch({ type: "ERROR", payload: message });
+      }
+    };
+
+    loadData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [url, skip]);
 
   return {
     ...state,

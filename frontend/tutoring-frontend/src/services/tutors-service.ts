@@ -7,19 +7,16 @@ import type {
   TutorUpdateInput,
   TutorFilter,
   TutorConAlumnos,
-  PagedResponse,
 } from "@/types";
 
 /**
  * Parámetros para búsqueda avanzada de tutores
- * Coincide con el endpoint GET /api/tutores/search
+ * Coincide con el endpoint GET /api/tutores/search según documentación
  */
 export interface SearchTutorsParams {
-  q: string; // Requerido, mínimo 2 caracteres
-  page?: number;
-  size?: number; // Backend usa 'size' en lugar de 'limit'
-  sort?: "relevance" | "nombre";
-  carrera?: string;
+  q: string; // Término de búsqueda (nombre)
+  carrera?: string; // Filtro por carrera (opcional)
+  limit?: number; // Máx resultados (default: 10)
 }
 
 /**
@@ -42,29 +39,97 @@ export const listTutors = async (
 /**
  * Búsqueda avanzada de tutores con ranking
  * GET /api/tutores/search
+ * 
+ * Algoritmo de ranking según documentación:
+ * 1. Nombre comienza con: score=300
+ * 2. Nombre contiene: score=150
+ * 3. Carrera contiene: score=50
  */
 export const searchTutors = async (
   params: SearchTutorsParams,
-): Promise<PagedResponse<TutorResponse>> => {
+): Promise<TutorResponse[]> => {
   try {
     // Validar que el query tenga al menos 2 caracteres
     if (!params.q || params.q.length < 2) {
       throw new Error("El término de búsqueda debe tener al menos 2 caracteres");
     }
 
-    const { data } = await api.get<ApiResponse<PagedResponse<TutorResponse>>>(
+    const { data } = await api.get<ApiResponse<TutorResponse[] | { items: TutorResponse[] }>>(
       API_URLS.tutores.search,
       {
         params: {
           q: params.q,
-          page: params.page || 1,
-          size: params.size || 20,
-          sort: params.sort || "relevance",
-          carrera: params.carrera && params.carrera !== "TODAS" ? params.carrera : undefined,
+          carrera: params.carrera,
+          limit: params.limit || 10,
         },
       },
     );
-    return data.data;
+    const payload = data.data as TutorResponse[] | { items?: TutorResponse[] };
+    // Backend puede responder paginado (data.items) o arreglo directo (data)
+    // Normalizamos para devolver siempre un array de tutores
+    const list = Array.isArray(payload) ? payload : payload.items ?? [];
+
+    // El endpoint /search no está devolviendo capacidad/carga; enriquecemos con detalle del tutor cuando falten
+    const mapped = list.map((tutor: any) => {
+      const capacidadMaxRaw = tutor.capacidadMax ?? tutor.capacidad_max;
+      const cargaActualRaw = tutor.cargaActual ?? tutor.carga_actual;
+      const capacidadDisponibleRaw = tutor.capacidadDisponible ?? tutor.capacidad_disponible;
+      const capacidadMax = capacidadMaxRaw ?? 0;
+      const cargaActual = cargaActualRaw ?? 0;
+      const capacidadDisponible =
+        capacidadDisponibleRaw ?? Math.max(capacidadMax - cargaActual, 0);
+
+      const needsDetail =
+        capacidadMaxRaw == null &&
+        cargaActualRaw == null &&
+        capacidadDisponibleRaw == null;
+
+      return {
+        id: tutor.id,
+        nombre: tutor.nombre,
+        carrera: tutor.carrera,
+        capacidadMax,
+        cargaActual,
+        capacidadDisponible,
+        areaAtencion: tutor.areaAtencion ?? tutor.area_atencion ?? null,
+        letraEdificio: tutor.letraEdificio ?? tutor.letra_edificio ?? null,
+        activo: tutor.activo ?? true,
+        _needsDetail: needsDetail,
+      } as TutorResponse & { _needsDetail?: boolean };
+    });
+
+    const needsEnrichment = mapped.some((tutor) => tutor._needsDetail);
+    if (!needsEnrichment) {
+      return mapped;
+    }
+
+    const enriched = await Promise.all(
+      mapped.map(async (tutor) => {
+        if (!tutor._needsDetail) {
+          const { _needsDetail, ...rest } = tutor;
+          return rest;
+        }
+        try {
+          const detail = await getTutor(tutor.id);
+          const max = detail.capacidadMax ?? tutor.capacidadMax ?? 0;
+          const actual = detail.cargaActual ?? tutor.cargaActual ?? 0;
+          return {
+            ...tutor,
+            ...detail,
+            capacidadMax: max,
+            cargaActual: actual,
+            capacidadDisponible:
+              detail.capacidadDisponible ??
+              Math.max(max - actual, 0),
+          };
+        } catch {
+          const { _needsDetail, ...rest } = tutor;
+          return rest;
+        }
+      }),
+    );
+
+    return enriched.map(({ _needsDetail, ...rest }) => rest);
   } catch (error) {
     throw new Error(`Error al buscar tutores: ${extractErrorMessage(error)}`);
   }

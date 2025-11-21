@@ -12,6 +12,7 @@ import com.universidad.tutorias.domain.entity.Semestre;
 import com.universidad.tutorias.domain.entity.Tutor;
 import com.universidad.tutorias.domain.enums.TipoAccion;
 import com.universidad.tutorias.domain.enums.TipoAsignacion;
+import com.universidad.tutorias.domain.exception.ReasignacionTutorException;
 import com.universidad.tutorias.domain.repository.AlumnoRepository;
 import com.universidad.tutorias.domain.repository.AsignacionRepository;
 import com.universidad.tutorias.domain.repository.TutorRepository;
@@ -46,30 +47,30 @@ public class TutorReasignacionServiceImpl implements TutorReasignacionService {
         Tutor tutorDestino = tutorSincronizacionService.sincronizarYBloquearTutor(request.getTutorDestinoId());
 
         if (alumno.getTutorActual() == null || !alumno.getTutorActual().getId().equals(tutorOrigen.getId())) {
-            throw new IllegalArgumentException("El alumno no está asignado al tutor de origen indicado");
+            throw new ReasignacionTutorException("El alumno no está asignado al tutor de origen indicado");
         }
 
         if (tutorOrigen.getId().equals(tutorDestino.getId())) {
-            throw new IllegalArgumentException("El tutor destino debe ser diferente al tutor origen");
+            throw new ReasignacionTutorException("El tutor destino debe ser diferente al tutor origen");
         }
 
         if (!tutorDestino.tieneCapacidadDisponible()) {
-            throw new IllegalArgumentException("El tutor destino no tiene capacidad disponible");
+            throw new ReasignacionTutorException("El tutor destino no tiene capacidad disponible");
         }
 
         if (!alumno.puedeReasignarse()) {
-            throw new IllegalStateException("El alumno ha alcanzado el límite de cambios de tutor permitidos");
+            throw new ReasignacionTutorException("El alumno ha alcanzado el límite de cambios de tutor permitidos");
         }
 
         String semestreNormalizado = request.getSemestreAcademico() != null ? request.getSemestreAcademico().trim() : "";
         if (!StringUtils.hasText(semestreNormalizado)) {
-            throw new IllegalArgumentException("El semestre académico es obligatorio para registrar el cambio de tutor");
+            throw new ReasignacionTutorException("El semestre académico es obligatorio para registrar el cambio de tutor");
         }
 
         // Obtener la entidad Semestre por código
         Semestre semestre = semestreService.obtenerPorCodigo(semestreNormalizado);
         if (semestre == null) {
-            throw new EntityNotFoundException("Semestre no encontrado con código: " + semestreNormalizado);
+            throw new ReasignacionTutorException("Semestre no encontrado con código: " + semestreNormalizado);
         }
 
         int cargaOrigenAntes = tutorOrigen.getCargaActual();

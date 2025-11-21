@@ -16,24 +16,25 @@ import type {
 export interface ListStudentsParams {
   page?: number;
   limit?: number;
-  estado?: string;
-  carrera?: string;
-  semestreId?: number;
-  soloActivo?: boolean;
+  estado?: string; // "ACTIVO" | "INACTIVO"
+  carrera?: string; // Código de carrera (ICA, IE, etc.)
+  semestreId?: number; // ID del semestre académico (ej: ID de "2025-2026-F1")
+  semestre?: number; // Semestre cursante del alumno (1, 2, 3, etc.) - NUEVO
+  soloActivo?: boolean; // DEPRECATED
 }
 
 /**
  * Parámetros para búsqueda avanzada de alumnos
- * Coincide con el endpoint GET /api/alumnos/search
+ * Coincide con el endpoint GET /api/alumnos/search según documentación
  */
 export interface SearchStudentsParams {
-  q: string; // Requerido, mínimo 2 caracteres
-  page?: number;
-  size?: number; // Backend usa 'size' en lugar de 'limit'
-  sort?: "relevance" | "matricula" | "nombre";
-  estado?: string;
-  carrera?: string;
-  semestre?: number;
+  q: string; // Término de búsqueda (nombre, matrícula)
+  carrera?: string; // Filtro por carrera (opcional)
+  estado?: "ACTIVO" | "INACTIVO"; // Estado del alumno (opcional)
+  semestre?: number; // Semestre cursante del alumno (1, 2, 3...)
+  page?: number; // Página solicitada (1-based)
+  size?: number; // Tamaño de página (default backend: 20)
+  sort?: "relevance" | "matricula" | "nombre"; // Ordenamiento opcional
 }
 
 /**
@@ -47,6 +48,18 @@ export const listStudents = async (
     const { data } = await api.get<ApiResponse<AlumnoPagedResponse>>(API_URLS.alumnos.root, {
       params,
     });
+
+    // Asegurar que siempre retornamos una estructura válida
+    if (!data.data || !Array.isArray(data.data.items)) {
+      return {
+        items: [],
+        page: params?.page || 1,
+        size: params?.limit || 20,
+        totalElements: 0,
+        totalPages: 0,
+      };
+    }
+
     return data.data;
   } catch (error) {
     throw new Error(`Error al listar alumnos: ${extractErrorMessage(error)}`);
@@ -74,6 +87,13 @@ export const listStudentsCurrentSemester = async (
 /**
  * Búsqueda avanzada de alumnos con ranking
  * GET /api/alumnos/search
+ * 
+ * Algoritmo de ranking según documentación:
+ * 1. Coincidencia exacta de matrícula: score=1000
+ * 2. Matrícula comienza con: score=500
+ * 3. Nombre comienza con: score=300
+ * 4. Nombre contiene: score=100
+ * 5. Matrícula contiene: score=50
  */
 export const searchStudents = async (
   params: SearchStudentsParams,
@@ -87,47 +107,48 @@ export const searchStudents = async (
     const { data } = await api.get<ApiResponse<AlumnoPagedResponse>>(API_URLS.alumnos.search, {
       params: {
         q: params.q,
-        page: params.page || 1,
-        size: params.size || 20,
-        sort: params.sort || "relevance",
-        estado: params.estado && params.estado !== "TODOS" ? params.estado : undefined,
-        carrera: params.carrera && params.carrera !== "TODAS" ? params.carrera : undefined,
+        carrera: params.carrera,
+        estado: params.estado,
         semestre: params.semestre,
+        page: params.page ?? 1,
+        size: params.size ?? 20,
+        sort: params.sort,
       },
     });
-    return data.data;
+
+    const payload = data.data;
+    if (!payload || !Array.isArray(payload.items)) {
+      return {
+        items: [],
+        page: params.page ?? 1,
+        size: params.size ?? 20,
+        totalElements: 0,
+        totalPages: 0,
+      };
+    }
+
+    const mappedItems: AlumnoResponse[] = payload.items.map((item) => ({
+      id: item.id,
+      matricula: item.matricula,
+      nombre: item.nombre,
+      carrera: item.carrera,
+      semestre: item.semestre ?? 0,
+      estado: (item.estado as "ACTIVO" | "INACTIVO") || "ACTIVO",
+      tutor: item.tutor ?? null,
+      cambiosTutor: (item as any).cambiosTutor ?? 0,
+    }));
+
+    return {
+      ...payload,
+      items: mappedItems,
+    };
   } catch (error) {
     throw new Error(`Error al buscar alumnos: ${extractErrorMessage(error)}`);
   }
 };
 
-/**
- * Autocomplete de alumnos (hasta 10 sugerencias)
- * GET /api/alumnos/autocomplete
- */
-export const autocompleteStudents = async (
-  query: string,
-  estado?: string,
-  carrera?: string,
-): Promise<AlumnoResponse[]> => {
-  try {
-    if (!query || query.length < 2) {
-      return [];
-    }
-
-    const { data } = await api.get<ApiResponse<AlumnoResponse[]>>(API_URLS.alumnos.autocomplete, {
-      params: {
-        q: query,
-        estado: estado && estado !== "TODOS" ? estado : undefined,
-        carrera: carrera && carrera !== "TODAS" ? carrera : undefined,
-      },
-    });
-    return data.data || [];
-  } catch (error) {
-    console.error("Error en autocomplete de alumnos:", error);
-    return [];
-  }
-};
+// NOTA: El endpoint /autocomplete está mal implementado según especificaciones
+// Se debe usar searchStudents con limit=10 para autocompletado
 
 /**
  * Busca un alumno por matrícula exacta

@@ -16,8 +16,9 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { data, isLoading, isError } = useQuery({
     queryKey: ["current-user"],
     queryFn: fetchCurrentUser,
-    enabled: !user,
+    enabled: !user, // Solo fetch si no hay usuario en store
     retry: false,
+    staleTime: 1000 * 60 * 5, // 5 minutos
   });
 
   useEffect(() => {
@@ -26,12 +27,13 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     }
   }, [data, user, setUser]);
 
-  const activeUser = user ?? data ?? null;
-
-  if (activeUser) {
+  // CASO 1: Usuario existe en store (después de login)
+  if (user) {
     return <>{children}</>;
   }
 
+  // CASO 2: No hay user en store, query está habilitado
+  // Si está cargando, mostrar loading
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -40,9 +42,16 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     );
   }
 
-  if (isError) {
+  // CASO 3: Query completó con éxito, hay data
+  if (data) {
+    return <>{children}</>;
+  }
+
+  // CASO 4: Query falló o no hay sesión válida
+  if (isError || (!user && !data && !isLoading)) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  return null;
+  // Fallback: redirigir a login
+  return <Navigate to="/login" replace state={{ from: location }} />;
 };

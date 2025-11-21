@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useNotification } from "@/hooks/useNotification";
-import { AssignmentWizard } from "@/components/features/AssignmentWizard";
+import { StepperAsignaciones } from "@/components/features/asignaciones/StepperAsignaciones";
 import { listAssignmentProcesses } from "@/services/asignaciones-service";
 import { listSemestres } from "@/services/semestres-service";
 import type { AssignmentProcessSummary, Semestre } from "@/types";
@@ -99,8 +99,8 @@ export const AssignmentPage = () => {
     processesQuery.refetch(); // Refrescar historial
   };
 
-  const handleWizardSuccess = (procesoId: number) => {
-    success(`Asignación completada: Proceso #${procesoId}`);
+  const handleWizardSuccess = () => {
+    success("Proceso de asignación completado exitosamente");
     handleWizardClose();
   };
 
@@ -214,16 +214,14 @@ export const AssignmentPage = () => {
         </div>
       </Card>
 
-      {/* Wizard Modal - Nueva lógica con 2 endpoints */}
+      {/* Stepper embebido - Nueva lógica con 2 endpoints */}
       {wizardOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto">
-            <AssignmentWizard
-              semestres={semestresQuery.data ?? []}
-              onClose={handleWizardClose}
-              onSuccess={handleWizardSuccess}
-            />
-          </div>
+        <div className="mt-6">
+          <StepperAsignaciones
+            semestres={semestresQuery.data ?? []}
+            onComplete={handleWizardSuccess}
+            onCancel={handleWizardClose}
+          />
         </div>
       )}
     </div>

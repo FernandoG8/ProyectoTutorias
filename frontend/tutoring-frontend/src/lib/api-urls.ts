@@ -48,6 +48,7 @@ export const API_URLS = {
       `/api/reportes/tutores/${tutorId}/alumnos/exportar`,
     carreras: (codigo: string) => `/api/reportes/carreras/${codigo}/exportar`,
     carrerasTodos: "/api/reportes/carreras/exportar-todos",
+    tutoresTodos: "/api/reportes/tutores/exportar-todos",
   },
   semestres: {
     root: "/api/semestres",

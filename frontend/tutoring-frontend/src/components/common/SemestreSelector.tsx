@@ -1,52 +1,33 @@
-import { useEffect } from "react";
 import { Calendar } from "lucide-react";
 import { useSemestreStore } from "@/store/semestre-store";
-import { Badge } from "@/components/ui/Badge";
-import { Skeleton } from "@/components/ui/Skeleton";
 
-export function SemestreSelector() {
-  const { semestreActivo, isLoading, error, hasAttemptedFetch, fetchSemestreActivo } = useSemestreStore();
-
-  useEffect(() => {
-    // Only fetch if we haven't attempted yet
-    if (!hasAttemptedFetch && !isLoading) {
-      fetchSemestreActivo();
-    }
-  }, [hasAttemptedFetch, isLoading, fetchSemestreActivo]);
+/**
+ * Selector de semestre para el topbar (SOLO LECTURA)
+ *
+ * Muestra el semestre académico activo (ej: 2025-2026-F1)
+ * Este semestre determina qué ciclo escolar está vigente
+ */
+export const SemestreSelector = () => {
+  const { semestreActivo, isLoading } = useSemestreStore();
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2">
-        <Calendar className="h-4 w-4 text-white/50" />
-        <Skeleton className="h-5 w-32" />
-      </div>
-    );
-  }
-
-  if (error || !semestreActivo) {
-    return (
-      <div className="flex items-center gap-2">
-        <Calendar className="h-4 w-4 text-amber-300" />
-        <span className="text-sm text-amber-200">Sin semestre activo</span>
+      <div className="flex items-center space-x-2 px-3 py-2 bg-gray-100 rounded-lg animate-pulse">
+        <Calendar className="w-4 h-4 text-gray-400" />
+        <span className="text-sm text-gray-500">Cargando...</span>
       </div>
     );
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <Calendar className="h-4 w-4 text-white/70" />
-      <div className="flex flex-col">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-white">{semestreActivo.codigo}</span>
-          {semestreActivo.activo && (
-            <Badge variant="success" className="text-xs bg-green-500/20 text-green-200 border-green-400">
-              Activo
-            </Badge>
-          )}
+    <div className="flex items-center space-x-2">
+      <Calendar className="w-4 h-4 text-gray-500" />
+      <div className="min-w-[200px] px-3 py-2 bg-gray-50 rounded-lg border border-gray-200">
+        <div className="text-xs text-gray-500">Ciclo Académico:</div>
+        <div className="text-sm font-medium text-gray-900">
+          {semestreActivo ? `${semestreActivo.codigo}` : "Sin semestre activo"}
         </div>
-        <span className="text-xs text-white/60">{semestreActivo.nombre}</span>
       </div>
     </div>
   );
-}
-
+};

@@ -312,3 +312,27 @@ export const executeAssignment = async (
     throw new Error(`Error al ejecutar asignación: ${extractErrorMessage(error) || mensaje}`);
   }
 };
+
+/**
+ * Ejecuta un cambio de tutor
+ * POST /api/asignaciones/cambio-tutor
+ *
+ * Maneja el cambio de asignación de tutor para un alumno específico:
+ * - Valida que el alumno exista y tenga tutor asignado
+ * - Verifica disponibilidad del nuevo tutor
+ * - Actualiza las cargas de ambos tutores
+ * - Registra auditoría del cambio
+ */
+export const changeTutor = async (
+  request: CambioTutorRequest
+): Promise<CambioTutorResponse> => {
+  try {
+    const { data } = await api.post<ApiResponse<CambioTutorResponse>>(
+      API_URLS.asignaciones.cambioTutor,
+      request,
+    );
+    return data.data;
+  } catch (error) {
+    throw new Error(`Error al cambiar tutor: ${extractErrorMessage(error)}`);
+  }
+};

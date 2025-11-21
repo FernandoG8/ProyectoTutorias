@@ -91,3 +91,21 @@ export const exportTodasLasCarreras = async (
     throw new Error(`Error al exportar todas las carreras: ${extractErrorMessage(error)}`);
   }
 };
+
+/**
+ * Exporta todos los tutores en un archivo ZIP
+ * GET /api/reportes/tutores/exportar-todos
+ */
+export const exportTodosLosTutores = async (
+  params?: ExportReportParams,
+): Promise<Blob> => {
+  try {
+    const { data } = await api.get<Blob>(API_URLS.reportes.tutoresTodos, {
+      params,
+      responseType: "blob",
+    });
+    return data;
+  } catch (error) {
+    throw new Error(`Error al exportar todos los tutores: ${extractErrorMessage(error)}`);
+  }
+};

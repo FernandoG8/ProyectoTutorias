@@ -6,8 +6,7 @@ import { DataTable } from "@/components/ui/DataTable";
 import { DashboardSkeleton } from "@/components/common/DashboardSkeleton";
 import { StatCard } from "@/components/common/StatCard";
 import { CarreraDistributionChart } from "@/components/dashboard/CarreraDistributionChart";
-import { TopSaturatedTutors } from "@/components/dashboard/TopSaturatedTutors";
-import { TutoresCompleteTable } from "@/components/dashboard/TutoresCompleteTable";
+import { TutorAlumnosChart } from "@/components/dashboard/TutorAlumnosChart";
 import {
   getDashboardEstadisticas,
   getDistribucionTutores,
@@ -16,7 +15,7 @@ import { listAssignmentProcesses } from "@/services/asignaciones-service";
 import type { AssignmentProcessSummary, DistribucionTutor, CarreraDistribution, TutorSaturation } from "@/types";
 import type { ColumnDef } from "@tanstack/react-table";
 import { colors } from "@/constants/colors";
-import { calculateSaturation, getSaturationState, CARRERA_COLORS } from "@/utils/dashboard-utils";
+import { calculateSaturation, getSaturationState, CARRERA_COLORS, CARRERA_DISPLAY_ORDER } from "@/utils/dashboard-utils";
 
 const processColumns: ColumnDef<AssignmentProcessSummary>[] = [
   { header: "ID", accessorKey: "id" },
@@ -139,27 +138,22 @@ export const DashboardPage = () => {
     }));
   }, [distribucionTutores]);
 
-  // Get top saturated tutors
-  const topSaturatedTutors = useMemo<TutorSaturation[]>(() => {
-    return distribucionTutores
-      .map((tutor) => {
-        const porcentajeSaturacion = calculateSaturation(
-          tutor.alumnos_asignados,
-          tutor.capacidad_max,
-        );
-        return {
-          id: tutor.tutor_id,
-          nombre: tutor.tutor_nombre,
-          carrera: tutor.tutor_carrera,
-          alumnosActuales: tutor.alumnos_asignados,
-          capacidadMaxima: tutor.capacidad_max,
-          porcentajeSaturacion,
-          estado: getSaturationState(porcentajeSaturacion),
-        };
-      })
-      .sort((a, b) => b.porcentajeSaturacion - a.porcentajeSaturacion)
-      .slice(0, 10);
-  }, [distribucionTutores]);
+  const tutorAlumnosChartData = useMemo(
+    () => {
+      const orderIndex = new Map(
+        CARRERA_DISPLAY_ORDER.map((carrera, idx) => [carrera, idx]),
+      );
+
+      return [...distribucionTutores].sort((a, b) => {
+        const carreraDiff =
+          (orderIndex.get(a.tutor_carrera) ?? CARRERA_DISPLAY_ORDER.length) -
+          (orderIndex.get(b.tutor_carrera) ?? CARRERA_DISPLAY_ORDER.length);
+        if (carreraDiff !== 0) return carreraDiff;
+        return a.tutor_nombre.localeCompare(b.tutor_nombre);
+      });
+    },
+    [distribucionTutores],
+  );
 
   const isLoading = estadisticasLoading || distribucionLoading || procesosLoading;
   const isRefreshing = isFetchingEstadisticas || isFetchingDistribucion;
@@ -237,20 +231,12 @@ export const DashboardPage = () => {
           isLoading={estadisticasLoading}
           comparison="alumnos/tutor"
         />
-        <StatCard
-          label="Desbalance"
-          value={`${estadisticas?.desbalance_porcentaje?.toFixed(0) ?? "--"}%`}
-          variant="danger"
-          isLoading={estadisticasLoading}
-          trend="up"
-          comparison="respecto al ideal"
-        />
       </section>
 
-      {/* Section 2-3: Carrera Distribution & Top Tutores */}
-      <section className="grid gap-6 lg:grid-cols-3">
+      {/* Section 2: Carrera Distribution */}
+      <section className="grid gap-6">
         {/* Carrera Distribution Chart */}
-        <Card className="lg:col-span-2">
+        <Card>
           <div className="mb-6">
             <h2
               className="text-lg font-semibold mb-1"
@@ -268,49 +254,50 @@ export const DashboardPage = () => {
           <CarreraDistributionChart
             data={carreraDistribution}
             isLoading={distribucionLoading}
+            className="max-h-[360px]"
           />
         </Card>
+      </section>
 
-        {/* Top Saturated Tutors */}
+      {/* Section 3: Alumnos vs Tutor */}
+      <section className="grid gap-6 lg:grid-cols-1">
         <Card>
-          <div className="mb-6">
-            <h2
-              className="text-lg font-semibold mb-1"
-              style={{ color: colors.semantic.text.primary }}
-            >
-              Top 10 Tutores Saturados
-            </h2>
-            <p
-              className="text-sm"
-              style={{ color: colors.semantic.text.secondary }}
-            >
-              Docentes con mayor carga de alumnos
-            </p>
+          <div className="mb-6 flex flex-col gap-1">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2
+                  className="text-lg font-semibold"
+                  style={{ color: colors.semantic.text.primary }}
+                >
+                  Relación Alumnos vs Tutores
+                </h2>
+                <p
+                  className="text-sm"
+                  style={{ color: colors.semantic.text.secondary }}
+                >
+                  Carga real de alumnos por tutor (semestre activo)
+                </p>
+              </div>
+              <div
+                className="text-xs font-medium px-3 py-1 rounded-full"
+                style={{
+                  backgroundColor: colors.semantic.surface,
+                  color: colors.semantic.text.muted,
+                }}
+              >
+                Total tutores: {distribucionTutores.length}
+              </div>
+            </div>
           </div>
-          <TopSaturatedTutors
-            data={topSaturatedTutors}
+          <TutorAlumnosChart
+            data={tutorAlumnosChartData}
             isLoading={distribucionLoading}
+            height={260}
           />
         </Card>
       </section>
 
-      {/* Section 4: Complete Tutores Table */}
-      <section className="space-y-3">
-        <div>
-          <h2 className="text-lg font-semibold" style={{ color: colors.semantic.text.primary }}>
-            Tabla Completa de Tutores
-          </h2>
-          <p className="text-sm" style={{ color: colors.semantic.text.secondary }}>
-            Detalle de todos los tutores, carga de alumnos y estado de saturación
-          </p>
-        </div>
-        <TutoresCompleteTable
-          data={distribucionTutores}
-          isLoading={distribucionLoading}
-        />
-      </section>
-
-      {/* Section 5: Assignment Processes (Legacy) */}
+      {/* Section 4: Assignment Processes (Legacy) */}
       <section className="space-y-3">
         <div>
           <h2 className="text-lg font-semibold" style={{ color: colors.semantic.text.primary }}>

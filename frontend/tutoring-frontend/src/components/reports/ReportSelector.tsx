@@ -47,9 +47,6 @@ export const ReportSelector = ({
           className={`cursor-pointer transition-all hover:shadow-lg ${
             selectedReport === report.id ? "ring-2" : ""
           }`}
-          style={{
-            ringColor: selectedReport === report.id ? colors.primary[600] : undefined,
-          }}
           onClick={() => onSelectReport(report.id)}
         >
           <div className="space-y-3">

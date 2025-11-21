@@ -9,7 +9,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 public interface AlumnoCrudService {
-    Page<AlumnoResponseDTO> listarAlumnos(EstadoAlumno estado, String carrera, Integer semestre, Pageable pageable);
+    Page<AlumnoResponseDTO> listarAlumnos(EstadoAlumno estado,
+                                          String carrera,
+                                          Integer semestre,
+                                          Long semestreId,
+                                          Pageable pageable);
 
     AlumnoResponseDTO obtenerAlumno(Long id);
 

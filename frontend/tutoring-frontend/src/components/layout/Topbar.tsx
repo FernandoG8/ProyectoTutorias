@@ -1,109 +1,96 @@
-import { useMemo } from "react";
-import { useLocation } from "react-router-dom";
-import { Menu } from "lucide-react";
-import { navigationItems } from "@/constants/navigation";
-import { useAuthStore } from "@/store/auth-store";
-import { useUIStore } from "@/store/ui-store";
+import { Bell, Search, User, LogOut, Settings } from "lucide-react";
+import { useState } from "react";
+import { useNotification } from "@/hooks/useNotification";
 import { SemestreSelector } from "@/components/common/SemestreSelector";
 import { colors } from "@/constants/colors";
 
 /**
- * Topbar Component
- *
- * Header component with:
- * - Sidebar toggle button
- * - Current page title/breadcrumb
- * - Semester selector
- * - User profile information
- * - Sticky positioning for persistent access
- *
- * Decision Log:
- * - Uses semantic color system from constants/colors.ts
- * - Lucide icons for consistency
- * - Memoized route detection to prevent unnecessary re-renders
- * - Improved accessibility with ARIA labels
- * - Responsive layout with flexbox
+ * Topbar fijo del dashboard
+ * 
+ * Características:
+ * - Altura fija
+ * - Siempre visible en la parte superior
+ * - Contiene: título, selector de semestre, notificaciones, usuario
  */
 export const Topbar = () => {
-  const location = useLocation();
-  const toggleSidebar = useUIStore((state) => state.toggleSidebar);
-  const user = useAuthStore((state) => state.user);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const { success } = useNotification();
 
-  const activeRoute = useMemo(() => {
-    const current = navigationItems.find((item) =>
-      location.pathname.startsWith(item.path),
-    );
-    return current?.label ?? "Panel principal";
-  }, [location.pathname]);
-
-  const roleLabel = useMemo(() => {
-    const role = user?.roles[0];
-    if (!role) return "Invitado";
-    const dictionary: Record<string, string> = {
-      ROLE_COORDINADOR_TUTORIAS: "Coordinador de tutorías",
-      ROLE_SECRETARIO_ACADEMICO: "Secretario académico",
-    };
-    return dictionary[role] ?? role.replace("ROLE_", "").toLowerCase();
-  }, [user?.roles]);
-
-  const initials = user?.username ? user.username.substring(0, 2).toUpperCase() : "IN";
+  const handleLogout = () => {
+    // TODO: Implementar logout
+    success("Sesión cerrada correctamente");
+  };
 
   return (
-    <header
-      className="sticky top-0 z-10 flex items-center justify-between border-b bg-casal text-white px-6 py-4 shadow-sm"
-      style={{ borderColor: colors.primary[600] }}
+    <header 
+      className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 shadow-sm"
+      style={{ borderBottomColor: colors.semantic.border }}
     >
-      {/* Left Section: Menu Toggle & Title */}
-      <div className="flex items-center gap-4 flex-1">
-        <button
-          onClick={toggleSidebar}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-lg border transition-colors duration-200 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-offset-2 text-white border-white/30"
-          type="button"
-          aria-label="Alternar menú"
-          title="Mostrar/ocultar menú"
-        >
-          <Menu className="h-5 w-5" aria-hidden="true" />
-        </button>
-        <div className="min-w-0">
-          <p
-            className="text-xs font-semibold uppercase tracking-wider text-white/70"
-          >
-            Módulo actual
-          </p>
-          <h1
-            className="text-xl font-bold truncate text-white"
-          >
-            {activeRoute}
+      {/* Lado izquierdo - Título y breadcrumb */}
+      <div className="flex items-center space-x-4">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900">
+            Sistema de Tutorías
           </h1>
+          <p className="text-sm text-gray-500">
+            Gestión Académica
+          </p>
         </div>
       </div>
 
-      {/* Right Section: Semester Selector & User Profile */}
-      <div className="flex items-center gap-6">
+      {/* Centro - Selector de semestre */}
+      <div className="flex-1 flex justify-center max-w-md">
         <SemestreSelector />
+      </div>
 
-        {/* User Profile Card */}
-        <div
-          className="flex items-center gap-3 rounded-lg border px-4 py-2 bg-white/10 border-white/20"
+      {/* Lado derecho - Acciones y usuario */}
+      <div className="flex items-center space-x-4">
+        {/* Búsqueda rápida */}
+        <button 
+          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+          title="Búsqueda rápida"
         >
-          <div className="text-right">
-            <p
-              className="text-sm font-semibold text-white"
-            >
-              {user?.username ?? "Invitado"}
-            </p>
-            <p
-              className="text-xs text-white/70"
-            >
-              {roleLabel}
-            </p>
-          </div>
-          <div
-            className="flex h-10 w-10 items-center justify-center rounded-lg text-sm font-semibold text-casal bg-white"
-            title={user?.username ?? "Usuario"}
+          <Search className="h-5 w-5" />
+        </button>
+
+        {/* Notificaciones */}
+        <button 
+          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors relative"
+          title="Notificaciones"
+        >
+          <Bell className="h-5 w-5" />
+          <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full"></span>
+        </button>
+
+        {/* Menú de usuario */}
+        <div className="relative">
+          <button
+            onClick={() => setShowUserMenu(!showUserMenu)}
+            className="flex items-center space-x-2 p-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
           >
-            {initials}
-          </div>
+            <div className="h-8 w-8 bg-blue-500 rounded-full flex items-center justify-center">
+              <User className="h-4 w-4 text-white" />
+            </div>
+            <span className="text-sm font-medium">Coordinador</span>
+          </button>
+
+          {/* Dropdown del usuario */}
+          {showUserMenu && (
+            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+              <button className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+                <Settings className="h-4 w-4" />
+                <span>Configuración</span>
+              </button>
+              <hr className="my-1 border-gray-200" />
+              <button 
+                onClick={handleLogout}
+                className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>Cerrar sesión</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>

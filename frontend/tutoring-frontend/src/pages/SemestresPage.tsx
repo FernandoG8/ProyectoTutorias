@@ -138,7 +138,7 @@ const columns = (
 
 export const SemestresPage = () => {
   const queryClient = useQueryClient();
-  const { semestreActivo, fetchSemestreActivo, resetFetchAttempt } = useSemestreStore();
+  const { semestreActivo, fetchSemestreActivo, resetFetchAttempt, setSemestreActivo } = useSemestreStore();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedSemestreId, setSelectedSemestreId] = useState<number | null>(null);
   const [statsModalOpen, setStatsModalOpen] = useState(false);
@@ -168,6 +168,24 @@ export const SemestresPage = () => {
     },
   });
 
+  const invalidateSemesterDependentQueries = () => {
+    const keys = [
+      ["semestres"],
+      ["students"],
+      ["inactive-students"],
+      ["tutors"],
+      ["tutor-students"],
+      ["dashboard-estadisticas"],
+      ["dashboard-distribucion-tutores"],
+      ["dashboard-procesos-recientes"],
+      ["assignment-processes"],
+      ["reporte-por-carrera"],
+      ["semestre-estadisticas"],
+    ] as const;
+
+    keys.forEach((key) => queryClient.invalidateQueries({ queryKey: key }));
+  };
+
   const createMutation = useMutation({
     mutationFn: createSemestre,
     onSuccess: () => {
@@ -181,8 +199,9 @@ export const SemestresPage = () => {
 
   const activateMutation = useMutation({
     mutationFn: activateSemestre,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["semestres"] });
+    onSuccess: (nuevoSemestre) => {
+      setSemestreActivo(nuevoSemestre);
+      invalidateSemesterDependentQueries();
       fetchSemestreActivo();
     },
   });
@@ -467,4 +486,3 @@ export const SemestresPage = () => {
     </div>
   );
 };
-

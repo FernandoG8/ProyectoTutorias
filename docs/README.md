@@ -4,6 +4,8 @@
 
 Bienvenido a la documentación centralizada del proyecto. Esta carpeta contiene toda la información necesaria para entender, desarrollar y mantener el sistema.
 
+> Nota: Toda la documentación suelta que estaba en la raíz fue movida aquí (`docs/root-docs`) para mantener el proyecto limpio.
+
 ### 🎯 Inicio Rápido
 
 - **[README Principal](../README.md)** - Descripción general del proyecto

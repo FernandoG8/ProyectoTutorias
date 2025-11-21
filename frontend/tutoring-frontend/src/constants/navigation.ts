@@ -4,7 +4,6 @@ import {
   FileBarChartIcon,
   GraduationCapIcon,
   HomeIcon,
-  SettingsIcon,
   UploadCloudIcon,
   UserXIcon,
   UsersIcon,
@@ -54,18 +53,8 @@ export const navigationItems: NavigationItem[] = [
     icon: UserXIcon,
   },
   {
-    label: "Carga masiva",
-    path: "/list-upload",
-    icon: UploadCloudIcon,
-  },
-  {
     label: "Semestres",
     path: "/semestres",
     icon: Calendar,
-  },
-  {
-    label: "Configuración",
-    path: "/settings",
-    icon: SettingsIcon,
   },
 ];

@@ -1,6 +1,7 @@
 package com.universidad.tutorias.infrastructure.exception;
 
 import com.universidad.tutorias.domain.exception.*;
+import com.universidad.tutorias.domain.exception.ReasignacionTutorException;
 import com.universidad.tutorias.infrastructure.controller.response.ApiErrorResponse;
 import com.universidad.tutorias.infrastructure.controller.response.FieldErrorDetail;
 import jakarta.persistence.EntityNotFoundException;
@@ -290,6 +291,27 @@ public class GlobalExceptionHandler {
         );
 
         return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    /**
+     * Maneja errores en reasignación de tutores.
+     * Casos: límite de cambios, sin capacidad, alumno no asignado, semestre inválido.
+     */
+    @ExceptionHandler(ReasignacionTutorException.class)
+    public ResponseEntity<ApiErrorResponse> handleReasignacionTutor(
+            ReasignacionTutorException ex,
+            HttpServletRequest request
+    ) {
+        log.warn("Error en reasignación de tutor: {}", ex.getMessage());
+
+        ApiErrorResponse response = ApiErrorResponse.error(
+                HttpStatus.BAD_REQUEST.value(),
+                "TUTOR_REASSIGNMENT_ERROR",
+                ex.getMessage(),
+                request.getRequestURI()
+        );
+
+        return ResponseEntity.badRequest().body(response);
     }
 
     // ===================== UNPROCESSABLE ENTITY (422) =====================

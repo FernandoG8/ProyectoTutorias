@@ -102,6 +102,31 @@ public class ReporteController {
                 .body(contenidoZip);
     }
 
+    @GetMapping("/tutores/exportar-todos")
+    @PreAuthorize("hasRole('COORDINADOR_TUTORIAS')")
+    public ResponseEntity<byte[]> exportarTodosLosTutores(@RequestParam(value = "formato", required = false) String formato,
+                                                          @RequestParam(value = "periodo", required = false) String periodo) {
+
+        FormatoReporte formatoReporte = FormatoReporte.from(formato);
+        List<ReporteArchivoDTO> archivos = reporteExportService.generarReportesTodosLosTutores(periodo, formatoReporte);
+
+        byte[] contenidoZip = crearArchivoZip(archivos);
+
+        String periodoParaArchivo = StringUtils.hasText(periodo) ? periodo : "SIN_PERIODO";
+        String nombreArchivo = String.format("REPORTES_TUTORES_%s.zip", sanitizarParaArchivo(periodoParaArchivo));
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("application/zip"));
+        headers.setContentDisposition(ContentDisposition.attachment()
+                .filename(nombreArchivo, StandardCharsets.UTF_8)
+                .build());
+        headers.setContentLength(contenidoZip.length);
+
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(contenidoZip);
+    }
+
     private ResponseEntity<byte[]> construirRespuestaArchivo(ReporteArchivoDTO archivo) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(archivo.getMediaType());

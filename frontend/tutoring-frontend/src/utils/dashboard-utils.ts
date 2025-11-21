@@ -13,44 +13,54 @@ export const CARRERA_COLORS: Record<Carrera, {
     bg: "bg-emerald-50",
     border: "border-emerald-300",
     text: "text-emerald-900",
-    nombre: "Ing. Sistemas Computacionales",
+    nombre: "Ingeniería en Sistemas Computacionales",
   },
   IME: {
     hex: "#F59E0B",
     bg: "bg-amber-50",
     border: "border-amber-300",
     text: "text-amber-900",
-    nombre: "Ing. Mecánica",
+    nombre: "Ingeniería en Mecánica Eléctrica",
   },
   ITS: {
     hex: "#2563EB",
     bg: "bg-blue-50",
     border: "border-blue-300",
     text: "text-blue-900",
-    nombre: "Ing. Tecnologías Software",
+    nombre: "Ingeniería en Tecnología de Software",
   },
   IE: {
     hex: "#8B5CF6",
     bg: "bg-purple-50",
     border: "border-purple-300",
     text: "text-purple-900",
-    nombre: "Ing. Electrónica",
+    nombre: "Ingeniería en Energía",
   },
   ICA: {
     hex: "#F472B6",
     bg: "bg-pink-50",
     border: "border-pink-300",
     text: "text-pink-900",
-    nombre: "Ing. Automatización",
+    nombre: "Ingeniería Civil y Administración",
   },
   IMECA: {
     hex: "#EF4444",
     bg: "bg-red-50",
     border: "border-red-300",
     text: "text-red-900",
-    nombre: "Ing. Mecatrónica",
+    nombre: "Ingeniería en Mecatrónica",
   },
 };
+
+// Display order to keep tutors grouped by carrera across charts
+export const CARRERA_DISPLAY_ORDER: Carrera[] = [
+  "ITS",
+  "ICA",
+  "IME",
+  "IE",
+  "ISC",
+  "IMECA",
+];
 
 // Saturation state colors and emojis
 export const SATURATION_COLORS: Record<SaturationState, {

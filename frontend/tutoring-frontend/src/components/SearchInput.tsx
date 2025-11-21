@@ -177,21 +177,25 @@ export const SearchInput = ({
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <div>
-                    <p className="font-medium text-sm text-text">
-                      {isStudent ? item.nombre : item.nombre}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      {isStudent ? (
-                        <>
-                          {item.matricula} • {item.carrera} • S{item.semestre}
-                        </>
-                      ) : (
-                        <>
-                          {item.carrera} • {item.cargaActual}/{item.capacidadMax}
-                        </>
-                      )}
-                    </p>
+                  <div className="space-y-0.5">
+                    <p className="font-medium text-sm text-text">{item.nombre}</p>
+                    {isStudent ? (
+                      <p className="text-xs text-slate-500">
+                        {item.matricula} • {item.carrera} • S{item.semestre}
+                      </p>
+                    ) : (
+                      <>
+                        <p className="text-xs text-slate-500">{item.carrera}</p>
+                        {item.cargaActual != null && item.capacidadMax != null && (
+                          <p className="text-[11px] text-slate-500">
+                            Capacidad: {item.cargaActual}/{item.capacidadMax} alumnos
+                            {item.capacidadDisponible != null
+                              ? ` • Libres: ${item.capacidadDisponible}`
+                              : ""}
+                          </p>
+                        )}
+                      </>
+                    )}
                   </div>
                   <Badge variant={isStudent ? "info" : "default"} className="text-xs">
                     {isStudent ? "Alumno" : "Tutor"}

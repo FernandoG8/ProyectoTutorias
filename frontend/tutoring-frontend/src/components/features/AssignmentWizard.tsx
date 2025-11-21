@@ -1,3 +1,15 @@
+/**
+ * ⚠️ DEPRECADO - NO USAR ESTE COMPONENTE
+ *
+ * Este componente ha sido reemplazado por StepperAsignaciones.tsx
+ * que está en uso activo en AssignmentPage.tsx
+ *
+ * Se mantiene temporalmente para referencia, pero será eliminado
+ * en futuras versiones.
+ *
+ * USE EN SU LUGAR: StepperAsignaciones (components/features/asignaciones/)
+ */
+
 import { useState, useCallback, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -10,10 +22,10 @@ import { Stepper } from "@/components/common/Stepper";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { FormField } from "@/components/ui/FormField";
-import { Select } from "@/components/ui/Select";
 import { Badge } from "@/components/ui/Badge";
 import { colors } from "@/constants/colors";
 import { useNotification } from "@/hooks/useNotification";
+import { useSemestreStore } from "@/store/semestre-store";
 
 import {
   validateExcelFile,
@@ -29,6 +41,7 @@ import {
 import type { EstadoProceso, EstadoProcesoResponse, EjecucionAsignacionResponse, Semestre } from "@/types";
 
 /**
+ * @deprecated Use StepperAsignaciones instead
  * Assignment Wizard Component
  *
  * Unified wizard combining ListUploadPage + AssignmentPage flows:
@@ -70,7 +83,6 @@ const formatFileSize = (bytes: number): string => {
 };
 
 const uploadSchema = z.object({
-  semestreId: z.string().min(1, "Semestre académico requerido"),
   usuario: z.string().min(1, "Usuario responsable requerido"),
   archivo: z
     .custom<FileList>(
@@ -86,19 +98,18 @@ const uploadSchema = z.object({
         const file = files?.item(0);
         if (!file) return false;
         const allowedMimes = [
-          "text/csv",
           "application/vnd.ms-excel",
           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         ];
-        const allowedExtensions = [".csv", ".xls", ".xlsx"];
+        const allowedExtensions = [".xls", ".xlsx"];
         const ext = file.name.substring(file.name.lastIndexOf(".")).toLowerCase();
         return allowedMimes.includes(file.type) || allowedExtensions.includes(ext);
       },
-      "Solo se permiten archivos CSV y Excel (.csv, .xls, .xlsx)"
+      "Solo se permiten archivos Excel (.xls, .xlsx)"
     ),
 });
 
-type UploadFormValues = z.infer<typeof uploadSchema>;
+type UploadFormValues = z.infer<typeof uploadSchema> & { semestreId?: string };
 
 const estadoLabels: Record<EstadoProceso, { label: string; badge: "info" | "warning" | "success" | "danger" }> = {
   INICIADO: { label: "Iniciado", badge: "info" },
@@ -128,6 +139,7 @@ export const AssignmentWizard = ({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const queryClient = useQueryClient();
   const { success, error: showError, info } = useNotification();
+  const { semestreActivo } = useSemestreStore();
 
   const {
     register,
@@ -137,7 +149,6 @@ export const AssignmentWizard = ({
   } = useForm<UploadFormValues>({
     resolver: zodResolver(uploadSchema),
     defaultValues: {
-      semestreId: "",
       usuario: "",
     },
   });
@@ -194,16 +205,10 @@ export const AssignmentWizard = ({
       const errorMessage = extractErrorMessage(err);
 
       if (errorCode === "EXCEL_VALIDATION_ERROR" && excelErrors && excelErrors.length > 0) {
-        // Convertir excelErrors del backend al formato esperado por el componente
-        const formattedErrors = excelErrors.map((e) => ({
-          filaExcel: e.rowNumber,
-          campo: e.column,
-          valor: e.value,
-          descripcion: e.message,
-        }));
-        setValidationErrors(formattedErrors);
+        // extractExcelErrors ya retorna el formato correcto (filaExcel, campo, valor, descripcion)
+        setValidationErrors(excelErrors);
         setCurrentStep(1);
-        info(`Se encontraron ${formattedErrors.length} error(es) en la validación`);
+        info(`Se encontraron ${excelErrors.length} error(es) en la validación`);
       } else if (errorCode === "VALIDATION_ERROR" && fieldErrors && fieldErrors.length > 0) {
         // Mostrar errores de campos
         showError(`Error de validación: ${fieldErrors.map((f) => f.message).join(", ")}`);
@@ -274,12 +279,13 @@ export const AssignmentWizard = ({
       const file = values.archivo.item(0);
       if (!file) return;
 
-      // Obtener semestreId del formulario y convertir a número
-      const semId = parseInt(values.semestreId, 10);
-      if (isNaN(semId) || semId <= 0) {
-        showError("Semestre inválido");
+      // Obtener semestreId del store (automático)
+      if (!semestreActivo || !semestreActivo.id) {
+        showError("No hay un semestre activo configurado");
         return;
       }
+
+      const semId = semestreActivo.id;
       setSemestreId(semId);
 
       // STEP 1: Validate Excel first
@@ -288,7 +294,7 @@ export const AssignmentWizard = ({
         semId,
       });
     },
-    [validationMutation, showError]
+    [validationMutation, showError, semestreActivo]
   );
 
   const handleReset = useCallback(() => {
@@ -384,35 +390,29 @@ export const AssignmentWizard = ({
                     style={{ color: colors.semantic.text.primary }}
                   >
                     Semestre académico
-                    <span
-                      className="ml-1"
-                      style={{ color: colors.danger[400] }}
-                      aria-label="required"
-                    >
-                      *
-                    </span>
                   </label>
-                  <Select
-                    {...register("semestreId")}
+                  <div
+                    className="rounded-lg border px-4 py-3"
                     style={{
-                      borderColor: errors.semestreId
-                        ? colors.danger[300]
-                        : colors.semantic.border,
-                      backgroundColor: errors.semestreId ? colors.danger[50] : "white",
+                      borderColor: colors.success[300],
+                      backgroundColor: colors.success[50],
                     }}
                   >
-                    <option value="">Selecciona un semestre</option>
-                    {semestres.map((sem) => (
-                      <option key={sem.id} value={sem.id}>
-                        {sem.codigo} - {sem.nombre}
-                      </option>
-                    ))}
-                  </Select>
-                  {errors.semestreId && (
-                    <p className="text-xs font-medium" style={{ color: colors.danger[600] }}>
-                      {errors.semestreId.message}
+                    <p
+                      className="font-medium"
+                      style={{ color: colors.success[900] }}
+                    >
+                      {semestreActivo
+                        ? `${semestreActivo.codigo} - ${semestreActivo.nombre}`
+                        : "No hay semestre activo"}
                     </p>
-                  )}
+                    <p
+                      className="text-xs mt-1"
+                      style={{ color: colors.success[700] }}
+                    >
+                      (Automático)
+                    </p>
+                  </div>
                 </div>
                 <FormField
                   label="Usuario responsable"
@@ -428,12 +428,12 @@ export const AssignmentWizard = ({
                   className="text-sm font-semibold"
                   style={{ color: colors.semantic.text.primary }}
                 >
-                  Archivo CSV/Excel *
+                  Archivo Excel *
                 </label>
                 <div className="relative mt-2">
                   <input
                     type="file"
-                    accept=".csv,.xlsx,.xls"
+                    accept=".xlsx,.xls"
                     className="sr-only"
                     id="archivo-input"
                     {...register("archivo")}
@@ -486,7 +486,7 @@ export const AssignmentWizard = ({
                               className="text-xs"
                               style={{ color: colors.semantic.text.muted }}
                             >
-                              CSV o Excel (máx. 10 MB)
+                              Excel .xls o .xlsx (máx. 10 MB)
                             </p>
                           </>
                         )}

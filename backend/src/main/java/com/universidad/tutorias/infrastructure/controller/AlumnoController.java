@@ -32,15 +32,18 @@ public class AlumnoController {
     private final SemestreService semestreService;
 
     /**
-     * Lista alumnos del semestre activo
-     * Si no se especifica semestre, obtiene automáticamente el semestre activo
+     * Lista TODOS los alumnos con filtros opcionales
+     *
+     * IMPORTANTE: Por defecto muestra alumnos del semestre académico activo
+     * Los filtros son OPCIONALES - si no se especifican, no se aplican
      *
      * @param page página (default: 1)
      * @param limit registros por página (default: 20)
-     * @param estado filtro por estado (ACTIVO, INACTIVO)
-     * @param carrera filtro por carrera
-     * @param semestreId filtro por semestre específico (opcional, usa semestre activo por defecto)
-     * @param soloActivo si es true, solo muestra alumnos activos en el semestre activo (default: false)
+     * @param estado filtro por estado (ACTIVO, INACTIVO) - OPCIONAL
+     * @param carrera filtro por carrera - OPCIONAL
+     * @param semestreId filtro por ID de semestre académico (ej: ID de "2025-2026-F1") - POR DEFECTO: semestre activo
+     * @param semestre filtro por semestre cursante del alumno (1, 2, 3, etc.) - OPCIONAL
+     * @param soloActivo DEPRECATED - usar estado=ACTIVO en su lugar (default: false)
      * @return lista paginada de alumnos
      */
     @GetMapping
@@ -49,46 +52,39 @@ public class AlumnoController {
             @RequestParam(defaultValue = "20") int limit,
             @RequestParam(required = false) EstadoAlumno estado,
             @RequestParam(required = false) String carrera,
-            @RequestParam(required = false) Integer semestreId,
+            @RequestParam(required = false) Long semestreId,
+            @RequestParam(required = false) String semestreCodigo,
+            @RequestParam(required = false) Integer semestre,
             @RequestParam(defaultValue = "false") boolean soloActivo) {
 
-        log.info("Listando alumnos - page: {}, limit: {}, estado: {}, carrera: {}, semestreId: {}, soloActivo: {}",
-                page, limit, estado, carrera, semestreId, soloActivo);
+        log.info("Listando alumnos - page: {}, limit: {}, estado: {}, carrera: {}, semestreId: {}, semestreCodigo: {}, semestre: {}, soloActivo: {}",
+                page, limit, estado, carrera, semestreId, semestreCodigo, semestre, soloActivo);
 
         try {
-            // Si no se especifica semestre, obtener el semestre activo
-            Integer semestreAFiltrar = semestreId;
-            String semestreNombre = null;
-
-            if (semestreAFiltrar == null) {
-                // Obtener el semestre activo
-                Optional<com.universidad.tutorias.domain.entity.Semestre> semestreActivo =
-                        semestreService.obtenerSemestreActivo();
-
-                if (semestreActivo.isPresent()) {
-                    semestreAFiltrar = semestreActivo.get().getId().intValue();
-                    semestreNombre = semestreActivo.get().getCodigo();
-                    log.info("Utilizando semestre activo: {} (ID: {})", semestreNombre, semestreAFiltrar);
-                } else {
-                    log.warn("No hay semestre activo configurado en el sistema");
-                    // Si no hay semestre activo, no filtrar por semestre
-                    // El usuario verá todos los alumnos sin importar semestre
-                }
-            }
-
-            // Si soloActivo está en true, forzar estado = ACTIVO
+            // Si soloActivo está en true, forzar estado = ACTIVO (retrocompatibilidad)
             EstadoAlumno estadoAFiltrar = estado;
             if (soloActivo && estadoAFiltrar == null) {
                 estadoAFiltrar = EstadoAlumno.ACTIVO;
-                log.info("Filtrando solo alumnos ACTIVOS");
+                log.info("Filtrando solo alumnos ACTIVOS (parámetro soloActivo deprecated)");
+            }
+
+            Long semestreAcademicoId = resolveSemestreId(semestreId, semestreCodigo);
+            String semestreCodigoUsado = resolveSemestreCodigo(semestreId, semestreCodigo, semestreAcademicoId);
+
+            if (semestreAcademicoId == null) {
+                log.warn("No hay semestre activo configurado y no se proporcionó semestreId/semestreCodigo");
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.success(null, "No hay semestre activo configurado en el sistema"));
             }
 
             int pageIndex = Math.max(page - 1, 0);
             Pageable pageable = PageRequest.of(pageIndex, limit);
 
             // Realizar búsqueda
+            // Parámetro "semestre" es el semestre cursante del alumno (1, 2, 3, etc.)
+            // NO el ID del semestre académico
             Page<AlumnoResponseDTO> resultado = alumnoCrudService.listarAlumnos(
-                    estadoAFiltrar, carrera, semestreAFiltrar, pageable
+                    estadoAFiltrar, carrera, semestre, semestreAcademicoId, pageable
             );
 
             PagedResponse<AlumnoResponseDTO> data = new PagedResponse<>(
@@ -99,9 +95,10 @@ public class AlumnoController {
                     resultado.getTotalPages()
             );
 
-            String mensaje = semestreNombre != null
-                    ? String.format("Alumnos del semestre %s", semestreNombre)
-                    : "Alumnos";
+            // Mensaje descriptivo basado en los filtros aplicados
+            String mensaje = semestreCodigoUsado != null
+                    ? String.format("Alumnos del semestre %s", semestreCodigoUsado)
+                    : "Alumnos del semestre activo no configurado";
 
             return ResponseEntity.ok(ApiResponse.success(data, mensaje));
 
@@ -146,7 +143,8 @@ public class AlumnoController {
             Page<AlumnoResponseDTO> resultado = alumnoCrudService.listarAlumnos(
                     EstadoAlumno.ACTIVO, // Solo alumnos ACTIVOS
                     carrera,
-                    semestre.getId().intValue(),
+                    null,
+                    semestre.getId(),
                     pageable
             );
 
@@ -206,5 +204,40 @@ public class AlumnoController {
         log.info("Eliminando alumno {}", id);
         alumnoCrudService.eliminarAlumno(id);
         return ResponseEntity.ok(ApiResponse.success(null, "Alumno eliminado correctamente"));
+    }
+
+    private Long resolveSemestreId(Long semestreId, String semestreCodigo) {
+        if (semestreId != null) {
+            semestreService.obtenerPorId(semestreId);
+            return semestreId;
+        }
+
+        if (semestreCodigo != null && !semestreCodigo.isBlank()) {
+            com.universidad.tutorias.domain.entity.Semestre semestre =
+                    semestreService.obtenerPorCodigo(semestreCodigo.trim().toUpperCase());
+            return semestre.getId();
+        }
+
+        return semestreService.obtenerSemestreActivo()
+                .map(com.universidad.tutorias.domain.entity.Semestre::getId)
+                .orElse(null);
+    }
+
+    private String resolveSemestreCodigo(Long semestreId, String semestreCodigo, Long resolvedId) {
+        if (semestreCodigo != null && !semestreCodigo.isBlank()) {
+            return semestreCodigo.trim().toUpperCase();
+        }
+
+        if (semestreId != null) {
+            return semestreService.obtenerPorId(semestreId).getCodigo();
+        }
+
+        if (resolvedId != null) {
+            return semestreService.obtenerSemestreActivo()
+                    .map(com.universidad.tutorias.domain.entity.Semestre::getCodigo)
+                    .orElse(null);
+        }
+
+        return null;
     }
 }

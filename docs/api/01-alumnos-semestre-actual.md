@@ -249,7 +249,7 @@ curl -X GET "http://localhost:8080/api/alumnos?estado=ACTIVO&carrera=Administrac
 ```
 
 ### Caso 4: Auditoría - Ver alumnos inactivos del semestre anterior
-```bash
+```bash|
 curl -X GET "http://localhost:8080/api/alumnos?semestreId=4&estado=INACTIVO"
 ```
 

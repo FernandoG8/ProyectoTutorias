@@ -78,6 +78,13 @@ public class ReporteConsultaService {
         return alumnoRepository.findDistinctCarreras();
     }
 
+    public List<Long> obtenerTutoresDisponibles(String periodo) {
+        if (StringUtils.hasText(periodo)) {
+            return asignacionRepository.findTutorIdsBySemestre(periodo);
+        }
+        return tutorRepository.findAllIds();
+    }
+
     private List<Asignacion> obtenerAsignacionesPorTutor(Long tutorId, String periodo) {
         if (StringUtils.hasText(periodo)) {
             return asignacionRepository.findByTutorAndSemestreString(tutorId, periodo);

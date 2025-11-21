@@ -159,13 +159,27 @@ export const extractErrorMessage = (error: unknown): string => {
 
 /**
  * Helper para extraer errores de validación de Excel
- * Retorna los excelErrors si están disponibles
+ * Mapea los errores del backend (snake_case) al formato del frontend (camelCase)
+ * Retorna array de errores formateados o null si no hay
  */
-export const extractExcelErrors = (error: unknown): BackendErrorResponse["excelErrors"] | null => {
+export const extractExcelErrors = (error: unknown): Array<{
+  filaExcel: number;
+  campo: string;
+  valor: string;
+  descripcion: string;
+}> | null => {
   if (axios.isAxiosError(error)) {
     if (error.response?.data) {
       const data = error.response.data as BackendErrorResponse;
-      return data?.excelErrors || null;
+      if (data?.excelErrors && data.excelErrors.length > 0) {
+        // Mapear de backend format a frontend format
+        return data.excelErrors.map((e) => ({
+          filaExcel: e.rowNumber ?? 0,
+          campo: e.column ?? "desconocido",
+          valor: e.value ?? "",
+          descripcion: e.message,
+        }));
+      }
     }
   }
   return null;

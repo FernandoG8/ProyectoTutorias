@@ -75,8 +75,7 @@ export interface CambioTutorRequest {
   tutorOrigenId: number;
   tutorDestinoId: number;
   motivo: string;
-  usuario: string;
-  semestreAcademico: string;
+  usuarioResponsable: string;
 }
 
 export interface CambioTutorResponse {

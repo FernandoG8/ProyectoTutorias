@@ -23,6 +23,15 @@ export const DataTable = <TData, TValue>({
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
+    // Generar IDs únicos para evitar duplicados (fix para datos duplicados del backend)
+    getRowId: (row, index) => {
+      // Intentar usar un campo 'id' si existe, pero agregar índice para garantizar unicidad
+      if (row && typeof row === 'object' && 'id' in row) {
+        return `row-${(row as any).id}-${index}`;
+      }
+      // Fallback a índice único
+      return `row-${index}`;
+    },
   });
 
   return (

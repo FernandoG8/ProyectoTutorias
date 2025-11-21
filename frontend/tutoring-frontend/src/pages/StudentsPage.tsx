@@ -10,7 +10,7 @@ import { DataTable } from "@/components/ui/DataTable";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { SearchInput } from "@/components/SearchInput";
-import { listStudents, searchStudents, autocompleteStudents } from "@/services/alumnos-service";
+import { listStudents, searchStudents } from "@/services/alumnos-service";
 import { useDebounce } from "@/lib/use-debounce";
 import { rankStudents } from "@/lib/search-rank";
 import { colors } from "@/constants/colors";
@@ -22,6 +22,7 @@ export const StudentsPage = () => {
   const [page, setPage] = useState(1);
   const [estado, setEstado] = useState<EstadoAlumno | "TODOS">("TODOS");
   const [carrera, setCarrera] = useState("TODAS");
+  const [semestreCursante] = useState<number | "TODOS">("TODOS"); // Semestre del alumno (1, 2, 3)
   const [search, setSearch] = useState("");
   const [isSearchMode, setIsSearchMode] = useState(false);
 
@@ -90,34 +91,36 @@ export const StudentsPage = () => {
     isFetching,
     refetch,
   } = useQuery<AlumnoPagedResponse>({
-    queryKey: ["students", page, estado, carrera, isSearchMode, debouncedSearch],
+    queryKey: ["students", page, estado, carrera, semestreCursante, isSearchMode, debouncedSearch],
     queryFn: async () => {
       if (isSearchMode && debouncedSearch.length >= 2) {
-        return searchStudents({
+        // Modo búsqueda: retorna resultados del search
+        const results = await searchStudents({
           q: debouncedSearch,
-          page,
-          size: pageSize,
-          estado: estado === "TODOS" ? undefined : estado,
+          estado: estado === "TODOS" ? undefined : estado as "ACTIVO" | "INACTIVO",
           carrera: carrera === "TODAS" ? undefined : carrera,
+          size: 100, // Mayor límite para búsqueda
+          page: 1,
         });
+
+        return results;
       }
+
+      // Modo lista normal
       return listStudents({
         page,
         limit: pageSize,
         estado: estado === "TODOS" ? undefined : estado,
         carrera: carrera === "TODAS" ? undefined : carrera,
+        semestre: semestreCursante === "TODOS" ? undefined : semestreCursante,
       });
     },
   });
 
-  // Autocomplete suggestions (respects estado and carrera filters)
-  const { data: suggestions = [] } = useQuery<AlumnoResponse[]>({
-    queryKey: ["students-autocomplete", search, estado, carrera],
-    queryFn: () => autocompleteStudents(search, estado, carrera),
-    enabled: search.length >= 2 && !isSearchMode,
-  });
-
-  const students: AlumnoResponse[] = pagedStudents?.items ?? [];
+  // Asegurar que students sea SIEMPRE un array
+  const students: AlumnoResponse[] = Array.isArray(pagedStudents?.items)
+    ? pagedStudents.items
+    : [];
 
   const filteredStudents = useMemo(() => {
     if (isSearchMode || debouncedSearch.length < 2) return students;
@@ -216,7 +219,7 @@ export const StudentsPage = () => {
               onChange={handleSearchChange}
               onClear={handleSearchClear}
               onSelect={handleSelectStudent}
-              suggestions={suggestions}
+              suggestions={[]}
               suggestionsType="student"
               isLoading={search.length >= 2 && !isSearchMode && isFetching}
             />
