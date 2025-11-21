@@ -12,7 +12,7 @@ import {
   getDistribucionTutores,
 } from "@/services/dashboard-service";
 import { listAssignmentProcesses } from "@/services/asignaciones-service";
-import type { AssignmentProcessSummary, DistribucionTutor, CarreraDistribution, TutorSaturation } from "@/types";
+import type { AssignmentProcessSummary, DistribucionTutor, CarreraDistribution } from "@/types";
 import type { ColumnDef } from "@tanstack/react-table";
 import { colors } from "@/constants/colors";
 import { calculateSaturation, getSaturationState, CARRERA_COLORS, CARRERA_DISPLAY_ORDER } from "@/utils/dashboard-utils";

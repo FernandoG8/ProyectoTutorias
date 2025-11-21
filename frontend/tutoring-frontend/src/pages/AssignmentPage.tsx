@@ -13,25 +13,6 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/Badge";
 import dayjs from "dayjs";
 
-/**
- * PÁGINA DE ASIGNACIONES - NUEVA LÓGICA (FASE 4C)
- *
- * Módulo principal de asignaciones usando nueva lógica de 2 fases:
- * 1. POST /validar-excel - Validar sin ejecutar
- * 2. POST /ejecutar - Ejecutar con datos validados
- *
- * Features:
- * - ✅ Wizard de 5 pasos
- * - ✅ Validación explícita antes de ejecutar
- * - ✅ Tabla de errores si hay problemas
- * - ✅ Confirmación antes de ejecución
- * - ✅ Resultados directos (sin polling)
- * - ✅ Historial de procesos
- *
- * DIFERENCIA CON ANTERIOR:
- * Antes: Upload → /iniciar (combinaba validación + ejecución) → Polling
- * Ahora: Upload → /validar-excel → /ejecutar → Resultados directos
- */
 export const AssignmentPage = () => {
   const { success } = useNotification();
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -112,16 +93,15 @@ export const AssignmentPage = () => {
           <div>
             <h1 className="text-2xl font-semibold text-text">Gestión de Asignaciones</h1>
             <p className="mt-1 text-sm text-slate-600">
-              Nuevo flujo optimizado con validación explícita y mejor control de errores
+              Valida tu archivo, revisa errores y ejecuta la asignación en un solo flujo guiado.
             </p>
           </div>
 
           <div className="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50/50 p-4">
             <div>
-              <h3 className="font-medium text-blue-900">Nuevo proceso de asignación</h3>
+              <h3 className="font-medium text-blue-900">Proceso guiado</h3>
               <p className="mt-1 text-sm text-blue-700">
-                Sube un archivo de alumnos y el sistema validará los datos antes de ejecutar la asignación.
-                Verás los errores primero, para que decidas si continuar o corregir.
+                Sube el Excel, valida estructura y datos, revisa errores y confirma antes de impactar la base de datos.
               </p>
             </div>
             <Button

@@ -6,6 +6,7 @@ import { colors } from "@/constants/colors";
 interface CarreraDistributionChartProps {
   data: CarreraDistribution[];
   isLoading?: boolean;
+  className?: string;
 }
 
 /**
@@ -27,6 +28,7 @@ interface CarreraDistributionChartProps {
 export const CarreraDistributionChart = ({
   data,
   isLoading,
+  className,
 }: CarreraDistributionChartProps) => {
   // Calculate max for scaling
   const maxAlumnos = useMemo(
@@ -58,7 +60,7 @@ export const CarreraDistributionChart = ({
   }
 
   return (
-    <div className="space-y-4">
+    <div className={`space-y-4 ${className ?? ""}`}>
       {data.map((carrera) => {
         const carreraColor = CARRERA_COLORS[carrera.carrera];
         const saturationColor = SATURATION_COLORS[carrera.estado];

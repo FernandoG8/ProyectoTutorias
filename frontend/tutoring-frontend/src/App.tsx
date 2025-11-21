@@ -14,19 +14,22 @@ import { ReportsPage } from "@/pages/ReportsPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { SemestresPage } from "@/pages/SemestresPage";
 import { useSemestreStore } from "@/store/semestre-store";
+import { useAuthStore } from "@/store/auth-store";
 
 function App() {
   const { fetchSemestreActivo } = useSemestreStore();
+  const user = useAuthStore((state) => state.user);
 
   useEffect(() => {
-    // Cargar semestre activo al iniciar la aplicación
-    // Si falla, el error se guarda en el store y se puede mostrar en UI
+    // Solo intentamos cargar el semestre activo cuando hay sesión iniciada
+    if (!user) return;
+
     fetchSemestreActivo().catch((error) => {
       console.error("Error al cargar semestre activo:", error);
       // El error ya está guardado en el store (semestre-store.ts:30-37)
       // Los componentes pueden acceder a useSemestreStore().error para mostrarlo
     });
-  }, [fetchSemestreActivo]);
+  }, [fetchSemestreActivo, user]);
 
   return (
     <>

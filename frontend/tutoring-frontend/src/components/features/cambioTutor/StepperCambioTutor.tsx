@@ -48,14 +48,6 @@ const stepConfigs: StepConfig[] = [
   }
 ];
 
-/**
- * Stepper de 3 pasos para cambio de tutor
- * 
- * Flujo:
- * 1. Búsqueda: Buscar y seleccionar alumno (usando /api/alumnos/search)
- * 2. Selección: Buscar y seleccionar nuevo tutor (usando /api/tutores/search)
- * 3. Confirmación: POST /api/asignaciones/cambio-tutor + resultados
- */
 export const StepperCambioTutor = ({ 
   onComplete, 
   onCancel 

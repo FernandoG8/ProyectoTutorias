@@ -44,10 +44,9 @@ export const TutorChangePage = () => {
 
           <div className="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50/50 p-4">
             <div>
-              <h3 className="font-medium text-blue-900">Nuevo proceso de cambio</h3>
+              <h3 className="font-medium text-blue-900">Proceso guiado</h3>
               <p className="mt-1 text-sm text-blue-700">
                 Busca al alumno, selecciona el nuevo tutor y especifica el motivo del cambio.
-                El proceso es guiado paso a paso para mayor precisión.
               </p>
             </div>
             <Button

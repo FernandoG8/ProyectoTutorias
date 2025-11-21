@@ -69,8 +69,10 @@ export const searchTutors = async (
     // Normalizamos para devolver siempre un array de tutores
     const list = Array.isArray(payload) ? payload : payload.items ?? [];
 
+    type EnrichedTutor = TutorResponse & { _needsDetail?: boolean };
+
     // El endpoint /search no está devolviendo capacidad/carga; enriquecemos con detalle del tutor cuando falten
-    const mapped = list.map((tutor: any) => {
+    const mapped: EnrichedTutor[] = list.map((tutor: any) => {
       const capacidadMaxRaw = tutor.capacidadMax ?? tutor.capacidad_max;
       const cargaActualRaw = tutor.cargaActual ?? tutor.carga_actual;
       const capacidadDisponibleRaw = tutor.capacidadDisponible ?? tutor.capacidad_disponible;
@@ -95,12 +97,12 @@ export const searchTutors = async (
         letraEdificio: tutor.letraEdificio ?? tutor.letra_edificio ?? null,
         activo: tutor.activo ?? true,
         _needsDetail: needsDetail,
-      } as TutorResponse & { _needsDetail?: boolean };
+      };
     });
 
     const needsEnrichment = mapped.some((tutor) => tutor._needsDetail);
     if (!needsEnrichment) {
-      return mapped;
+      return mapped.map(({ _needsDetail, ...rest }) => rest);
     }
 
     const enriched = await Promise.all(
@@ -121,15 +123,15 @@ export const searchTutors = async (
             capacidadDisponible:
               detail.capacidadDisponible ??
               Math.max(max - actual, 0),
-          };
+          } as TutorResponse;
         } catch {
           const { _needsDetail, ...rest } = tutor;
-          return rest;
+          return rest as TutorResponse;
         }
       }),
     );
 
-    return enriched.map(({ _needsDetail, ...rest }) => rest);
+    return enriched;
   } catch (error) {
     throw new Error(`Error al buscar tutores: ${extractErrorMessage(error)}`);
   }

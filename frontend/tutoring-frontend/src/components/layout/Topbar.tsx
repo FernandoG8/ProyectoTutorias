@@ -1,4 +1,4 @@
-import { Bell, Search, User, LogOut, Settings } from "lucide-react";
+import { User, LogOut, Settings } from "lucide-react";
 import { useState } from "react";
 import { useNotification } from "@/hooks/useNotification";
 import { SemestreSelector } from "@/components/common/SemestreSelector";
@@ -45,22 +45,6 @@ export const Topbar = () => {
 
       {/* Lado derecho - Acciones y usuario */}
       <div className="flex items-center space-x-4">
-        {/* Búsqueda rápida */}
-        <button 
-          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-          title="Búsqueda rápida"
-        >
-          <Search className="h-5 w-5" />
-        </button>
-
-        {/* Notificaciones */}
-        <button 
-          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors relative"
-          title="Notificaciones"
-        >
-          <Bell className="h-5 w-5" />
-          <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full"></span>
-        </button>
 
         {/* Menú de usuario */}
         <div className="relative">

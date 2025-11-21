@@ -16,13 +16,14 @@ import {
 interface TutorAlumnosChartProps {
   data: DistribucionTutor[];
   isLoading?: boolean;
+  height?: number;
 }
 
 /**
  * Gráfica de barras verticales alumnos vs tutor.
  * Eje X: tutores; Eje Y: alumnos asignados. Mantiene la paleta por carrera.
  */
-export const TutorAlumnosChart = ({ data, isLoading }: TutorAlumnosChartProps) => {
+export const TutorAlumnosChart = ({ data, isLoading, height }: TutorAlumnosChartProps) => {
   const orderIndex = useMemo(
     () => new Map<Carrera, number>(CARRERA_DISPLAY_ORDER.map((carrera, idx) => [carrera, idx])),
     [],
@@ -58,6 +59,7 @@ export const TutorAlumnosChart = ({ data, isLoading }: TutorAlumnosChartProps) =
   );
 
   const chartMinWidth = Math.max(sortedData.length * 48, 900);
+  const chartHeight = height ?? 380;
 
   if (isLoading) {
     return (
@@ -106,7 +108,7 @@ export const TutorAlumnosChart = ({ data, isLoading }: TutorAlumnosChartProps) =
       </div>
 
       <div className="w-full overflow-x-auto pb-2">
-        <div style={{ minWidth: chartMinWidth, height: 380 }}>
+        <div style={{ minWidth: chartMinWidth, height: chartHeight }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={sortedData}
