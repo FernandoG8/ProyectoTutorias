@@ -37,6 +37,7 @@ public class TutorCambioAuditoriaServiceImpl implements TutorCambioAuditoriaServ
         
         return registrarCambioDetallado(
                 asignacion,
+                asignacion != null ? asignacion.getTutor() : null,
                 tutorNuevo,
                 usuarioResponsable,
                 motivo,
@@ -47,6 +48,7 @@ public class TutorCambioAuditoriaServiceImpl implements TutorCambioAuditoriaServ
     @Override
     public TutorCambioAuditoriaDTO registrarCambioDetallado(
             Asignacion asignacion,
+            Tutor tutorAnterior,
             Tutor tutorNuevo,
             String usuarioResponsable,
             String motivo,
@@ -54,17 +56,17 @@ public class TutorCambioAuditoriaServiceImpl implements TutorCambioAuditoriaServ
             String notas) {
         
         try {
-            Tutor tutorAnterior = asignacion.getTutor();
+            Tutor tutorAnteriorFinal = tutorAnterior != null ? tutorAnterior : asignacion.getTutor();
             
             log.info("Registrando cambio de tutor para alumno {} ({}): {} → {}",
                     asignacion.getAlumno().getMatricula(),
                     asignacion.getAlumno().getNombre(),
-                    tutorAnterior != null ? tutorAnterior.getNombre() : "NINGUNO",
+                    tutorAnteriorFinal != null ? tutorAnteriorFinal.getNombre() : "NINGUNO",
                     tutorNuevo.getNombre());
             
             TutorCambioAuditoria cambio = TutorCambioAuditoria.builder()
                     .asignacion(asignacion)
-                    .tutorAnterior(tutorAnterior)
+                    .tutorAnterior(tutorAnteriorFinal)
                     .tutorNuevo(tutorNuevo)
                     .usuarioResponsable(usuarioResponsable)
                     .motivo(motivo)

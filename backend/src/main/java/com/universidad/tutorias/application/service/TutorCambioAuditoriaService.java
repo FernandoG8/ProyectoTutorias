@@ -57,6 +57,7 @@ public interface TutorCambioAuditoriaService {
      * Registra un cambio con más detalles.
      * 
      * @param asignacion Asignación a modificar
+     * @param tutorAnterior Tutor asignado antes del cambio (puede ser null si no aplica)
      * @param tutorNuevo Nuevo tutor
      * @param usuarioResponsable Usuario del cambio
      * @param motivo Motivo
@@ -66,6 +67,7 @@ public interface TutorCambioAuditoriaService {
      */
     TutorCambioAuditoriaDTO registrarCambioDetallado(
             Asignacion asignacion,
+            Tutor tutorAnterior,
             Tutor tutorNuevo,
             String usuarioResponsable,
             String motivo,

@@ -78,7 +78,7 @@ export const StepperCambioTutor = ({
 
 
   // Paso 3: Ejecutar cambio de tutor
-  const handleExecuteChange = useCallback(async () => {
+  const handleExecuteChange = useCallback(async (finalizeAfter = false) => {
     if (!wizardState.alumnoSeleccionado || !wizardState.tutorNuevo || !wizardState.motivo.trim()) {
       showError("Faltan datos requeridos para el cambio");
       return;
@@ -106,15 +106,19 @@ export const StepperCambioTutor = ({
       queryClient.invalidateQueries({ queryKey: ["tutores"] });
       queryClient.invalidateQueries({ queryKey: ["assignment-processes"] });
 
+      if (finalizeAfter) {
+        onComplete?.();
+      }
+
     } catch (err) {
       showError(err instanceof Error ? err.message : "Error al realizar el cambio de tutor");
     } finally {
       setIsLoading(false);
     }
-  }, [wizardState.alumnoSeleccionado, wizardState.tutorNuevo, wizardState.motivo, updateWizardState, success, showError, queryClient]);
+  }, [wizardState.alumnoSeleccionado, wizardState.tutorNuevo, wizardState.motivo, updateWizardState, success, showError, queryClient, onComplete]);
 
   // Navegación entre pasos
-  const handleNext = useCallback(async () => {
+  const handleNext = useCallback(() => {
     switch (currentStep) {
       case 0:
         if (!wizardState.alumnoSeleccionado) {
@@ -129,21 +133,13 @@ export const StepperCambioTutor = ({
           showError("Selecciona un tutor y escribe el motivo del cambio.");
           return;
         }
-        // Validar límite de cambios de tutor (máximo 2 en el ciclo escolar)
-        if ((alumno.cambiosTutor ?? 0) >= 2) {
-          showError("No es posible realizar más cambios de tutor para este alumno en el ciclo actual (límite: 2).");
-          return;
-        }
         setCurrentStep(2);
         break;
       }
-      case 2:
-        await handleExecuteChange();
-        break;
       default:
         break;
     }
-  }, [currentStep, handleExecuteChange]);
+  }, [currentStep, wizardState.alumnoSeleccionado, wizardState.tutorNuevo, wizardState.motivo, showError]);
 
   const handlePrevious = useCallback(() => {
     if (currentStep > 0) {
@@ -152,8 +148,8 @@ export const StepperCambioTutor = ({
   }, [currentStep]);
 
   const handleConfirm = useCallback(() => {
-    onComplete?.();
-  }, [onComplete]);
+    void handleExecuteChange(true);
+  }, [handleExecuteChange]);
 
   // Validaciones para habilitar botón siguiente
   const getNextDisabled = () => {
@@ -163,11 +159,8 @@ export const StepperCambioTutor = ({
       case 1:
         return (
           !wizardState.tutorNuevo ||
-          !wizardState.motivo.trim() ||
-          (wizardState.alumnoSeleccionado?.cambiosTutor ?? 0) >= 2
+          !wizardState.motivo.trim()
         );
-      case 2:
-        return !wizardState.cambioRealizado;
       default:
         return false;
     }

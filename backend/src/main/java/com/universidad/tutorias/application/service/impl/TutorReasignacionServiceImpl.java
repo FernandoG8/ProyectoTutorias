@@ -4,6 +4,7 @@ import com.universidad.tutorias.application.dto.CambioTutorRequestDTO;
 import com.universidad.tutorias.application.dto.CambioTutorResponseDTO;
 import com.universidad.tutorias.application.service.AuditoriaService;
 import com.universidad.tutorias.application.service.SemestreService;
+import com.universidad.tutorias.application.service.TutorCambioAuditoriaService;
 import com.universidad.tutorias.application.service.TutorReasignacionService;
 import com.universidad.tutorias.application.service.TutorSincronizacionService;
 import com.universidad.tutorias.domain.entity.Alumno;
@@ -36,6 +37,7 @@ public class TutorReasignacionServiceImpl implements TutorReasignacionService {
     private final AuditoriaService auditoriaService;
     private final SemestreService semestreService;
     private final TutorSincronizacionService tutorSincronizacionService;
+    private final TutorCambioAuditoriaService tutorCambioAuditoriaService;
 
     @Override
     @Transactional
@@ -63,14 +65,20 @@ public class TutorReasignacionServiceImpl implements TutorReasignacionService {
         }
 
         String semestreNormalizado = request.getSemestreAcademico() != null ? request.getSemestreAcademico().trim() : "";
-        if (!StringUtils.hasText(semestreNormalizado)) {
-            throw new ReasignacionTutorException("El semestre académico es obligatorio para registrar el cambio de tutor");
-        }
 
-        // Obtener la entidad Semestre por código
-        Semestre semestre = semestreService.obtenerPorCodigo(semestreNormalizado);
-        if (semestre == null) {
-            throw new ReasignacionTutorException("Semestre no encontrado con código: " + semestreNormalizado);
+        Semestre semestre;
+        if (!StringUtils.hasText(semestreNormalizado)) {
+            semestre = semestreService.obtenerSemestreActivo()
+                    .orElseThrow(() -> new ReasignacionTutorException(
+                            "No hay semestre activo configurado. Envíe semestreAcademico en la solicitud o configure un semestre activo"));
+            semestreNormalizado = semestre.getCodigo();
+            log.info("Semestre académico no enviado, usando semestre activo {}", semestreNormalizado);
+        } else {
+            // Obtener la entidad Semestre por código
+            semestre = semestreService.obtenerPorCodigo(semestreNormalizado);
+            if (semestre == null) {
+                throw new ReasignacionTutorException("Semestre no encontrado con código: " + semestreNormalizado);
+            }
         }
 
         int cargaOrigenAntes = tutorOrigen.getCargaActual();
@@ -162,7 +170,7 @@ public class TutorReasignacionServiceImpl implements TutorReasignacionService {
                 String.format("Reasignación manual por motivo: %s", request.getMotivo()),
                 datosAntes,
                 datosDespues,
-                request.getUsuario()
+                request.getUsuarioResponsable()
         );
     }
 }

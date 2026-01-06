@@ -1,5 +1,6 @@
 package com.universidad.tutorias.application.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -19,8 +20,9 @@ public class CambioTutorRequestDTO {
     private String motivo;
 
     @NotBlank
-    private String usuario;
+    @JsonAlias({"usuario", "usuario_responsable"})
+    private String usuarioResponsable;
 
-    @NotBlank(message = "El semestre académico es obligatorio")
+    @JsonAlias({"semestreAcademico", "semestre_academico", "semestre"})
     private String semestreAcademico;
 }
