@@ -49,6 +49,11 @@ Desde la carpeta `backend/`:
 - DEV: `http://localhost:8080/login/oauth2/code/google`
 - PROD (ajusta a tu dominio): `https://tudominio.com/login/oauth2/code/google`
 
+## Despliegue en Railway (CORS y cookies)
+- Variables requeridas: `CORS_ALLOWED_ORIGINS` (ej. `https://proyecto-turorias.vercel.app`), `OAUTH2_SUCCESS_REDIRECT`, `OAUTH2_FAILURE_REDIRECT`, `COOKIE_DOMAIN` (puede dejarse vacío), `SERVER_FORWARD_HEADERS_STRATEGY=framework`.
+- Orígenes permitidos: se leen de `app.cors.allowed-origins` separados por comas; se normalizan quitando espacios.
+- Cookies cross-site: se envían con `SameSite=None`, `Secure`, `HttpOnly`. Si notas que el navegador no las persiste, deja `COOKIE_DOMAIN` vacío o en `none` para que use el host por defecto y evites un `Domain` incompatible con Vercel → Railway.
+
 ## Estructura del Proyecto
 - `src/main/java/com/universidad/tutorias`: código fuente principal.
 - `src/test/java/com/universidad/tutorias`: pruebas unitarias e integración.

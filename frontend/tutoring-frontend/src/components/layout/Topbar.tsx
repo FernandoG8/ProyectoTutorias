@@ -1,8 +1,22 @@
 import { User, LogOut, Settings } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useNotification } from "@/hooks/useNotification";
 import { SemestreSelector } from "@/components/common/SemestreSelector";
 import { colors } from "@/constants/colors";
+import { logout as logoutRequest } from "@/services/auth-service";
+import { useAuthStore } from "@/store/auth-store";
+import { queryClient } from "@/lib/query-client";
+import type { RolUsuario } from "@/types";
+
+const getRoleLabel = (roles?: string[]) => {
+  const hasRole = (role: RolUsuario) => Boolean(roles?.includes(role));
+
+  if (hasRole("ROLE_SECRETARIO_ACADEMICO")) return "Secretario Académico";
+  if (hasRole("ROLE_COORDINADOR_TUTORIAS")) return "Coordinador de Tutorías";
+
+  return "Usuario";
+};
 
 /**
  * Topbar fijo del dashboard
@@ -15,10 +29,24 @@ import { colors } from "@/constants/colors";
 export const Topbar = () => {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const { success } = useNotification();
+  const navigate = useNavigate();
+  const clearSession = useAuthStore((state) => state.logout);
+  const user = useAuthStore((state) => state.user);
 
-  const handleLogout = () => {
-    // TODO: Implementar logout
-    success("Sesión cerrada correctamente");
+  const handleLogout = async () => {
+    console.log("logout click");
+    try {
+      await logoutRequest();
+    } catch (error) {
+      console.error("Error al cerrar sesión", error);
+    } finally {
+      // Siempre limpiar estado local y navegar
+      clearSession();
+      queryClient.clear();
+      setShowUserMenu(false);
+      success("Sesión cerrada correctamente");
+      navigate("/login", { replace: true });
+    }
   };
 
   return (
@@ -55,7 +83,9 @@ export const Topbar = () => {
             <div className="h-8 w-8 bg-blue-500 rounded-full flex items-center justify-center">
               <User className="h-4 w-4 text-white" />
             </div>
-            <span className="text-sm font-medium">Coordinador</span>
+            <span className="text-sm font-medium">
+              {getRoleLabel(user?.roles)}
+            </span>
           </button>
 
           {/* Dropdown del usuario */}

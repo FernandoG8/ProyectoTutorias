@@ -24,9 +24,5 @@ COPY --from=builder /app/target/ProyectoTutoriasBackend-0.0.1-SNAPSHOT.jar app.j
 # Expose port
 EXPOSE 8080
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:8080/api/dashboard/health || exit 1
-
-# Run the application
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Run the application (honor Railway PORT)
+ENTRYPOINT ["sh", "-c", "java -Dserver.port=${PORT:-8080} -jar app.jar"]

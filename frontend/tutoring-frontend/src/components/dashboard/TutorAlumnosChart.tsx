@@ -141,12 +141,12 @@ export const TutorAlumnosChart = ({ data, isLoading, height }: TutorAlumnosChart
               />
               <Tooltip
                 cursor={{ fill: colors.neutral[100] }}
-                contentStyle={{
+              contentStyle={{
                   borderRadius: 8,
                   borderColor: colors.semantic.border,
                   backgroundColor: colors.semantic.surface,
                 }}
-                formatter={(value: number) => [`${value} alumnos`, "Alumnos"]}
+                formatter={(value?: number) => [`${value ?? 0} alumnos`, "Alumnos"]}
                 labelFormatter={(label, payload) => {
                   const carrera = payload?.[0]?.payload?.carreraNombre;
                   return carrera ? `${label} • ${carrera}` : label;

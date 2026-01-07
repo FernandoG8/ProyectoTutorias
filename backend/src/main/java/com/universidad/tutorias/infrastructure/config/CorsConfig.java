@@ -10,6 +10,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Configuration
 public class CorsConfig {
@@ -21,15 +22,24 @@ public class CorsConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // Parsear los orígenes permitidos desde la propiedad
-        List<String> origins = Arrays.asList(allowedOrigins.split(","));
+        // Parsear los orígenes permitidos desde la propiedad, eliminando espacios y vacíos
+        List<String> origins = Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(StringUtils::hasText)
+                .collect(Collectors.toList());
         config.setAllowedOrigins(origins);
 
         // Métodos HTTP permitidos
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
 
-        // Permitir todos los headers
-        config.setAllowedHeaders(Arrays.asList("*"));
+        // Headers explícitos permitidos
+        config.setAllowedHeaders(Arrays.asList(
+                "Authorization",
+                "Content-Type",
+                "X-Requested-With",
+                "Origin",
+                "Accept"
+        ));
 
         // Exponer headers importantes para el cliente
         config.setExposedHeaders(Arrays.asList("Set-Cookie", "Authorization", "Content-Type"));

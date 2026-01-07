@@ -67,8 +67,9 @@ public class TokenCookieService {
                 .sameSite(normalizeSameSite(jwtProperties.getCookieSameSite()))
                 .path(jwtProperties.getCookiePath());
 
-        if (StringUtils.hasText(jwtProperties.getCookieDomain())) {
-            builder.domain(jwtProperties.getCookieDomain());
+        String cookieDomain = normalizeDomain(jwtProperties.getCookieDomain());
+        if (cookieDomain != null) {
+            builder.domain(cookieDomain);
         }
 
         return builder;
@@ -90,5 +91,18 @@ public class TokenCookieService {
             case "none" -> "None";
             default -> "Lax";
         };
+    }
+
+    private String normalizeDomain(String domain) {
+        if (!StringUtils.hasText(domain)) {
+            return null;
+        }
+        String trimmed = domain.trim();
+
+        // Permite desactivar el dominio forzado usando "none" o cadena vacía.
+        if (!StringUtils.hasText(trimmed) || "none".equalsIgnoreCase(trimmed)) {
+            return null;
+        }
+        return trimmed;
     }
 }
