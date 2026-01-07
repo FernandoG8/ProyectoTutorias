@@ -21,6 +21,11 @@ import {
   exportTodosLosTutores,
   fetchReportePorCarrera,
 } from "@/services/reports-service";
+import { exportCarreraDrive, exportTutorDrive } from "@/services/reportesDrive";
+import { GoogleDriveStatus } from "@/components/reportes/GoogleDriveStatus";
+import { ExportDriveModal } from "@/components/reportes/ExportDriveModal";
+import { mapBackendError, extractBackendCode } from "@/utils/errorMapper";
+import { startDriveConnect } from "@/services/googleAuth";
 import { searchTutors } from "@/services/tutors-service";
 import { listSemestres } from "@/services/semestres-service";
 import { useSemestreStore } from "@/store/semestre-store";
@@ -70,6 +75,9 @@ export const ReportsPage = () => {
   const [selectedCareer, setSelectedCareer] = useState<CarreraResumen | null>(null);
   const [tutorSearch, setTutorSearch] = useState("");
   const [tutorSuggestions, setTutorSuggestions] = useState<TutorResponse[]>([]);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [driveMessage, setDriveMessage] = useState<string | null>(null);
+  const [driveError, setDriveError] = useState<string | null>(null);
 
   const {
     register: registerTutor,
@@ -77,6 +85,7 @@ export const ReportsPage = () => {
     formState: { errors: tutorErrors },
     reset: resetTutor,
     setValue: setTutorValue,
+    getValues: getTutorValues,
   } = useForm<TutorReportForm>({
     resolver: zodResolver(tutorReportSchema) as Resolver<TutorReportForm>,
     defaultValues: {
@@ -91,6 +100,7 @@ export const ReportsPage = () => {
     handleSubmit: handleSubmitCareer,
     formState: { errors: careerErrors },
     reset: resetCareer,
+    getValues: getCareerValues,
   } = useForm<CareerReportForm>({
     resolver: zodResolver(careerReportSchema) as Resolver<CareerReportForm>,
     defaultValues: {
@@ -199,6 +209,20 @@ export const ReportsPage = () => {
       exportTodosLosTutores({ formato: payload.formato, periodo: payload.periodo }),
   });
 
+  const exportTutorDriveMutation = useMutation({
+    mutationFn: (payload: { tutorId: number; periodo: string; formato: "PDF" | "EXCEL" }) =>
+      exportTutorDrive({ tutorId: payload.tutorId, semestre: payload.periodo, formato: payload.formato }),
+  });
+
+  const exportCarreraDriveMutation = useMutation({
+    mutationFn: (payload: { codigoCarrera: string; periodo: string; formato: "PDF" | "EXCEL" }) =>
+      exportCarreraDrive({
+        carreraCodigo: payload.codigoCarrera,
+        semestre: payload.periodo,
+        formato: payload.formato,
+      }),
+  });
+
   const columns: ColumnDef<CarreraRow>[] = useMemo(
     () => [
       {
@@ -300,8 +324,59 @@ export const ReportsPage = () => {
     saveBlob(blob, `reportes-tutores-${filters.semestre.trim() || "todos"}.zip`);
   };
 
+  const handleExportTutorDrive = async () => {
+    setDriveError(null);
+    setDriveMessage(null);
+    const values = getTutorValues();
+    const tutorId = Number(values.tutorId);
+    const periodo = values.periodo;
+    const formato = values.formato;
+    if (!tutorId || !periodo || !formato) {
+      setDriveError("Completa tutor, período y formato para exportar a Drive.");
+      return;
+    }
+    try {
+      await exportTutorDriveMutation.mutateAsync({ tutorId, periodo, formato });
+      setDriveMessage("Reporte exportado a Drive exitosamente.");
+    } catch (error) {
+      const code = extractBackendCode(error);
+      if (code === "DRIVE_NOT_CONNECTED" || code === "GOOGLE_NOT_LINKED") {
+        setDriveError(mapBackendError(error));
+        startDriveConnect();
+        return;
+      }
+      setDriveError(mapBackendError(error));
+    }
+  };
+
+  const handleExportCarreraDrive = async () => {
+    setDriveError(null);
+    setDriveMessage(null);
+    const values = getCareerValues();
+    const codigoCarrera = values.codigoCarrera;
+    const periodo = values.periodo;
+    const formato = values.formato;
+    if (!codigoCarrera || !periodo || !formato) {
+      setDriveError("Completa código de carrera, semestre y formato para exportar a Drive.");
+      return;
+    }
+    try {
+      await exportCarreraDriveMutation.mutateAsync({ codigoCarrera, periodo, formato });
+      setDriveMessage("Reporte de carrera exportado a Drive exitosamente.");
+    } catch (error) {
+      const code = extractBackendCode(error);
+      if (code === "DRIVE_NOT_CONNECTED" || code === "GOOGLE_NOT_LINKED") {
+        setDriveError(mapBackendError(error));
+        startDriveConnect();
+        return;
+      }
+      setDriveError(mapBackendError(error));
+    }
+  };
+
   return (
     <div className="space-y-6">
+      <GoogleDriveStatus />
       <Card>
         <div className="space-y-4">
           <div className="flex flex-col gap-2">
@@ -368,6 +443,15 @@ export const ReportsPage = () => {
                 disabled={downloadAllMutation.isPending}
               >
                 Descargar ZIP
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                className="hidden sm:flex"
+                onClick={() => setShowExportModal(true)}
+                disabled={false}
+              >
+                Exportar a Drive
               </Button>
               <Button
                 type="button"
@@ -484,6 +568,15 @@ export const ReportsPage = () => {
               Descargar reporte
             </Button>
 
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={exportTutorDriveMutation.isPending}
+              onClick={handleExportTutorDrive}
+            >
+              Exportar a Drive
+            </Button>
+
             {tutorReportMutation.error && (
               <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600">
                 No se pudo generar el reporte. Intenta nuevamente más tarde.
@@ -541,6 +634,15 @@ export const ReportsPage = () => {
               Descargar consolidado
             </Button>
 
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={exportCarreraDriveMutation.isPending}
+              onClick={handleExportCarreraDrive}
+            >
+              Exportar a Drive
+            </Button>
+
             {careerReportMutation.error && (
               <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600">
                 No se pudo generar el reporte solicitado.
@@ -577,6 +679,13 @@ export const ReportsPage = () => {
           <p className="text-sm text-slate-600">No se encontraron tutores para esta carrera en el período consultado.</p>
         )}
       </Modal>
+      <ExportDriveModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        semestre={filters.semestre.trim()}
+      />
+      {driveError && <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600">{driveError}</p>}
+      {driveMessage && <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{driveMessage}</p>}
     </div>
   );
 };

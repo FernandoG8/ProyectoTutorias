@@ -57,4 +57,12 @@ public class ReporteExportService {
                 .map(tutorId -> generarReporteTutor(tutorId, periodo, formato))
                 .collect(Collectors.toList());
     }
+
+    public List<String> obtenerCarrerasDisponibles(String periodo) {
+        return consultaService.obtenerCarrerasDisponibles(periodo);
+    }
+
+    public List<Long> obtenerTutoresDisponibles(String periodo) {
+        return consultaService.obtenerTutoresDisponibles(periodo);
+    }
 }

@@ -49,6 +49,11 @@ export const API_URLS = {
     carreras: (codigo: string) => `/api/reportes/carreras/${codigo}/exportar`,
     carrerasTodos: "/api/reportes/carreras/exportar-todos",
     tutoresTodos: "/api/reportes/tutores/exportar-todos",
+    drive: {
+      exportMasivo: "/api/reportes/exportar-drive/masivo",
+      exportCarrera: "/api/reportes/carrera/exportar-drive",
+      exportTutor: "/api/reportes/tutor/exportar-drive",
+    },
   },
   semestres: {
     root: "/api/semestres",

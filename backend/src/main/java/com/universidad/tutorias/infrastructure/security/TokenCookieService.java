@@ -64,7 +64,7 @@ public class TokenCookieService {
         ResponseCookie.ResponseCookieBuilder builder = ResponseCookie.from(name, value)
                 .httpOnly(true)
                 .secure(jwtProperties.isCookieSecure())
-                .sameSite(jwtProperties.getCookieSameSite())
+                .sameSite(normalizeSameSite(jwtProperties.getCookieSameSite()))
                 .path(jwtProperties.getCookiePath());
 
         if (StringUtils.hasText(jwtProperties.getCookieDomain())) {
@@ -78,5 +78,17 @@ public class TokenCookieService {
         for (ResponseCookie cookie : cookies) {
             response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
         }
+    }
+
+    private String normalizeSameSite(String sameSite) {
+        if (!StringUtils.hasText(sameSite)) {
+            return "Lax";
+        }
+        String normalized = sameSite.trim().toLowerCase();
+        return switch (normalized) {
+            case "strict" -> "Strict";
+            case "none" -> "None";
+            default -> "Lax";
+        };
     }
 }

@@ -43,7 +43,7 @@ public class ReporteConsultaService {
                 .alumnos(alumnos)
                 .titulo("Alumnos asignados - " + tutor.getNombre())
                 .subtitulo("Periodo: " + periodoFinal)
-                .nombreArchivoBase(String.format("ALUMNOS_TUTOR_%s_%s",
+                .nombreArchivoBase(String.format("%s_ALUMNOS_TUTOR_%s",
                         sanitizarParaArchivo(tutor.getNombre()), sanitizarParaArchivo(periodoFinal)))
                 .build();
     }
@@ -79,15 +79,22 @@ public class ReporteConsultaService {
     }
 
     public List<Long> obtenerTutoresDisponibles(String periodo) {
+        List<Long> ids;
         if (StringUtils.hasText(periodo)) {
-            return asignacionRepository.findTutorIdsBySemestre(periodo);
+            ids = asignacionRepository.findTutorIdsBySemestre(periodo);
+        } else {
+            ids = tutorRepository.findAllIds();
         }
-        return tutorRepository.findAllIds();
+        return ids.stream().distinct().toList();
     }
 
     private List<Asignacion> obtenerAsignacionesPorTutor(Long tutorId, String periodo) {
         if (StringUtils.hasText(periodo)) {
-            return asignacionRepository.findByTutorAndSemestreString(tutorId, periodo);
+            List<Asignacion> asignaciones = asignacionRepository.findByTutorAndSemestreStringFetch(tutorId, periodo);
+            if (asignaciones.isEmpty()) {
+                asignaciones = asignacionRepository.findByTutorAndSemestreString(tutorId, periodo);
+            }
+            return asignaciones;
         }
         return asignacionRepository.findByTutorIdWithDetalles(tutorId);
     }

@@ -80,4 +80,15 @@ public class CookieAuthenticationFilter extends OncePerRequestFilter {
                 .findFirst()
                 .orElse(null);
     }
+    @Override
+    protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
+        String path = request.getServletPath();
+
+        // Deja que Spring Security maneje el flujo OAuth2 sin tocar JWT
+        return path.startsWith("/oauth2/")
+                || path.startsWith("/login/oauth2/")
+                || path.startsWith("/error")
+                || path.startsWith("/actuator/");
+    }
+
 }

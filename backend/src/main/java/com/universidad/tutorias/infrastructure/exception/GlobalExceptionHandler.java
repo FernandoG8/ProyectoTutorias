@@ -16,6 +16,8 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
+import org.apache.catalina.connector.ClientAbortException;
 
 import java.util.List;
 
@@ -87,6 +89,36 @@ public class GlobalExceptionHandler {
                 fieldErrors
         );
 
+        return ResponseEntity.badRequest().body(response);
+    }
+
+    @ExceptionHandler(GoogleLinkException.class)
+    public ResponseEntity<ApiErrorResponse> handleGoogleLinkException(
+            GoogleLinkException ex,
+            HttpServletRequest request
+    ) {
+        log.warn("Error de vínculo Google/Drive: {}", ex.getMessage());
+        ApiErrorResponse response = ApiErrorResponse.error(
+                HttpStatus.BAD_REQUEST.value(),
+                ex.getCode(),
+                ex.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(DriveNotConnectedException.class)
+    public ResponseEntity<ApiErrorResponse> handleDriveNotConnected(
+            DriveNotConnectedException ex,
+            HttpServletRequest request
+    ) {
+        log.warn("Drive no conectado: {}", ex.getMessage());
+        ApiErrorResponse response = ApiErrorResponse.error(
+                HttpStatus.BAD_REQUEST.value(),
+                ex.getCode(),
+                ex.getMessage(),
+                request.getRequestURI()
+        );
         return ResponseEntity.badRequest().body(response);
     }
 
@@ -386,6 +418,23 @@ public class GlobalExceptionHandler {
         );
 
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+    }
+
+    // ===================== CLIENTE CERRÓ CONEXIÓN (499) =====================
+
+    @ExceptionHandler({AsyncRequestNotUsableException.class, ClientAbortException.class})
+    public ResponseEntity<ApiErrorResponse> handleClientAbort(
+            Exception ex,
+            HttpServletRequest request
+    ) {
+        log.info("El cliente cerró la conexión antes de completar la respuesta: {}", ex.getMessage());
+        ApiErrorResponse response = ApiErrorResponse.error(
+                499,
+                "CLIENT_CLOSED_REQUEST",
+                "El cliente canceló la conexión durante el envío de la respuesta",
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(499).body(response);
     }
 
     // ===================== INTERNAL SERVER ERROR (500) =====================

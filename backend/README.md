@@ -38,6 +38,17 @@ Desde la carpeta `backend/`:
 ./mvnw test
 ```
 
+## Cómo probar Google OAuth local
+1. Configura variables de entorno `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET` en tu shell.
+2. Asegúrate de tener configurada la redirección en Google: `http://localhost:8080/login/oauth2/code/google`.
+3. Inicia el backend con el perfil dev: `./mvnw spring-boot:run -Dspring-boot.run.profiles=dev`.
+4. Abre `http://localhost:8080/oauth2/authorization/google`, autentica y verifica que te redirige al frontend (`http://localhost:5173/`).
+5. Comprueba que las cookies `tutorias_access_token` y `tutorias_refresh_token` se generan y que los endpoints protegidos (`/auth/me`, `/api/**`) responden autenticados.
+
+### URIs de redirección que debes registrar en Google Cloud Console
+- DEV: `http://localhost:8080/login/oauth2/code/google`
+- PROD (ajusta a tu dominio): `https://tudominio.com/login/oauth2/code/google`
+
 ## Estructura del Proyecto
 - `src/main/java/com/universidad/tutorias`: código fuente principal.
 - `src/test/java/com/universidad/tutorias`: pruebas unitarias e integración.

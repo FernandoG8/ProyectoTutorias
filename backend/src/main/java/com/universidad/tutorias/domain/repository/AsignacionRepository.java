@@ -31,6 +31,16 @@ public interface AsignacionRepository extends JpaRepository<Asignacion, Long> {
     List<Asignacion> findByTutorAndSemestreString(@Param("tutorId") Long tutorId,
                                                    @Param("semestre") String semestre);
 
+    @Query("""
+            SELECT a FROM Asignacion a
+            JOIN FETCH a.alumno
+            JOIN FETCH a.tutor
+            WHERE a.tutor.id = :tutorId AND a.semestreAcademico = :semestre
+            ORDER BY a.alumno.matricula
+            """)
+    List<Asignacion> findByTutorAndSemestreStringFetch(@Param("tutorId") Long tutorId,
+                                                       @Param("semestre") String semestre);
+
     @Query("SELECT a FROM Asignacion a JOIN FETCH a.alumno JOIN FETCH a.tutor " +
             "WHERE a.tutor.id = :tutorId " +
             "ORDER BY a.alumno.matricula")
