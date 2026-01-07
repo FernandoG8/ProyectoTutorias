@@ -45,6 +45,11 @@ frontend/.env.local
 frontend/.next/
 frontend/*.log
 
+#  Backend env files
+backend/.env
+backend/.env.*
+!backend/.env.*.example
+
 #  Sistema / General 
 *.log
 *.tmp
