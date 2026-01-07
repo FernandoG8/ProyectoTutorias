@@ -3,10 +3,10 @@ package com.universidad.tutorias.infrastructure.config;
 import com.universidad.tutorias.infrastructure.security.CookieAuthenticationFilter;
 import com.universidad.tutorias.infrastructure.security.CustomUserDetailsService;
 import com.universidad.tutorias.infrastructure.security.JwtProperties;
-import com.universidad.tutorias.infrastructure.security.oauth.OAuth2FailureHandler;
-import com.universidad.tutorias.infrastructure.security.oauth.OAuth2SuccessHandler;
-import com.universidad.tutorias.infrastructure.security.oauth.OAuth2Properties;
 import com.universidad.tutorias.infrastructure.security.oauth.GoogleAuthorizationRequestResolver;
+import com.universidad.tutorias.infrastructure.security.oauth.OAuth2FailureHandler;
+import com.universidad.tutorias.infrastructure.security.oauth.OAuth2Properties;
+import com.universidad.tutorias.infrastructure.security.oauth.OAuth2SuccessHandler;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -15,16 +15,17 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 
 @Configuration
 @EnableWebSecurity
@@ -35,7 +36,6 @@ public class SecurityConfig {
 
     private final CookieAuthenticationFilter cookieAuthenticationFilter;
     private final CustomUserDetailsService userDetailsService;
-    private final CorsConfigurationSource corsConfigurationSource;
     private final PasswordEncoder passwordEncoder;
     private final ClientRegistrationRepository clientRegistrationRepository;
 
@@ -44,9 +44,13 @@ public class SecurityConfig {
     private final OAuth2FailureHandler oAuth2FailureHandler;
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http,
+                                                   CorsConfigurationSource corsConfigurationSource) throws Exception {
+        // Usa la configuración CORS centralizada (CorsConfig)
+        http.setSharedObject(CorsConfigurationSource.class, corsConfigurationSource);
+
         http
-                .cors(cors -> cors.configurationSource(corsConfigurationSource))
+                .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
