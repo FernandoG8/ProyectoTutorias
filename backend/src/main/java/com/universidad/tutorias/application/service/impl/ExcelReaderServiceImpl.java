@@ -72,8 +72,12 @@ public class ExcelReaderServiceImpl implements ExcelReaderService {
 
         Map<String, Integer> columnas = new HashMap<>();
         for (Cell cell : headerRow) {
-            String valor = obtenerValorCeldaString(cell).toLowerCase().trim();
-            columnas.put(valor, cell.getColumnIndex());
+            String valor = obtenerValorCeldaString(cell);
+            // Saltar celdas vacías en los encabezados
+            if (valor != null) {
+                valor = valor.toLowerCase().trim();
+                columnas.put(valor, cell.getColumnIndex());
+            }
         }
 
         for (String columnaRequerida : COLUMNAS_REQUERIDAS) {

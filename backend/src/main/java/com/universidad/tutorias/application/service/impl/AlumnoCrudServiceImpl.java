@@ -6,9 +6,11 @@ import com.universidad.tutorias.application.dto.AlumnoResponseDTO;
 import com.universidad.tutorias.application.dto.AlumnoUpdateDTO;
 import com.universidad.tutorias.application.dto.TutorSimpleDTO;
 import com.universidad.tutorias.application.service.AlumnoCrudService;
+import com.universidad.tutorias.application.service.SemestreService;
 import com.universidad.tutorias.application.service.TutorSincronizacionService;
 import com.universidad.tutorias.domain.entity.Alumno;
 import com.universidad.tutorias.domain.entity.Asignacion;
+import com.universidad.tutorias.domain.entity.Semestre;
 import com.universidad.tutorias.domain.entity.Tutor;
 import com.universidad.tutorias.domain.enums.EstadoAlumno;
 import com.universidad.tutorias.domain.enums.TipoAsignacion;
@@ -23,8 +25,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 
 import java.util.Objects;
+import java.util.Optional;
 
 @Service
 @Slf4j
@@ -35,20 +40,28 @@ public class AlumnoCrudServiceImpl implements AlumnoCrudService {
     private final TutorRepository tutorRepository;
     private final AsignacionRepository asignacionRepository;
     private final TutorSincronizacionService tutorSincronizacionService;
+    private final SemestreService semestreService;
 
     @Override
     @Transactional(readOnly = true)
-    public Page<AlumnoResponseDTO> listarAlumnos(EstadoAlumno estado, String carrera, Integer semestre, Pageable pageable) {
+    public Page<AlumnoResponseDTO> listarAlumnos(EstadoAlumno estado,
+                                                 String carrera,
+                                                 Integer semestre,
+                                                 Long semestreId,
+                                                 Pageable pageable) {
         Specification<Alumno> specification = Specification.where(null);
 
         if (estado != null) {
             specification = specification.and((root, query, cb) -> cb.equal(root.get("estado"), estado));
         }
-        if (carrera != null) {
+        if (carrera != null && !carrera.isBlank()) {
             specification = specification.and((root, query, cb) -> cb.equal(cb.lower(root.get("carrera")), carrera.toLowerCase()));
         }
         if (semestre != null) {
             specification = specification.and((root, query, cb) -> cb.equal(root.get("semestre"), semestre));
+        }
+        if (semestreId != null) {
+            specification = specification.and(buildSemestreAsignacionFilter(semestreId));
         }
 
         Page<Alumno> alumnos = alumnoRepository.findAll(specification, pageable);
@@ -91,10 +104,18 @@ public class AlumnoCrudServiceImpl implements AlumnoCrudService {
             guardado.setTutorActual(tutor);
             guardado = alumnoRepository.save(guardado);
 
+            // Obtener semestre activo para la asignación
+            Optional<Semestre> semestreActivo = semestreService.obtenerSemestreActivo();
+            if (semestreActivo.isEmpty()) {
+                throw new IllegalArgumentException("No hay un semestre activo disponible para registrar la asignación");
+            }
+
             Asignacion asignacion = new Asignacion();
             asignacion.setAlumno(guardado);
             asignacion.setTutor(tutor);
-            asignacion.setTipoAsignacion(TipoAsignacion.INICIAL);
+            asignacion.setSemestre(semestreActivo.get());
+            asignacion.setTipoAsignacion(TipoAsignacion.NUEVO_INGRESO);
+            asignacion.setSemestreAcademico(semestreActivo.get().getCodigo());
             asignacionRepository.save(asignacion);
 
             tutor.incrementarCarga();
@@ -180,6 +201,19 @@ public class AlumnoCrudServiceImpl implements AlumnoCrudService {
 
     private Long obtenerTutorId(Alumno alumno) {
         return alumno.getTutorActual() != null ? alumno.getTutorActual().getId() : null;
+    }
+
+    private Specification<Alumno> buildSemestreAsignacionFilter(Long semestreId) {
+        return (root, query, cb) -> {
+            Subquery<Long> subquery = query.subquery(Long.class);
+            Root<Asignacion> asignacionRoot = subquery.from(Asignacion.class);
+            subquery.select(asignacionRoot.get("alumno").get("id"))
+                    .where(
+                            cb.equal(asignacionRoot.get("semestre").get("id"), semestreId),
+                            cb.equal(asignacionRoot.get("alumno").get("id"), root.get("id"))
+                    );
+            return cb.exists(subquery);
+        };
     }
 
     private AlumnoResponseDTO mapToResponse(Alumno alumno) {

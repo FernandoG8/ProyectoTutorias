@@ -5,7 +5,10 @@
 package com.universidad.tutorias.infrastructure.controller;
 
 import com.universidad.tutorias.application.dto.*;
+import com.universidad.tutorias.application.service.EjecucionAsignacionService;
+import com.universidad.tutorias.application.service.ExcelValidacionYOrdenaService;
 import com.universidad.tutorias.application.service.ProcesoOrchestrator;
+import com.universidad.tutorias.application.service.SemestreService;
 import com.universidad.tutorias.application.service.TutorReasignacionService;
 import com.universidad.tutorias.domain.entity.AlertaProceso;
 import com.universidad.tutorias.domain.entity.ProcesoAsignacion;
@@ -22,11 +25,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -43,6 +45,9 @@ public class AsignacionController {
     private final ProcesoAsignacionRepository procesoRepository;
     private final AlertaProcesoRepository alertaRepository;
     private final TutorReasignacionService tutorReasignacionService;
+    private final SemestreService semestreService;
+    private final ExcelValidacionYOrdenaService excelValidacionService;
+    private final EjecucionAsignacionService ejecucionAsignacionService;
 
     @PostMapping("/iniciar")
     public ResponseEntity<ApiResponse<IniciarProcesoResponse>> iniciarProceso(
@@ -52,9 +57,12 @@ public class AsignacionController {
                 request.getSemestreAcademico(), request.getUsuario());
 
         try {
+            // Convertir código de semestre a ID
+            Long semestreId = semestreService.convertirCodigoAId(request.getSemestreAcademico());
+
             CompletableFuture<Long> futuro = orchestrator.ejecutarProcesoCompleto(
                     request.getArchivo(),
-                    request.getSemestreAcademico(),
+                    semestreId,
                     request.getUsuario()
             );
 
@@ -198,6 +206,103 @@ public class AsignacionController {
                 request.getTutorOrigenId(), request.getTutorDestinoId());
         CambioTutorResponseDTO resultado = tutorReasignacionService.reasignarTutor(request);
         return ResponseEntity.ok(ApiResponse.success(resultado, "Reasignación de tutor completada"));
+    }
+
+    /**
+     * Endpoint para validar, limpiar y ordenar un archivo Excel.
+     *
+     * RESPONSABILIDADES:
+     * - Leer archivo Excel
+     * - Validar estructura y datos (reportar TODOS los errores)
+     * - Limpiar y normalizar datos
+     * - Ordenar por semestre (mayores primero)
+     * - Construir respuesta con errores o datos ordenados
+     *
+     * FLUJO:
+     * 1. Si hay errores → GlobalExceptionHandler lanza ExcelValidationException (400)
+     * 2. Si todo ok → return {status="OK", data=alumnosOrdenados[]}
+     *
+     * USADO POR:
+     * - Frontend para validar Excel antes de ejecutar asignación
+     * - No modifica BD, solo valida y ordena
+     *
+     * NEXT STEP:
+     * - Si respuesta es OK, pasar data[] al endpoint POST /ejecutar
+     *
+     * Las excepciones son manejadas por GlobalExceptionHandler:
+     * - ExcelFormatoException → 400 BAD_REQUEST
+     * - ExcelValidationException → 400 BAD_REQUEST con lista de errores
+     * - DomainValidationException → 400 BAD_REQUEST
+     */
+    @PostMapping("/validar-excel")
+    public ResponseEntity<ApiResponse<ExcelValidacionResponse>> validarExcel(
+            @RequestParam("archivo") MultipartFile archivo,
+            @RequestParam("semestreId") Long semestreId) {
+
+        log.info("Validando Excel para semestre ID: {}", semestreId);
+
+        ExcelValidacionResponse respuesta = excelValidacionService.validarYProcesarExcel(archivo, semestreId);
+
+        log.info("Validación exitosa: {} alumnos listos para asignación", respuesta.getTotalValidas());
+        return ResponseEntity.ok(ApiResponse.success(respuesta, respuesta.getMessage()));
+    }
+
+    /**
+     * Endpoint para ejecutar asignación con datos previamente validados.
+     *
+     * PRECONDICIONES:
+     * - Datos DEBEN venir del endpoint POST /validar-excel (status="OK")
+     * - Los alumnos DEBEN estar ordenados por semestre (mayores primero)
+     * - TODOS los alumnos DEBEN tener validación completa
+     * - semestreId DEBE corresponder a los alumnos en la lista
+     *
+     * RESPONSABILIDADES:
+     * - Crear registros Asignacion con tipos: NUEVO_INGRESO o REINGRESO
+     * - Actualizar cargas de tutores correctamente
+     * - Registrar cambios en auditoría (logs_auditoria)
+     * - Reportar errores sin detener (best-effort)
+     * - Retornar estadísticas completas
+     *
+     * FLUJO:
+     * 1. Validar precondiciones (semestreId, lista no vacía) → lanza DomainValidationException si falla
+     * 2. Crear ProcesoAsignacion
+     * 3. Invocar EjecucionAsignacionService.ejecutar()
+     * 4. Retornar resultado con status (OK/PARTIAL/ERROR)
+     *
+     * NOTA:
+     * - Los datos YA están validados, este endpoint es "lógica pura"
+     * - No revalida Excel, confía en precondiciones
+     * - Respeta el orden de semestres para liberar cupos
+     * - GlobalExceptionHandler maneja todas las excepciones
+     *
+     * RESPUESTA:
+     * - status: "OK" (todos), "PARTIAL" (algunos), "ERROR" (ninguno)
+     * - totalAlumnos: Total a procesar
+     * - alumnosAsignados: Exitosos
+     * - alumnosConError: Fallidos
+     * - duracionMs: Tiempo total
+     * - erroresDetalle: Lista de errores (si hay)
+     */
+    @PostMapping("/ejecutar")
+    public ResponseEntity<ApiResponse<EjecucionAsignacionResponse>> ejecutarAsignacion(
+            @Valid @RequestBody EjecutarAsignacionRequest request) {
+
+        log.info("Ejecutando asignación para {} alumnos en semestre {}",
+                request.getAlumnosValidados().size(),
+                request.getSemestreId());
+
+        EjecucionAsignacionResponse respuesta = ejecucionAsignacionService.ejecutar(request);
+
+        // Determinar HTTP status basado en respuesta
+        HttpStatus httpStatus = "ERROR".equals(respuesta.getStatus()) ?
+                HttpStatus.INTERNAL_SERVER_ERROR :
+                HttpStatus.OK;
+
+        log.info("Asignación completada con status: {}", respuesta.getStatus());
+
+        return ResponseEntity
+                .status(httpStatus)
+                .body(ApiResponse.success(respuesta, respuesta.getMessage()));
     }
 
     private AlertaDTO convertirAlertaDTO(AlertaProceso alerta) {

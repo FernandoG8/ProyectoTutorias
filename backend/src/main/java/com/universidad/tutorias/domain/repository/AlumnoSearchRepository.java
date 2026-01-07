@@ -121,6 +121,9 @@ public class AlumnoSearchRepository {
     private String buildWhereClause(EstadoAlumno estado, String carrera, Integer semestre) {
         StringBuilder builder = new StringBuilder("WHERE ");
         builder.append(MATCH_CONDITION);
+        // Excluir alumnos egresados o con baja definitiva
+        builder.append(" AND NOT EXISTS (SELECT 1 FROM alumnos_egresados ae WHERE ae.id_alumno = a.id)");
+        builder.append(" AND NOT EXISTS (SELECT 1 FROM alumnos_baja_definitiva abd WHERE abd.id_alumno = a.id)");
         if (estado != null) {
             builder.append(" AND a.estado = :estado");
         }

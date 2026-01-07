@@ -21,7 +21,11 @@ import org.springframework.util.StringUtils;
 
 import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -102,6 +106,31 @@ public class ReporteController {
                 .body(contenidoZip);
     }
 
+    @GetMapping("/tutores/exportar-todos")
+    @PreAuthorize("hasRole('COORDINADOR_TUTORIAS')")
+    public ResponseEntity<byte[]> exportarTodosLosTutores(@RequestParam(value = "formato", required = false) String formato,
+                                                          @RequestParam(value = "periodo", required = false) String periodo) {
+
+        FormatoReporte formatoReporte = FormatoReporte.from(formato);
+        List<ReporteArchivoDTO> archivos = reporteExportService.generarReportesTodosLosTutores(periodo, formatoReporte);
+
+        byte[] contenidoZip = crearArchivoZip(archivos);
+
+        String periodoParaArchivo = StringUtils.hasText(periodo) ? periodo : "SIN_PERIODO";
+        String nombreArchivo = String.format("REPORTES_TUTORES_%s.zip", sanitizarParaArchivo(periodoParaArchivo));
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("application/zip"));
+        headers.setContentDisposition(ContentDisposition.attachment()
+                .filename(nombreArchivo, StandardCharsets.UTF_8)
+                .build());
+        headers.setContentLength(contenidoZip.length);
+
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(contenidoZip);
+    }
+
     private ResponseEntity<byte[]> construirRespuestaArchivo(ReporteArchivoDTO archivo) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(archivo.getMediaType());
@@ -119,8 +148,12 @@ public class ReporteController {
         try (var baos = new java.io.ByteArrayOutputStream();
              var zos = new ZipOutputStream(baos)) {
 
+            Map<String, Integer> contadorPorBase = new HashMap<>();
+            Set<String> nombresUsados = new HashSet<>();
+
             for (ReporteArchivoDTO archivo : archivos) {
-                ZipEntry entry = new ZipEntry(archivo.getFileName());
+                String nombreArchivo = obtenerNombreUnico(archivo.getFileName(), contadorPorBase, nombresUsados);
+                ZipEntry entry = new ZipEntry(nombreArchivo);
                 zos.putNextEntry(entry);
                 zos.write(archivo.getContenido());
                 zos.closeEntry();
@@ -132,6 +165,30 @@ public class ReporteController {
             log.error("Error generando archivo ZIP de reportes", e);
             throw new IllegalStateException("No fue posible generar el archivo comprimido", e);
         }
+    }
+
+    /**
+     * Evita colisiones de nombres dentro del ZIP. Si ya existe un archivo con el mismo
+     * nombre, se agrega un sufijo incremental manteniendo la extensión.
+     */
+    private String obtenerNombreUnico(String nombreOriginal,
+                                      Map<String, Integer> contadorPorBase,
+                                      Set<String> nombresUsados) {
+        int indicePunto = nombreOriginal.lastIndexOf('.');
+        String base = indicePunto > 0 ? nombreOriginal.substring(0, indicePunto) : nombreOriginal;
+        String extension = indicePunto > 0 ? nombreOriginal.substring(indicePunto) : "";
+
+        int contador = contadorPorBase.getOrDefault(base, 0);
+        String candidato = contador == 0 ? nombreOriginal : base + "_" + (contador + 1) + extension;
+
+        while (nombresUsados.contains(candidato)) {
+            contador++;
+            candidato = base + "_" + (contador + 1) + extension;
+        }
+
+        contadorPorBase.put(base, contador + 1);
+        nombresUsados.add(candidato);
+        return candidato;
     }
 
     private String sanitizarParaArchivo(String valor) {

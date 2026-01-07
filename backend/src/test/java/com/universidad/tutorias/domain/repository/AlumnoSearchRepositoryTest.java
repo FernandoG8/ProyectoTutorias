@@ -55,7 +55,7 @@ class AlumnoSearchRepositoryTest {
         assertThat(page.getContent()).hasSize(3);
         assertThat(page.getContent())
                 .extracting(row -> ((Number) row[6]).intValue())
-                .containsExactly(1000, 800, 200);
+                .containsExactly(1000, 800, 400);
     }
 
     @Test

@@ -27,6 +27,7 @@ export const SearchInput = ({
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const isMountedRef = useRef(true);
 
   const isStudent = (item: any): item is AlumnoResponse => "matricula" in item;
   const isTutor = (item: any): item is TutorResponse => "capacidadMax" in item;
@@ -99,13 +100,24 @@ export const SearchInput = ({
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
+      // Only update state if component is still mounted
+      if (!isMountedRef.current) return;
+
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setIsOpen(false);
       }
     };
 
+    // Set mounted flag
+    isMountedRef.current = true;
+
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+
+    // Cleanup: remove listener and mark as unmounted
+    return () => {
+      isMountedRef.current = false;
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
   }, []);
 
   return (
@@ -165,21 +177,25 @@ export const SearchInput = ({
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <div>
-                    <p className="font-medium text-sm text-text">
-                      {isStudent ? item.nombre : item.nombre}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      {isStudent ? (
-                        <>
-                          {item.matricula} • {item.carrera} • S{item.semestre}
-                        </>
-                      ) : (
-                        <>
-                          {item.carrera} • {item.cargaActual}/{item.capacidadMax}
-                        </>
-                      )}
-                    </p>
+                  <div className="space-y-0.5">
+                    <p className="font-medium text-sm text-text">{item.nombre}</p>
+                    {isStudent ? (
+                      <p className="text-xs text-slate-500">
+                        {item.matricula} • {item.carrera} • S{item.semestre}
+                      </p>
+                    ) : (
+                      <>
+                        <p className="text-xs text-slate-500">{item.carrera}</p>
+                        {item.cargaActual != null && item.capacidadMax != null && (
+                          <p className="text-[11px] text-slate-500">
+                            Capacidad: {item.cargaActual}/{item.capacidadMax} alumnos
+                            {item.capacidadDisponible != null
+                              ? ` • Libres: ${item.capacidadDisponible}`
+                              : ""}
+                          </p>
+                        )}
+                      </>
+                    )}
                   </div>
                   <Badge variant={isStudent ? "info" : "default"} className="text-xs">
                     {isStudent ? "Alumno" : "Tutor"}

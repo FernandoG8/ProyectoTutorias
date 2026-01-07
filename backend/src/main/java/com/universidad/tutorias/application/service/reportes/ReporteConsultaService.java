@@ -43,7 +43,7 @@ public class ReporteConsultaService {
                 .alumnos(alumnos)
                 .titulo("Alumnos asignados - " + tutor.getNombre())
                 .subtitulo("Periodo: " + periodoFinal)
-                .nombreArchivoBase(String.format("ALUMNOS_TUTOR_%s_%s",
+                .nombreArchivoBase(String.format("%s_ALUMNOS_TUTOR_%s",
                         sanitizarParaArchivo(tutor.getNombre()), sanitizarParaArchivo(periodoFinal)))
                 .build();
     }
@@ -78,24 +78,41 @@ public class ReporteConsultaService {
         return alumnoRepository.findDistinctCarreras();
     }
 
+    public List<Long> obtenerTutoresDisponibles(String periodo) {
+        List<Long> ids;
+        if (StringUtils.hasText(periodo)) {
+            ids = asignacionRepository.findTutorIdsBySemestre(periodo);
+        } else {
+            ids = tutorRepository.findAllIds();
+        }
+        return ids.stream().distinct().toList();
+    }
+
     private List<Asignacion> obtenerAsignacionesPorTutor(Long tutorId, String periodo) {
         if (StringUtils.hasText(periodo)) {
-            return asignacionRepository.findByTutorAndSemestre(tutorId, periodo);
+            List<Asignacion> asignaciones = asignacionRepository.findByTutorAndSemestreStringFetch(tutorId, periodo);
+            if (asignaciones.isEmpty()) {
+                asignaciones = asignacionRepository.findByTutorAndSemestreString(tutorId, periodo);
+            }
+            return asignaciones;
         }
         return asignacionRepository.findByTutorIdWithDetalles(tutorId);
     }
 
     private List<Asignacion> obtenerAsignacionesPorCarrera(String carrera, String periodo) {
         if (StringUtils.hasText(periodo)) {
-            return asignacionRepository.findByCarreraAndSemestre(carrera, periodo);
+            return asignacionRepository.findByCarreraAndSemestreString(carrera, periodo);
         }
         return asignacionRepository.findByCarrera(carrera);
     }
 
     private List<ReporteAlumnoDTO> mapearAsignaciones(List<Asignacion> asignaciones) {
         return asignaciones.stream()
-                .sorted(Comparator.comparing(a -> a.getAlumno().getMatricula()))
                 .map(this::mapearAsignacion)
+                .sorted(Comparator
+                        .comparing(ReporteAlumnoDTO::getSemestre,
+                                Comparator.nullsLast(Comparator.naturalOrder()))  // Semestre ascendente (1, 2, 3, 4...)
+                        .thenComparing(ReporteAlumnoDTO::getMatricula))  // Luego por matrícula ascendente
                 .collect(Collectors.toList());
     }
 

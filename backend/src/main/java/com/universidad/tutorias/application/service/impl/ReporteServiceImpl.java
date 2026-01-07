@@ -45,7 +45,7 @@ public class ReporteServiceImpl implements ReporteService {
         List<CarreraResumenDTO> resumenCarreras = new ArrayList<>();
 
         for (String carr : carreras) {
-            List<Asignacion> asignaciones = asignacionRepository.findByCarreraAndSemestre(carr, semestreAcademico);
+            List<Asignacion> asignaciones = asignacionRepository.findByCarreraAndSemestreString(carr, semestreAcademico);
 
             if (asignaciones.isEmpty()) {
                 log.debug("No hay asignaciones para carrera {} en semestre {}", carr, semestreAcademico);
@@ -118,7 +118,7 @@ public class ReporteServiceImpl implements ReporteService {
 
         List<Asignacion> asignaciones;
         if (semestreAcademico != null && !semestreAcademico.trim().isEmpty()) {
-            asignaciones = asignacionRepository.findByTutorAndSemestre(tutorId, semestreAcademico);
+            asignaciones = asignacionRepository.findByTutorAndSemestreString(tutorId, semestreAcademico);
         } else {
             // Obtener todas las asignaciones del tutor
             asignaciones = asignacionRepository.findByTutorIdWithDetalles(tutorId);

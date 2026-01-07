@@ -4,11 +4,11 @@ import {
   FileBarChartIcon,
   GraduationCapIcon,
   HomeIcon,
-  SettingsIcon,
   UploadCloudIcon,
   UserXIcon,
   UsersIcon,
 } from "@/components/icons";
+import { Calendar } from "lucide-react";
 
 export interface NavigationItem {
   label: string;
@@ -53,13 +53,8 @@ export const navigationItems: NavigationItem[] = [
     icon: UserXIcon,
   },
   {
-    label: "Carga masiva",
-    path: "/list-upload",
-    icon: UploadCloudIcon,
-  },
-  {
-    label: "Configuración",
-    path: "/settings",
-    icon: SettingsIcon,
+    label: "Semestres",
+    path: "/semestres",
+    icon: Calendar,
   },
 ];

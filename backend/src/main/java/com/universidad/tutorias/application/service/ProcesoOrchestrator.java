@@ -9,12 +9,12 @@ public interface ProcesoOrchestrator {
     /**
      * Coordina todo el proceso de asignación de forma asíncrona
      * @param archivo archivo Excel
-     * @param semestreAcademico semestre actual
+     * @param semestreId ID del semestre (no string)
      * @param usuario usuario que ejecuta
      * @return ID del proceso iniciado
      */
     @Async
     CompletableFuture<Long> ejecutarProcesoCompleto(MultipartFile archivo,
-                                                    String semestreAcademico,
+                                                    Long semestreId,
                                                     String usuario);
 }

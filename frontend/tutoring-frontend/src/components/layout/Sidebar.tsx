@@ -1,85 +1,133 @@
-import { NavLink, useNavigate } from "react-router-dom";
-import { navigationItems } from "@/constants/navigation";
-import { logout as logoutRequest } from "@/services/auth-service";
-import { useAuthStore } from "@/store/auth-store";
-import { useUIStore } from "@/store/ui-store";
+import { 
+  Home, 
+  Users, 
+  UserCheck, 
+  Calendar,
+  UserX,
+  FileText,
+  ArrowRightLeft
+} from "lucide-react";
+import { NavLink, useLocation } from "react-router-dom";
+
+/**
+ * Sidebar fijo del dashboard
+ * 
+ * Características:
+ * - Ancho fijo (w-64)
+ * - Siempre visible
+ * - Navegación principal del sistema
+ * - Indicador visual de página activa
+ */
+
+interface NavItem {
+  to: string;
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  badge?: string;
+}
+
+const navigationItems: NavItem[] = [
+  {
+    to: "/dashboard",
+    icon: Home,
+    label: "Dashboard"
+  },
+  {
+    to: "/alumnos",
+    icon: Users,
+    label: "Alumnos"
+  },
+  {
+    to: "/tutores",
+    icon: UserCheck,
+    label: "Tutores"
+  },
+  {
+    to: "/asignaciones",
+    icon: ArrowRightLeft,
+    label: "Asignaciones"
+  },
+  {
+    to: "/cambio-tutor",
+    icon: UserX,
+    label: "Cambio de Tutor"
+  },
+  {
+    to: "/semestres",
+    icon: Calendar,
+    label: "Semestres"
+  },
+  {
+    to: "/alumnos-inactivos",
+    icon: UserX,
+    label: "Alumnos Inactivos"
+  },
+  {
+    to: "/reportes",
+    icon: FileText,
+    label: "Reportes"
+  }
+];
 
 export const Sidebar = () => {
-  const navigate = useNavigate();
-  const { sidebarCollapsed } = useUIStore();
-  const clearSession = useAuthStore((state) => state.logout);
+  const location = useLocation();
 
-  const handleLogout = async () => {
-    try {
-      await logoutRequest();
-    } catch (error) {
-      console.error("Error al cerrar sesión", error);
-    } finally {
-      clearSession();
-      navigate("/login", { replace: true });
-    }
+  const isActive = (path: string) => {
+    return location.pathname === path || location.pathname.startsWith(path + '/');
   };
 
   return (
-    <aside
-      aria-label="Menú principal"
-      className={`flex h-screen flex-col bg-gradient-to-b from-primary to-secondary text-white shadow-lg transition-all duration-300 ${sidebarCollapsed ? "w-20" : "w-72"}`}
-    >
-      <div className="flex items-center gap-3 px-5 py-6">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 text-lg font-bold uppercase tracking-wide">
-          TU
-        </div>
-        {!sidebarCollapsed && (
-          <div className="space-y-1">
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-white/70">
-              Tutorías
-            </p>
-            <p className="text-lg font-semibold">Gestión académica</p>
+    <aside className="w-64 bg-white border-r border-gray-200 flex flex-col shadow-sm">
+      {/* Logo/Header */}
+      <div className="h-16 flex items-center px-6 border-b border-gray-200">
+        <div className="flex items-center space-x-3">
+          <img src="/TutoLinkIcon.png" alt="TutoLink" className="h-10 w-10 rounded-md" />
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Tutorías</h2>
+            <p className="text-xs text-gray-500">Facultad de Ingeniería</p>
           </div>
-        )}
+        </div>
       </div>
 
-      <nav className="flex-1 space-y-1 px-3">
-        {navigationItems.map((item) => {
-          const Icon = item.icon;
-
-          return (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              className={({ isActive }) =>
-                `group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all ${
-                  isActive
-                    ? "bg-white text-primary shadow-sm"
-                    : "text-white/80 hover:bg-white/15 hover:text-white"
-                }`
-              }
-              title={sidebarCollapsed ? item.label : undefined}
-            >
-              <span
-                className={`flex h-10 w-10 items-center justify-center rounded-lg ${
-                  sidebarCollapsed ? "bg-white/15" : "bg-white/10"
-                } transition group-hover:bg-white/20`}
+      {/* Navegación principal */}
+      <nav className="flex-1 px-4 py-6 space-y-1">
+        <div className="space-y-1">
+          {navigationItems.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.to);
+            
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={`
+                  flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                  ${active 
+                    ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700' 
+                    : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                  }
+                `}
               >
-                <Icon aria-hidden="true" className="h-5 w-5 text-white" />
-                <span className="sr-only">{item.label}</span>
-              </span>
-              {!sidebarCollapsed && (
-                <span className="text-sm font-semibold tracking-wide">{item.label}</span>
-              )}
-            </NavLink>
-          );
-        })}
+                <Icon className={`h-5 w-5 ${active ? 'text-blue-700' : 'text-gray-400'}`} />
+                <span>{item.label}</span>
+                {item.badge && (
+                  <span className="ml-auto bg-red-100 text-red-600 text-xs px-2 py-0.5 rounded-full">
+                    {item.badge}
+                  </span>
+                )}
+              </NavLink>
+            );
+          })}
+        </div>
+
       </nav>
 
-      <div className="px-4 py-6">
-        <button
-          onClick={handleLogout}
-          className="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/30"
-          type="button"
-        >
-          Cerrar sesión
-        </button>
+      {/* Footer del sidebar */}
+      <div className="p-4 border-t border-gray-200">
+        <div className="text-xs text-gray-500 text-center">
+          <p>Sistema de Tutorías v1</p>
+          <p>Universidad Autónoma de Campeche</p>
+        </div>
       </div>
     </aside>
   );

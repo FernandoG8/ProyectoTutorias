@@ -5,6 +5,8 @@
 package com.universidad.tutorias.infrastructure.controller;
 
 import com.universidad.tutorias.application.dto.AlumnoInactivoResponseDTO;
+import com.universidad.tutorias.application.dto.ResolucionMotivoResultDTO;
+import com.universidad.tutorias.application.service.InactivacionService;
 import com.universidad.tutorias.application.service.ResolucionMotivoService;
 import com.universidad.tutorias.domain.entity.AlumnoInactivo;
 import com.universidad.tutorias.domain.enums.MotivoInactividad;
@@ -25,6 +27,7 @@ import java.util.stream.Collectors;
 public class AlumnoInactivoController {
 
     private final ResolucionMotivoService resolucionService;
+    private final InactivacionService inactivacionService;
 
     @GetMapping("/pendientes")
     public ResponseEntity<ApiResponse<List<AlumnoInactivoResponseDTO>>> obtenerPendientes(
@@ -66,6 +69,58 @@ public class AlumnoInactivoController {
         AlumnoInactivoResponseDTO data = mapToResponse(actualizado);
 
         return ResponseEntity.ok(ApiResponse.success(data, "Motivo asignado correctamente"));
+    }
+
+    /**
+     * Endpoint inteligente para cambiar el motivo de inactividad de un alumno
+     * Detecta automáticamente la disponibilidad de capacidad del tutor preservado
+     *
+     * Escenarios:
+     * 1. Motivo preserva tutor + tutor tiene capacidad → ✓ Éxito inmediato
+     * 2. Motivo preserva tutor + tutor SIN capacidad → ⚠️ Sugerencia: incrementar capacidad
+     * 3. Motivo NO preserva tutor → ✓ Cupo será liberado en próximo proceso
+     * 4. Sin tutor preservado → ✗ Error: no hay tutor para preservar
+     *
+     * @param alumnoInactivoId ID del registro de alumno inactivo
+     * @param motivoInactividad nuevo motivo (BAJA_TEMPORAL, BAJA_DEFINITIVA, EGRESADO, MOVILIDAD, etc.)
+     * @return ResolucionMotivoResultDTO con información detallada y sugerencias
+     */
+    @PatchMapping("/{alumnoInactivoId}/resolver-motivo")
+    public ResponseEntity<ApiResponse<ResolucionMotivoResultDTO>> resolverMotivo(
+            @PathVariable Long alumnoInactivoId,
+            @RequestParam MotivoInactividad motivo) {
+
+        log.info("Resolviendo motivo de inactividad para alumno inactivo ID: {} con motivo: {}",
+                alumnoInactivoId, motivo);
+
+        try {
+            ResolucionMotivoResultDTO resultado = inactivacionService.cambiarMotivoInactividad(
+                    alumnoInactivoId,
+                    motivo
+            );
+
+            log.info("Motivo resuelto exitosamente para alumno inactivo ID: {}", alumnoInactivoId);
+
+            if (resultado.isExitoso()) {
+                return ResponseEntity.ok(ApiResponse.success(
+                        resultado,
+                        resultado.getMensaje()
+                ));
+            } else {
+                return ResponseEntity.badRequest().body(ApiResponse.success(
+                        resultado,
+                        resultado.getMensaje()
+                ));
+            }
+
+        } catch (Exception e) {
+            log.error("Error al resolver motivo de inactividad para alumno inactivo ID: {}: {}",
+                    alumnoInactivoId, e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(ApiResponse.success(
+                    null,
+                    "Error al resolver el motivo de inactividad: " + e.getMessage()
+            ));
+        }
     }
 
     private AlumnoInactivoResponseDTO mapToResponse(AlumnoInactivo alumnoInactivo) {

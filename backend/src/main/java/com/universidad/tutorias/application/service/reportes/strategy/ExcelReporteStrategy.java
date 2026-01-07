@@ -24,8 +24,8 @@ public class ExcelReporteStrategy implements ReporteStrategy {
     @Override
     public ReporteArchivoDTO generar(ReporteContexto contexto) {
         String[] headers = contexto.esTutor()
-                ? new String[]{"No", "MATRICULA", "NOMBRE DEL ALUMNO", "CARRERA", "SEMESTRE", "PERIODO", "TUTOR", "AREA DE ATENCION", "EDIFICIO"}
-                : new String[]{"No", "MATRICULA", "NOMBRE DEL ALUMNO", "PERIODO SEMESTRAL", "LICENCIATURA", "TUTOR", "AREA DE ATENCION", "EDIFICIO"};
+                ? new String[]{"No", "MATRICULA", "NOMBRE", "SEMESTRE", "CARRERA"}
+                : new String[]{"No", "MATRICULA", "NOMBRE", "CARRERA", "TUTOR"};
 
         String sheetName = WorkbookUtil.createSafeSheetName(contexto.esTutor()
                 ? obtenerValorSeguro(contexto.getNombreTutor(), "Tutor")
@@ -66,17 +66,12 @@ public class ExcelReporteStrategy implements ReporteStrategy {
                 crearCelda(row, columnIndex++, alumno.getNombreAlumno());
 
                 if (reporteTutor) {
-                    crearCelda(row, columnIndex++, alumno.getCarrera());
                     crearCelda(row, columnIndex++, alumno.getSemestre() != null ? alumno.getSemestre().toString() : "");
-                    crearCelda(row, columnIndex++, alumno.getPeriodo() != null ? alumno.getPeriodo() : contexto.getPeriodo());
-                } else {
-                    crearCelda(row, columnIndex++, alumno.getPeriodo() != null ? alumno.getPeriodo() : contexto.getPeriodo());
                     crearCelda(row, columnIndex++, alumno.getCarrera());
+                } else {
+                    crearCelda(row, columnIndex++, alumno.getCarrera());
+                    crearCelda(row, columnIndex++, alumno.getTutor());
                 }
-
-                crearCelda(row, columnIndex++, alumno.getTutor());
-                crearCelda(row, columnIndex++, alumno.getAreaAtencion());
-                crearCelda(row, columnIndex, alumno.getEdificio());
             }
 
             for (int i = 0; i < headers.length; i++) {

@@ -1,5 +1,7 @@
 package com.universidad.tutorias.domain.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.universidad.tutorias.domain.enums.EstadoProceso;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -14,7 +16,8 @@ import java.util.List;
 @Entity
 @Table(name = "procesos_asignacion", indexes = {
         @Index(name = "idx_estado_proceso", columnList = "estado"),
-        @Index(name = "idx_fecha_inicio", columnList = "fecha_inicio")
+        @Index(name = "idx_fecha_inicio", columnList = "fecha_inicio"),
+        @Index(name = "idx_proceso_semestre", columnList = "id_semestre")
 })
 @Data
 @NoArgsConstructor
@@ -24,6 +27,12 @@ public class ProcesoAsignacion {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_semestre",
+                foreignKey = @ForeignKey(name = "fk_proceso_semestre"))
+    @JsonIgnoreProperties({"asignaciones", "procesos"})
+    private Semestre semestre;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
@@ -93,5 +102,14 @@ public class ProcesoAsignacion {
     public int getPorcentajeProgreso(int totalEsperado) {
         if (totalEsperado == 0) return 0;
         return (int) ((totalAlumnosProcesados * 100.0) / totalEsperado);
+    }
+
+    @JsonProperty("semestreAcademico")
+    public String getSemestreCodigoLegacy() {
+        return semestre != null ? semestre.getCodigo() : null;
+    }
+
+    public String getSemestreNombre() {
+        return semestre != null ? semestre.getNombre() : null;
     }
 }

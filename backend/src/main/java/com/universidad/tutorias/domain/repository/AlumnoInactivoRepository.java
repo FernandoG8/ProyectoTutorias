@@ -43,7 +43,7 @@ public interface AlumnoInactivoRepository extends JpaRepository<AlumnoInactivo, 
     @Query("SELECT ai FROM AlumnoInactivo ai WHERE ai.alumno.id = :alumnoId")
     Optional<AlumnoInactivo> findByAlumnoId(@Param("alumnoId") Long alumnoId);
 
-    @Query("SELECT ai FROM AlumnoInactivo ai JOIN FETCH ai.tutorPreservado WHERE ai.cupoLiberado = true")
+    @Query("SELECT ai FROM AlumnoInactivo ai LEFT JOIN FETCH ai.tutorPreservado WHERE ai.cupoLiberado = true")
     List<AlumnoInactivo> findConCupoLiberado();
 
     @Query("SELECT ai FROM AlumnoInactivo ai WHERE ai.motivoInactividad IN :motivos")

@@ -3,12 +3,17 @@ package com.universidad.tutorias.application.service.impl;
 import com.universidad.tutorias.application.dto.CambioTutorRequestDTO;
 import com.universidad.tutorias.application.dto.CambioTutorResponseDTO;
 import com.universidad.tutorias.application.service.AuditoriaService;
+import com.universidad.tutorias.application.service.SemestreService;
+import com.universidad.tutorias.application.service.TutorCambioAuditoriaService;
 import com.universidad.tutorias.application.service.TutorReasignacionService;
+import com.universidad.tutorias.application.service.TutorSincronizacionService;
 import com.universidad.tutorias.domain.entity.Alumno;
 import com.universidad.tutorias.domain.entity.Asignacion;
+import com.universidad.tutorias.domain.entity.Semestre;
 import com.universidad.tutorias.domain.entity.Tutor;
 import com.universidad.tutorias.domain.enums.TipoAccion;
 import com.universidad.tutorias.domain.enums.TipoAsignacion;
+import com.universidad.tutorias.domain.exception.ReasignacionTutorException;
 import com.universidad.tutorias.domain.repository.AlumnoRepository;
 import com.universidad.tutorias.domain.repository.AsignacionRepository;
 import com.universidad.tutorias.domain.repository.TutorRepository;
@@ -30,6 +35,9 @@ public class TutorReasignacionServiceImpl implements TutorReasignacionService {
     private final TutorRepository tutorRepository;
     private final AsignacionRepository asignacionRepository;
     private final AuditoriaService auditoriaService;
+    private final SemestreService semestreService;
+    private final TutorSincronizacionService tutorSincronizacionService;
+    private final TutorCambioAuditoriaService tutorCambioAuditoriaService;
 
     @Override
     @Transactional
@@ -37,31 +45,40 @@ public class TutorReasignacionServiceImpl implements TutorReasignacionService {
         Alumno alumno = alumnoRepository.findByIdForUpdate(request.getAlumnoId())
                 .orElseThrow(() -> new EntityNotFoundException("Alumno no encontrado con ID: " + request.getAlumnoId()));
 
-        Tutor tutorOrigen = tutorRepository.findByIdForUpdate(request.getTutorOrigenId())
-                .orElseThrow(() -> new EntityNotFoundException("Tutor origen no encontrado con ID: " + request.getTutorOrigenId()));
-
-        Tutor tutorDestino = tutorRepository.findByIdForUpdate(request.getTutorDestinoId())
-                .orElseThrow(() -> new EntityNotFoundException("Tutor destino no encontrado con ID: " + request.getTutorDestinoId()));
+        Tutor tutorOrigen = tutorSincronizacionService.sincronizarYBloquearTutor(request.getTutorOrigenId());
+        Tutor tutorDestino = tutorSincronizacionService.sincronizarYBloquearTutor(request.getTutorDestinoId());
 
         if (alumno.getTutorActual() == null || !alumno.getTutorActual().getId().equals(tutorOrigen.getId())) {
-            throw new IllegalArgumentException("El alumno no está asignado al tutor de origen indicado");
+            throw new ReasignacionTutorException("El alumno no está asignado al tutor de origen indicado");
         }
 
         if (tutorOrigen.getId().equals(tutorDestino.getId())) {
-            throw new IllegalArgumentException("El tutor destino debe ser diferente al tutor origen");
+            throw new ReasignacionTutorException("El tutor destino debe ser diferente al tutor origen");
         }
 
         if (!tutorDestino.tieneCapacidadDisponible()) {
-            throw new IllegalArgumentException("El tutor destino no tiene capacidad disponible");
+            throw new ReasignacionTutorException("El tutor destino no tiene capacidad disponible");
         }
 
         if (!alumno.puedeReasignarse()) {
-            throw new IllegalStateException("El alumno ha alcanzado el límite de cambios de tutor permitidos");
+            throw new ReasignacionTutorException("El alumno ha alcanzado el límite de cambios de tutor permitidos");
         }
 
         String semestreNormalizado = request.getSemestreAcademico() != null ? request.getSemestreAcademico().trim() : "";
+
+        Semestre semestre;
         if (!StringUtils.hasText(semestreNormalizado)) {
-            throw new IllegalArgumentException("El semestre académico es obligatorio para registrar el cambio de tutor");
+            semestre = semestreService.obtenerSemestreActivo()
+                    .orElseThrow(() -> new ReasignacionTutorException(
+                            "No hay semestre activo configurado. Envíe semestreAcademico en la solicitud o configure un semestre activo"));
+            semestreNormalizado = semestre.getCodigo();
+            log.info("Semestre académico no enviado, usando semestre activo {}", semestreNormalizado);
+        } else {
+            // Obtener la entidad Semestre por código
+            semestre = semestreService.obtenerPorCodigo(semestreNormalizado);
+            if (semestre == null) {
+                throw new ReasignacionTutorException("Semestre no encontrado con código: " + semestreNormalizado);
+            }
         }
 
         int cargaOrigenAntes = tutorOrigen.getCargaActual();
@@ -79,12 +96,30 @@ public class TutorReasignacionServiceImpl implements TutorReasignacionService {
 
         LocalDateTime fechaCambio = LocalDateTime.now();
 
-        Asignacion asignacion = new Asignacion();
-        asignacion.setAlumno(alumno);
-        asignacion.setTutor(tutorDestino);
-        asignacion.setTipoAsignacion(TipoAsignacion.REASIGNACION);
-        asignacion.setSemestreAcademico(semestreNormalizado);
-        asignacion.setFechaAsignacion(fechaCambio);
+        // Buscar si existe asignación previa para este alumno en el semestre
+        Asignacion asignacion = asignacionRepository.findByAlumnoAndSemestreAcademico(
+                alumno.getId(), semestreNormalizado).orElse(null);
+
+        if (asignacion != null) {
+            // Actualizar asignación existente
+            asignacion.setTutor(tutorDestino);
+            asignacion.setTipoAsignacion(TipoAsignacion.NUEVO_INGRESO);
+            asignacion.setFechaAsignacion(fechaCambio);
+            log.info("Actualizando asignación existente {} para alumno {} en semestre {}",
+                    asignacion.getId(), alumno.getId(), semestreNormalizado);
+        } else {
+            // Crear nueva asignación si no existe
+            asignacion = new Asignacion();
+            asignacion.setAlumno(alumno);
+            asignacion.setTutor(tutorDestino);
+            asignacion.setSemestre(semestre);
+            asignacion.setTipoAsignacion(TipoAsignacion.NUEVO_INGRESO);
+            asignacion.setSemestreAcademico(semestreNormalizado);
+            asignacion.setFechaAsignacion(fechaCambio);
+            log.info("Creando nueva asignación para alumno {} en semestre {}",
+                    alumno.getId(), semestreNormalizado);
+        }
+
         asignacionRepository.save(asignacion);
 
         registrarAuditoria(alumno, tutorOrigen, tutorDestino, request, cargaOrigenAntes, cargaDestinoAntes, semestreNormalizado);
@@ -135,7 +170,7 @@ public class TutorReasignacionServiceImpl implements TutorReasignacionService {
                 String.format("Reasignación manual por motivo: %s", request.getMotivo()),
                 datosAntes,
                 datosDespues,
-                request.getUsuario()
+                request.getUsuarioResponsable()
         );
     }
 }

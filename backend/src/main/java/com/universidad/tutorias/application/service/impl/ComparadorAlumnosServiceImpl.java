@@ -27,7 +27,9 @@ public class ComparadorAlumnosServiceImpl implements ComparadorAlumnosService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<Alumno> identificarInactivos(List<AlumnoExcelDTO> alumnosExcel) {
+    public List<Alumno> identificarInactivos(List<AlumnoExcelDTO> alumnosExcel, Long semestreId) {
+        log.info("Identificando alumnos inactivos para semestre ID: {}", semestreId);
+
         // Obtener alumnos activos actuales en BD
         List<Alumno> alumnosActivosEnBD = alumnoRepository.findByEstadoWithTutor(EstadoAlumno.ACTIVO);
 
@@ -38,12 +40,13 @@ public class ComparadorAlumnosServiceImpl implements ComparadorAlumnosService {
                 .collect(Collectors.toSet());
 
         // Identificar alumnos que están en BD pero NO en Excel
+        // Estos alumnos serán marcados como inactivos para este semestre
         List<Alumno> alumnosAInactivar = alumnosActivosEnBD.stream()
                 .filter(alumno -> !matriculasEnExcel.contains(alumno.getMatricula().toUpperCase()))
                 .collect(Collectors.toList());
 
-        log.info("Identificados {} alumnos para marcar como inactivos de un total de {} activos en BD",
-                alumnosAInactivar.size(), alumnosActivosEnBD.size());
+        log.info("Identificados {} alumnos para marcar como inactivos de un total de {} activos en BD, semestre: {}",
+                alumnosAInactivar.size(), alumnosActivosEnBD.size(), semestreId);
 
         return alumnosAInactivar;
     }

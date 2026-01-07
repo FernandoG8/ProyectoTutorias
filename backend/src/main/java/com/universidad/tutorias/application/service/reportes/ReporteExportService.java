@@ -45,4 +45,24 @@ public class ReporteExportService {
     public ReporteArchivoDTO generarExcelAlumnosPorTutor(Long tutorId, String periodo) {
         return generarReporteTutor(tutorId, periodo, FormatoReporte.EXCEL);
     }
+
+    public List<ReporteArchivoDTO> generarReportesTodosLosTutores(String periodo, FormatoReporte formato) {
+        List<Long> tutores = consultaService.obtenerTutoresDisponibles(periodo);
+        if (tutores.isEmpty()) {
+            return List.of();
+        }
+
+        return tutores.stream()
+                .sorted()
+                .map(tutorId -> generarReporteTutor(tutorId, periodo, formato))
+                .collect(Collectors.toList());
+    }
+
+    public List<String> obtenerCarrerasDisponibles(String periodo) {
+        return consultaService.obtenerCarrerasDisponibles(periodo);
+    }
+
+    public List<Long> obtenerTutoresDisponibles(String periodo) {
+        return consultaService.obtenerTutoresDisponibles(periodo);
+    }
 }

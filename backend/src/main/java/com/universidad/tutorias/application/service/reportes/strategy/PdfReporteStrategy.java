@@ -39,13 +39,13 @@ public class PdfReporteStrategy implements ReporteStrategy {
 
             agregarTitulos(document, contexto);
 
-            PdfPTable tabla = new PdfPTable(4);
+            PdfPTable tabla = new PdfPTable(5);
             tabla.setWidthPercentage(100);
             tabla.setSpacingBefore(5f);
             tabla.setSpacingAfter(10f);
-            tabla.setWidths(new float[]{2.5f, 5f, 2f, 4f});
+            tabla.setWidths(new float[]{1f, 2.5f, 5f, 2f, 4f});
 
-            agregarEncabezados(tabla, new String[]{"MATRICULA", "NOMBRE", "SEMESTRE", "CARRERA"});
+            agregarEncabezados(tabla, new String[]{"No", "MATRICULA", "NOMBRE", "SEMESTRE", "CARRERA"});
             agregarFilasTutor(tabla, contexto.getAlumnos());
 
             document.add(tabla);
@@ -65,21 +65,18 @@ public class PdfReporteStrategy implements ReporteStrategy {
 
             agregarTitulos(document, contexto);
 
-            PdfPTable tabla = new PdfPTable(8);
+            PdfPTable tabla = new PdfPTable(5);
             tabla.setWidthPercentage(100);
             tabla.setSpacingBefore(5f);
             tabla.setSpacingAfter(10f);
-            tabla.setWidths(new float[]{1f, 3f, 5f, 3f, 4f, 4f, 4f, 2f});
+            tabla.setWidths(new float[]{1f, 3f, 5f, 4f, 4f});
 
             agregarEncabezados(tabla, new String[]{
                     "No",
                     "MATRICULA",
-                    "NOMBRE DEL ALUMNO",
-                    "PERIODO SEMESTRAL",
-                    "LICENCIATURA",
-                    "TUTOR",
-                    "AREA DE ATENCION",
-                    "EDIFICIO"
+                    "NOMBRE",
+                    "CARRERA",
+                    "TUTOR"
             });
 
             agregarFilasCarrera(tabla, contexto.getAlumnos(), contexto.getPeriodo());
@@ -125,7 +122,9 @@ public class PdfReporteStrategy implements ReporteStrategy {
 
     private void agregarFilasTutor(PdfPTable tabla, List<ReporteAlumnoDTO> alumnos) {
         Font cellFont = FontFactory.getFont(FontFactory.HELVETICA, 10, Color.BLACK);
+        int contador = 1;
         for (ReporteAlumnoDTO alumno : alumnos) {
+            agregarCelda(tabla, String.valueOf(contador++), cellFont);
             agregarCelda(tabla, alumno.getMatricula(), cellFont);
             agregarCelda(tabla, alumno.getNombreAlumno(), cellFont);
             String semestre = alumno.getSemestre() != null ? alumno.getSemestre().toString() : "";
@@ -134,7 +133,7 @@ public class PdfReporteStrategy implements ReporteStrategy {
         }
 
         if (alumnos.isEmpty()) {
-            for (int i = 0; i < 4; i++) {
+            for (int i = 0; i < 5; i++) {
                 agregarCelda(tabla, "", cellFont);
             }
         }
@@ -147,15 +146,12 @@ public class PdfReporteStrategy implements ReporteStrategy {
             agregarCelda(tabla, String.valueOf(contador++), cellFont);
             agregarCelda(tabla, alumno.getMatricula(), cellFont);
             agregarCelda(tabla, alumno.getNombreAlumno(), cellFont);
-            agregarCelda(tabla, alumno.getPeriodo() != null ? String.valueOf(alumno.getSemestre()) : periodoContexto, cellFont);
             agregarCelda(tabla, alumno.getCarrera(), cellFont);
             agregarCelda(tabla, alumno.getTutor(), cellFont);
-            agregarCelda(tabla, alumno.getAreaAtencion(), cellFont);
-            agregarCelda(tabla, alumno.getEdificio(), cellFont);
         }
 
         if (alumnos.isEmpty()) {
-            for (int i = 0; i < 8; i++) {
+            for (int i = 0; i < 5; i++) {
                 agregarCelda(tabla, "", cellFont);
             }
         }

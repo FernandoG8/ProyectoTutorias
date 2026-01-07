@@ -92,7 +92,7 @@ export const TutorsPage = () => {
   // Autocomplete suggestions
   const { data: suggestions = [] } = useQuery<TutorResponse[]>({
     queryKey: ["tutors-autocomplete", search],
-    queryFn: () => autocompleteTutors(search, 8),
+    queryFn: () => autocompleteTutors(search, undefined),
     enabled: search.length >= 2 && !isSearchMode,
   });
 
@@ -222,166 +222,177 @@ export const TutorsPage = () => {
   };
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[2fr_3fr]">
-      <Card>
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-text">
-              {editingTutor ? "Editar tutor" : "Registrar nuevo tutor"}
-            </h2>
-            <p className="text-sm text-slate-500">
-              Gestiona la base de tutores institucionales.
-            </p>
-          </div>
-          {editingTutor && (
-            <Button type="button" variant="ghost" onClick={clearForm}>
-              Cancelar
-            </Button>
-          )}
-        </div>
-
-        <form className="mt-6 space-y-4" onSubmit={handleSubmit(onSubmit)}>
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-text" htmlFor="nombre">
-              Nombre completo
-            </label>
-            <Input id="nombre" placeholder="María Pérez" {...register("nombre")} />
-            {errors.nombre && (
-              <p className="text-sm text-red-600">{errors.nombre.message}</p>
+    // Layout de dos columnas: sidebar sticky + contenido scrollable
+    // En móvil/tablet: una columna (formulario arriba, listado abajo)
+    // En desktop: dos columnas (sidebar sticky a la izquierda, contenido scroll a la derecha)
+    <div className="grid gap-6 xl:grid-cols-[350px_1fr] xl:h-[calc(100vh-120px)]">
+      {/* Sidebar izquierda - STICKY en desktop, normal en móvil */}
+      <div className="xl:sticky xl:top-0 xl:h-fit">
+        <Card>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-text">
+                {editingTutor ? "Editar tutor" : "Registrar nuevo tutor"}
+              </h2>
+              <p className="text-sm text-slate-500">
+                Gestiona la base de tutores institucionales.
+              </p>
+            </div>
+            {editingTutor && (
+              <Button type="button" variant="ghost" onClick={clearForm}>
+                Cancelar
+              </Button>
             )}
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <form className="mt-6 space-y-4" onSubmit={handleSubmit(onSubmit)}>
             <div className="space-y-1">
-              <label className="text-sm font-medium text-text" htmlFor="carrera">
-                Carrera
+              <label className="text-sm font-medium text-text" htmlFor="nombre">
+                Nombre completo
               </label>
-              <Input id="carrera" placeholder="Ingeniería" {...register("carrera")} />
-              {errors.carrera && (
-                <p className="text-sm text-red-600">{errors.carrera.message}</p>
+              <Input id="nombre" placeholder="María Pérez" {...register("nombre")} />
+              {errors.nombre && (
+                <p className="text-sm text-red-600">{errors.nombre.message}</p>
               )}
             </div>
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-text" htmlFor="capacidadMax">
-                Capacidad máxima
+
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-1">
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-text" htmlFor="carrera">
+                  Carrera
+                </label>
+                <Input id="carrera" placeholder="Ingeniería" {...register("carrera")} />
+                {errors.carrera && (
+                  <p className="text-sm text-red-600">{errors.carrera.message}</p>
+                )}
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-text" htmlFor="capacidadMax">
+                  Capacidad máxima
+                </label>
+                <Input id="capacidadMax" type="number" min="1" {...register("capacidadMax")} />
+                {errors.capacidadMax && (
+                  <p className="text-sm text-red-600">{errors.capacidadMax.message}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-1">
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-text" htmlFor="areaAtencion">
+                  Área de atención
+                </label>
+                <Input
+                  id="areaAtencion"
+                  placeholder="Ciencias básicas"
+                  {...register("areaAtencion")}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-text" htmlFor="letraEdificio">
+                  Letra de edificio
+                </label>
+                <Input id="letraEdificio" placeholder="B" {...register("letraEdificio")} />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input id="activo" type="checkbox" {...register("activo")} />
+              <label className="text-sm font-medium text-text" htmlFor="activo">
+                Tutor activo
               </label>
-              <Input id="capacidadMax" type="number" min="1" {...register("capacidadMax")} />
-              {errors.capacidadMax && (
-                <p className="text-sm text-red-600">{errors.capacidadMax.message}</p>
-              )}
             </div>
-          </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-text" htmlFor="areaAtencion">
-                Área de atención
-              </label>
-              <Input
-                id="areaAtencion"
-                placeholder="Ciencias básicas"
-                {...register("areaAtencion")}
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-text" htmlFor="letraEdificio">
-                Letra de edificio
-              </label>
-              <Input id="letraEdificio" placeholder="B" {...register("letraEdificio")} />
-            </div>
-          </div>
+            {errorMessage && (
+              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p>
+            )}
 
-          <div className="flex items-center gap-2">
-            <input id="activo" type="checkbox" {...register("activo")} />
-            <label className="text-sm font-medium text-text" htmlFor="activo">
-              Tutor activo
-            </label>
-          </div>
+            {feedback && (
+              <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">{feedback}</p>
+            )}
 
-          {errorMessage && (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p>
-          )}
-
-          {feedback && (
-            <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">{feedback}</p>
-          )}
-
-          <Button loading={createMutation.isPending || updateMutation.isPending} type="submit">
-            {editingTutor ? "Guardar cambios" : "Registrar tutor"}
-          </Button>
-        </form>
-      </Card>
-
-      <div className="space-y-4">
-        <Card>
-          <div className="space-y-4">
-            <div>
-              <h2 className="text-lg font-semibold text-text">Listado de tutores</h2>
-              <p className="text-sm text-slate-500">
-                Consulta el estado y los alumnos asignados a cada tutor.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-text" htmlFor="search-tutor">
-                Buscar tutor
-              </label>
-              <SearchInput
-                id="search-tutor"
-                placeholder="Ingresa nombre del tutor"
-                value={search}
-                onChange={handleSearchChange}
-                onClear={handleSearchClear}
-                onSelect={(item) => handleSelectTutor(item as TutorResponse)}
-                suggestions={suggestions}
-                suggestionsType="tutor"
-                isLoading={search.length >= 2 && !isSearchMode && isFetching}
-              />
-              {isSearchMode && <Badge variant="info">🔍 Búsqueda global</Badge>}
-            </div>
-          </div>
+            <Button loading={createMutation.isPending || updateMutation.isPending} type="submit">
+              {editingTutor ? "Guardar cambios" : "Registrar tutor"}
+            </Button>
+          </form>
         </Card>
-        <DataTable
-          columns={tableColumns}
-          data={displayTutors}
-          isLoading={isLoading}
-          emptyMessage="No hay tutores registrados aún."
-        />
+      </div>
 
-        {selectedTutor && tutorDetail && (
+      {/* Contenido derecha - SCROLLABLE con altura limitada en desktop */}
+      <div className="xl:overflow-y-auto xl:pr-4">
+        <div className="space-y-4">
           <Card>
-            <div className="flex items-center justify-between">
+            <div className="space-y-4">
               <div>
-                <h3 className="text-lg font-semibold text-text">
-                  Alumnos a cargo de {selectedTutor.nombre}
-                </h3>
+                <h2 className="text-lg font-semibold text-text">Listado de tutores</h2>
                 <p className="text-sm text-slate-500">
-                  Total registrados: {tutorDetail.alumnos.length}
+                  Consulta el estado y los alumnos asignados a cada tutor.
                 </p>
               </div>
-              <Button type="button" variant="ghost" onClick={() => setSelectedTutor(null)}>
-                Cerrar
-              </Button>
-            </div>
-            <div className="mt-4 space-y-2 text-sm text-slate-600">
-              {loadingStudents && <p>Cargando alumnos asignados...</p>}
-              {!loadingStudents && !tutorDetail.alumnos.length && (
-                <p>No hay alumnos asignados para este tutor.</p>
-              )}
-              {!loadingStudents &&
-                tutorDetail.alumnos.map((student) => (
-                  <div
-                    key={student.id}
-                    className="rounded-lg border border-border bg-white px-3 py-2"
-                  >
-                    <p className="font-medium text-text">{student.nombre}</p>
-                    <p className="text-xs text-slate-500">
-                      Matrícula {student.matricula} · Semestre {student.semestre}
-                    </p>
-                  </div>
-                ))}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-text" htmlFor="search-tutor">
+                  Buscar tutor
+                </label>
+                <SearchInput
+                  id="search-tutor"
+                  placeholder="Ingresa nombre del tutor"
+                  value={search}
+                  onChange={handleSearchChange}
+                  onClear={handleSearchClear}
+                  onSelect={(item) => handleSelectTutor(item as TutorResponse)}
+                  suggestions={suggestions}
+                  suggestionsType="tutor"
+                  isLoading={search.length >= 2 && !isSearchMode && isFetching}
+                />
+                {isSearchMode && <Badge variant="info">🔍 Búsqueda global</Badge>}
+              </div>
             </div>
           </Card>
-        )}
+          <div className="overflow-x-auto">
+            <DataTable
+              columns={tableColumns}
+              data={displayTutors}
+              isLoading={isLoading}
+              emptyMessage="No hay tutores registrados aún."
+            />
+          </div>
+
+          {selectedTutor && tutorDetail && (
+            <Card>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-text">
+                    Alumnos a cargo de {selectedTutor.nombre}
+                  </h3>
+                  <p className="text-sm text-slate-500">
+                    Total registrados: {tutorDetail.alumnos.length}
+                  </p>
+                </div>
+                <Button type="button" variant="ghost" onClick={() => setSelectedTutor(null)}>
+                  Cerrar
+                </Button>
+              </div>
+              <div className="mt-4 space-y-2 text-sm text-slate-600">
+                {loadingStudents && <p>Cargando alumnos asignados...</p>}
+                {!loadingStudents && !tutorDetail.alumnos.length && (
+                  <p>No hay alumnos asignados para este tutor.</p>
+                )}
+                {!loadingStudents &&
+                  tutorDetail.alumnos.map((student) => (
+                    <div
+                      key={student.id}
+                      className="rounded-lg border border-border bg-white px-3 py-2"
+                    >
+                      <p className="font-medium text-text">{student.nombre}</p>
+                      <p className="text-xs text-slate-500">
+                        Matrícula {student.matricula} · Semestre {student.semestre}
+                      </p>
+                    </div>
+                  ))}
+              </div>
+            </Card>
+          )}
+        </div>
       </div>
     </div>
   );

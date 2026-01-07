@@ -7,9 +7,12 @@ package com.universidad.tutorias.application.service.impl;
 import com.universidad.tutorias.application.dto.AlumnoExcelDTO;
 import com.universidad.tutorias.application.service.AuditoriaService;
 import com.universidad.tutorias.application.service.ReingresoService;
+import com.universidad.tutorias.application.service.SemestreService;
+import com.universidad.tutorias.application.service.TutorSincronizacionService;
 import com.universidad.tutorias.domain.entity.Alumno;
 import com.universidad.tutorias.domain.entity.AlumnoInactivo;
 import com.universidad.tutorias.domain.entity.Asignacion;
+import com.universidad.tutorias.domain.entity.Semestre;
 import com.universidad.tutorias.domain.entity.Tutor;
 import com.universidad.tutorias.domain.enums.EstadoAlumno;
 import com.universidad.tutorias.domain.enums.SeveridadAlerta;
@@ -39,10 +42,12 @@ public class ReingresoServiceImpl implements ReingresoService {
     private final AsignacionRepository asignacionRepository;
     private final AlertaProcesoRepository alertaRepository;
     private final AuditoriaService auditoriaService;
+    private final SemestreService semestreService;
+    private final TutorSincronizacionService tutorSincronizacionService;
 
     @Override
     @Transactional
-    public List<Alumno> procesarReingresos(List<AlumnoExcelDTO> alumnosReingreso, Long procesoId) {
+    public List<Alumno> procesarReingresos(List<AlumnoExcelDTO> alumnosReingreso, Long procesoId, Long semestreId) {
 
         log.info("Procesando reingresos para {} alumnos", alumnosReingreso.size());
 
@@ -83,23 +88,28 @@ public class ReingresoServiceImpl implements ReingresoService {
 
                 // Intentar asignar al tutor preservado
                 if (inactivo.getTutorPreservado() != null) {
-                    Tutor tutor = tutorRepository.findById(inactivo.getTutorPreservado().getId())
-                            .orElse(null);
+                    Tutor tutor = tutorSincronizacionService.sincronizarYBloquearTutor(
+                            inactivo.getTutorPreservado().getId());
 
-                    if (tutor != null && tutor.tieneCapacidadDisponible()) {
+                    if (tutor.tieneCapacidadDisponible()) {
                         // Asignación exitosa
                         alumno.setEstado(EstadoAlumno.ACTIVO);
                         alumno.setTutorActual(tutor);
                         alumnoRepository.save(alumno);
 
+                        // Obtener semestre solicitado para la asignación
+                        Semestre semestre = semestreService.obtenerPorId(semestreId);
+
                         // Crear asignación de reingreso
                         Asignacion asignacion = new Asignacion();
                         asignacion.setAlumno(alumno);
                         asignacion.setTutor(tutor);
+                        asignacion.setSemestre(semestre);
                         asignacion.setTipoAsignacion(TipoAsignacion.REINGRESO);
+                        asignacion.setSemestreAcademico(semestre.getCodigo());
                         asignacionRepository.save(asignacion);
 
-                        // Actualizar carga del tutor
+                        // Actualizar carga del tutor con lock y validación previa ya aplicada
                         tutor.incrementarCarga();
                         tutorRepository.save(tutor);
 

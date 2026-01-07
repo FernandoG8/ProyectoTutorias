@@ -8,3 +8,5 @@ export * from "./asignacion";
 export * from "./auth";
 export * from "./reporte";
 export * from "./search";
+export * from "./semestre";
+export * from "./dashboard";

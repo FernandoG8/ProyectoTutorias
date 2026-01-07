@@ -7,9 +7,11 @@ package com.universidad.tutorias.application.service.impl;
 import com.universidad.tutorias.application.dto.AlumnoExcelDTO;
 import com.universidad.tutorias.application.dto.ResultadoValidacion;
 import com.universidad.tutorias.application.service.AlumnoValidadorService;
+import com.universidad.tutorias.domain.entity.Alumno;
 import com.universidad.tutorias.domain.entity.ErrorValidacion;
 import com.universidad.tutorias.domain.entity.ProcesoAsignacion;
 import com.universidad.tutorias.domain.enums.TipoError;
+import com.universidad.tutorias.domain.repository.AlumnoRepository;
 import com.universidad.tutorias.domain.repository.ErrorValidacionRepository;
 import com.universidad.tutorias.domain.repository.ProcesoAsignacionRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -20,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -38,6 +41,7 @@ public class AlumnoValidadorServiceImpl implements AlumnoValidadorService {
 
     private final ErrorValidacionRepository errorRepository;
     private final ProcesoAsignacionRepository procesoRepository;
+    private final AlumnoRepository alumnoRepository;
 
     @Override
     @Transactional
@@ -46,8 +50,15 @@ public class AlumnoValidadorServiceImpl implements AlumnoValidadorService {
         List<ErrorValidacion> errores = new ArrayList<>();
         Set<String> matriculasEnArchivo = new HashSet<>();
 
-        ProcesoAsignacion proceso = procesoRepository.findById(procesoId)
-                .orElseThrow(() -> new EntityNotFoundException("Proceso no encontrado: " + procesoId));
+        Map<String, Alumno> alumnosExistentes = cargarAlumnosExistentes(alumnos);
+
+        // Proceso es opcional: solo se requiere si procesoId es válido (> 0)
+        // Si es null o <= 0, validamos sin proceso (para endpoint /validar-excel)
+        ProcesoAsignacion proceso = null;
+        if (procesoId != null && procesoId > 0) {
+            proceso = procesoRepository.findById(procesoId)
+                    .orElseThrow(() -> new EntityNotFoundException("Proceso no encontrado: " + procesoId));
+        }
 
         for (AlumnoExcelDTO alumno : alumnos) {
             List<ErrorValidacion> erroresAlumno = new ArrayList<>();
@@ -67,6 +78,9 @@ public class AlumnoValidadorServiceImpl implements AlumnoValidadorService {
             // Validación 5: Matrícula duplicada en archivo
             validarMatriculaDuplicada(alumno, matriculasEnArchivo, erroresAlumno, proceso);
 
+            // Validación 6: Consistencia contra BD (matrícula + nombre)
+            validarContraBase(alumno, alumnosExistentes, erroresAlumno, proceso);
+
             if (erroresAlumno.isEmpty()) {
                 validos.add(alumno);
                 if (alumno.getMatricula() != null) {
@@ -77,10 +91,14 @@ public class AlumnoValidadorServiceImpl implements AlumnoValidadorService {
             }
         }
 
-        // Guardar errores en BD
-        if (!errores.isEmpty()) {
+        // Guardar errores en BD solo si hay un proceso válido
+        // Si proceso es null, no guardamos en BD (validación previa sin ejecutar)
+        // Los errores se incluyen en el resultado pero no se persisten
+        if (!errores.isEmpty() && proceso != null) {
             errorRepository.saveAll(errores);
-            log.warn("Se encontraron {} errores de validación", errores.size());
+            log.warn("Se encontraron {} errores de validación (guardados en BD)", errores.size());
+        } else if (!errores.isEmpty()) {
+            log.warn("Se encontraron {} errores de validación (no guardados en BD - validación previa sin proceso)", errores.size());
         }
 
         log.info("Validación completada. Válidos: {}, Errores: {}", validos.size(), errores.size());
@@ -158,19 +176,67 @@ public class AlumnoValidadorServiceImpl implements AlumnoValidadorService {
         }
     }
 
+    private void validarContraBase(AlumnoExcelDTO alumno,
+                                   Map<String, Alumno> alumnosExistentes,
+                                   List<ErrorValidacion> errores,
+                                   ProcesoAsignacion proceso) {
+        if (esVacio(alumno.getMatricula()) || esVacio(alumno.getNombre())) {
+            return;
+        }
+
+        String matricula = alumno.getMatricula().toUpperCase().trim();
+        Alumno existente = alumnosExistentes.get(matricula);
+
+        if (existente == null) {
+            return;
+        }
+
+        String nombreArchivo = alumno.getNombre().trim().toUpperCase();
+        String nombreBd = existente.getNombre() != null ? existente.getNombre().trim().toUpperCase() : "";
+
+        if (!nombreArchivo.equals(nombreBd)) {
+            errores.add(crearError(proceso, alumno, TipoError.DATOS_INCONSISTENTES,
+                    String.format("La matrícula %s ya existe con el nombre '%s' en la base de datos. Recibido: '%s'",
+                            matricula, existente.getNombre(), alumno.getNombre()),
+                    alumno.getNombre()));
+        }
+    }
+
     private boolean esVacio(String valor) {
         return valor == null || valor.trim().isEmpty();
     }
 
     private ErrorValidacion crearError(ProcesoAsignacion proceso, AlumnoExcelDTO alumno,
                                        TipoError tipo, String descripcion, String datoErroneo) {
-        return ErrorValidacion.builder()
-                .proceso(proceso)
+        ErrorValidacion.ErrorValidacionBuilder builder = ErrorValidacion.builder()
                 .filaExcel(alumno.getFila())
                 .matricula(alumno.getMatricula())
                 .tipoError(tipo)
                 .descripcion(descripcion)
-                .datoErroneo(datoErroneo)
-                .build();
+                .datoErroneo(datoErroneo);
+        
+        // Solo asociar proceso si existe (para validación previa, proceso puede ser null)
+        if (proceso != null) {
+            builder.proceso(proceso);
+        }
+        
+        return builder.build();
+    }
+
+    private Map<String, Alumno> cargarAlumnosExistentes(List<AlumnoExcelDTO> alumnos) {
+        List<String> matriculas = alumnos.stream()
+                .map(AlumnoExcelDTO::getMatricula)
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .map(String::toUpperCase)
+                .distinct()
+                .collect(Collectors.toList());
+
+        if (matriculas.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        return alumnoRepository.findByMatriculaIn(matriculas).stream()
+                .collect(Collectors.toMap(a -> a.getMatricula().toUpperCase(), a -> a));
     }
 }

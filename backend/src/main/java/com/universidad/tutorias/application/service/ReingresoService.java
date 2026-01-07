@@ -9,5 +9,5 @@ public interface ReingresoService {
     /**
      * Procesa reingresos de alumnos con baja temporal o movilidad
      */
-    List<Alumno> procesarReingresos(List<AlumnoExcelDTO> alumnosReingreso, Long procesoId);
+    List<Alumno> procesarReingresos(List<AlumnoExcelDTO> alumnosReingreso, Long procesoId, Long semestreId);
 }
