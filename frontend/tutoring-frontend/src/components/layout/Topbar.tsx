@@ -1,8 +1,12 @@
 import { User, LogOut, Settings } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useNotification } from "@/hooks/useNotification";
 import { SemestreSelector } from "@/components/common/SemestreSelector";
 import { colors } from "@/constants/colors";
+import { logout as logoutRequest } from "@/services/auth-service";
+import { useAuthStore } from "@/store/auth-store";
+import { queryClient } from "@/lib/query-client";
 
 /**
  * Topbar fijo del dashboard
@@ -15,10 +19,23 @@ import { colors } from "@/constants/colors";
 export const Topbar = () => {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const { success } = useNotification();
+  const navigate = useNavigate();
+  const clearSession = useAuthStore((state) => state.logout);
 
-  const handleLogout = () => {
-    // TODO: Implementar logout
-    success("Sesión cerrada correctamente");
+  const handleLogout = async () => {
+    console.log("logout click");
+    try {
+      await logoutRequest();
+    } catch (error) {
+      console.error("Error al cerrar sesión", error);
+    } finally {
+      // Siempre limpiar estado local y navegar
+      clearSession();
+      queryClient.clear();
+      setShowUserMenu(false);
+      success("Sesión cerrada correctamente");
+      navigate("/login", { replace: true });
+    }
   };
 
   return (
