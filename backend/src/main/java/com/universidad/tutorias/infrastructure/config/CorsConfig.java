@@ -28,6 +28,8 @@ public class CorsConfig {
                 .filter(StringUtils::hasText)
                 .collect(Collectors.toList());
         config.setAllowedOrigins(origins);
+        // Patrón alternativo por si el Origin llega con variaciones menores
+        config.setAllowedOriginPatterns(origins);
 
         // Métodos HTTP permitidos
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
@@ -38,7 +40,9 @@ public class CorsConfig {
                 "Content-Type",
                 "X-Requested-With",
                 "Origin",
-                "Accept"
+                "Accept",
+                "Idempotency-Key",
+                "idempotency-key"
         ));
 
         // Exponer headers importantes para el cliente
