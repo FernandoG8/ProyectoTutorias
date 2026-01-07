@@ -7,6 +7,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -67,7 +70,7 @@ public class TokenCookieService {
                 .sameSite(normalizeSameSite(jwtProperties.getCookieSameSite()))
                 .path(jwtProperties.getCookiePath());
 
-        String cookieDomain = normalizeDomain(jwtProperties.getCookieDomain());
+        String cookieDomain = resolveCookieDomain();
         if (cookieDomain != null) {
             builder.domain(cookieDomain);
         }
@@ -104,5 +107,26 @@ public class TokenCookieService {
             return null;
         }
         return trimmed;
+    }
+
+    /**
+     * Solo aplica el dominio configurado si coincide con el host que atiende la petición.
+     * Esto evita emitir cookies con Domain incompatible (ej. host Railway vs dominio Vercel).
+     */
+    private String resolveCookieDomain() {
+        String configured = normalizeDomain(jwtProperties.getCookieDomain());
+        if (configured == null) {
+            return null;
+        }
+
+        RequestAttributes attributes = RequestContextHolder.getRequestAttributes();
+        if (attributes instanceof ServletRequestAttributes servletAttrs) {
+            String host = servletAttrs.getRequest().getServerName();
+            if (host != null && (host.equals(configured) || host.endsWith("." + configured))) {
+                return configured;
+            }
+        }
+        // Dominio configurado no coincide con el host actual; no se aplica para no romper las cookies.
+        return null;
     }
 }
