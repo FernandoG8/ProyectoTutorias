@@ -1,4 +1,4 @@
-import { api } from "@/lib/api";
+import { api, apiBaseURL } from "@/lib/api";
 
 export interface GoogleStatus {
   linked: boolean;
@@ -12,11 +12,11 @@ export async function getGoogleStatus(): Promise<GoogleStatus> {
 }
 
 export function startGoogleLink(): void {
-  window.location.href = `${import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL ?? "http://localhost:8080"}/auth/google/connect-drive`;
+  window.location.href = `${apiBaseURL}/auth/google/link`;
 }
 
 export function startDriveConnect(): void {
-  window.location.href = `${import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL ?? "http://localhost:8080"}/auth/google/connect-drive`;
+  window.location.href = `${apiBaseURL}/auth/google/connect-drive`;
 }
 
 export async function disconnectDrive(): Promise<void> {

@@ -4,6 +4,9 @@ import type { AxiosError, InternalAxiosRequestConfig } from "axios";
 const baseURL =
   import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL ?? "http://localhost:8080";
 
+// Exportamos la base para reutilizarla en redirecciones (Google OAuth) y evitar divergencias
+export const apiBaseURL = baseURL;
+
 /**
  * Cliente API configurado con interceptores para manejo centralizado de errores
  * y autenticación mediante cookies HttpOnly.
