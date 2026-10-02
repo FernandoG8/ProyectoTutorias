@@ -366,6 +366,5 @@ ERROR:    Ninguno asignado o error fatal
 ---
 
 **Última actualización:** 19 de Noviembre, 2025
-**Mantenedor:** Claude Code
 **Branch:** ramapruebas
 **Commits:** `41c7ccb`, `a17a7a9`

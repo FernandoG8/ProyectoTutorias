@@ -175,4 +175,3 @@ La Fase 4 implementa completamente el endpoint `/ejecutar` con:
 
 **Versión:** 4.0.0
 **Última actualización:** 19 de Noviembre, 2025
-**Mantenedor:** Claude Code

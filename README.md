@@ -1,236 +1,101 @@
-# ProyectoTutoriasBackend
+# Sistema de Gestión de Tutorías Académicas
 
-Sistema integral de gestión de tutorías académicas. Plataforma que conecta estudiantes con tutores mediante asignación inteligente y seguimiento de cargas.
+Plataforma para administrar el programa de tutorías de una facultad: alumnos, tutores, semestres
+y la **asignación automática de tutores**, con reportes exportables a PDF, Excel y Google Drive.
 
-**Versión:** 4.0.0
-**Status:** ✅ Fase 4 Completada
-**Última actualización:** 19 de Noviembre, 2025
+Proyecto universitario, 11/2025 - 01/2026.
 
----
+## Stack
 
-## 📁 Estructura del Proyecto
+| Capa | Tecnologías |
+|---|---|
+| Backend | Java 21, Spring Boot 3.3, Spring Security, Spring Data JPA, MapStruct, Lombok |
+| Autenticación | JWT (access y refresh token), OAuth 2.0 con Google |
+| Base de datos | MySQL 8 (H2 en pruebas) |
+| Reportes | OpenPDF (PDF), Apache POI (Excel), Google Drive API |
+| Frontend | React 18, TypeScript, Vite, TanStack Query, React Router, Tailwind CSS, Recharts, Zod |
+| Calidad | JUnit 5, Mockito, JaCoCo, OpenAPI (springdoc) |
+| Infraestructura | Docker, Docker Compose, Maven Wrapper |
+
+## Funcionalidades
+
+- **Alumnos y tutores:** CRUD, búsqueda, inactivación y reingreso, y cambio de tutor con auditoría de cada cambio.
+- **Carga masiva desde Excel:** validación por archivo con reporte de errores antes de importar.
+- **Asignación automática de tutores** por semestre, con seguimiento del progreso del proceso.
+- **Reportes** por carrera y por tutor en PDF o Excel; exportación masiva a Google Drive en segundo plano tras vincular la cuenta de Google con OAuth 2.0.
+- **Dashboard** con indicadores del semestre y **mantenimiento**: diagnóstico del sistema y verificación de integridad de datos.
+
+## Arquitectura
+
+El backend se organiza por capas (`domain`, `application`, `infrastructure`):
 
 ```
-ProyectoTutoriasBackend/
-├── backend/                 ← Aplicación Spring Boot (Java 21)
-│   ├── src/
-│   ├── pom.xml
-│   └── README.md
-├── frontend/                ← Aplicación Angular/React
-│   ├── src/
-│   ├── package.json
-│   └── README.md
-├── docs/                    ← Documentación completa
-│   ├── README.md
-│   ├── asignaciones/        ← Módulo de asignaciones (Fase 4)
-│   ├── api/
-│   ├── arquitectura/
-│   ├── guias/
-│   ├── root-docs/           ← Documentos históricos y análisis
-│   └── ...
-├── .git/                    ← Control de versiones
-├── .idea/                   ← Configuración IntelliJ
-├── .claude/                 ← Configuración Claude Code
-├── .gitignore
-├── .gitattributes
-└── README.md                ← Este archivo
+backend/src/main/java/com/universidad/tutorias/
+├── domain/           entidades, repositorios y excepciones de dominio
+├── application/      servicios de aplicación y DTOs
+└── infrastructure/   controladores REST, seguridad, configuración e integración con Google
 ```
 
----
+| Ruta base | Recurso |
+|---|---|
+| `/auth`, `/auth/google` | Inicio de sesión, refresh token y vinculación con Google |
+| `/api/alumnos`, `/api/alumnos-inactivos` | Alumnos |
+| `/api/tutores` | Tutores |
+| `/api/semestres` | Semestres |
+| `/api/asignaciones`, `/api/cleanup` | Asignación de tutores y limpieza de asignaciones |
+| `/api/reportes`, `/api/reportes/drive` | Reportes y exportación a Drive |
+| `/api/dashboard`, `/api/mantenimiento` | Indicadores y mantenimiento |
 
-## 🚀 Inicio Rápido
+Con el backend en marcha, la documentación interactiva de la API está en `http://localhost:8080/swagger-ui.html`.
 
-### Backend (Spring Boot)
+## Cómo ejecutarlo
+
+### Con Docker (backend y MySQL)
+
 ```bash
 cd backend
-mvn clean install
-mvn spring-boot:run
+docker compose up -d     # MySQL 8 + backend en http://localhost:8080
 ```
-→ Backend estará en `http://localhost:8080`
 
-### Frontend
+Las credenciales de `docker-compose.yml` son solo para desarrollo local.
+
+### Backend en local
+
+Requisitos: Java 21 y una base MySQL.
+
 ```bash
-cd frontend
+cd backend
+./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+```
+
+Las credenciales (base de datos, `JWT_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`) se leen de
+variables de entorno; ver `backend/.env.prod.example`.
+
+### Frontend
+
+Requisitos: Node.js 20 o superior.
+
+```bash
+cd frontend/tutoring-frontend
+cp .env.example .env     # VITE_API_BASE_URL apunta al backend
 npm install
-npm start
-```
-→ Frontend estará en `http://localhost:4200`
-
-### Documentación
-→ Toda la documentación está en `/docs`
-→ Inicio: `docs/README.md`
-
----
-
-## 📚 Documentación
-
-### 📖 Módulo de Asignaciones (Fase 4 ✅)
-La documentación completa del módulo de asignaciones está en `docs/asignaciones/`:
-
-- **[docs/asignaciones/README.md](./docs/asignaciones/README.md)** - Guía principal
-- **[docs/asignaciones/01-overview.md](./docs/asignaciones/01-overview.md)** - Visión general
-- **[docs/asignaciones/02-arquitectura.md](./docs/asignaciones/02-arquitectura.md)** - Arquitectura
-- **[docs/asignaciones/05-flujo-completo.md](./docs/asignaciones/05-flujo-completo.md)** - Flujo end-to-end
-- **[docs/asignaciones/09-fase4-ejecucion.md](./docs/asignaciones/09-fase4-ejecucion.md)** - Implementación Fase 4
-
-### 📖 Documentación General
-→ **[docs/README.md](./docs/README.md)** - Índice completo de documentación
-
-Incluye:
-- Arquitectura del sistema
-- API REST endpoints
-- Guías de desarrollo
-- Despliegue y configuración
-- Mantenimiento
-
-### 📖 Documentos Históricos
-Análisis y documentos de fases anteriores:
-→ **[docs/root-docs/](./docs/root-docs/)** - Documentación de análisis y planificación
-
----
-
-## 🛠️ Stack Tecnológico
-
-### Backend
-- **Spring Boot 3.x** - Framework principal
-- **Java 21** - Lenguaje
-- **JPA/Hibernate** - ORM
-- **PostgreSQL** - Base de datos
-- **Maven** - Gestor de dependencias
-- **JUnit 5 + Mockito** - Testing
-
-### Frontend
-- **Angular/React** - Framework UI
-- **TypeScript** - Lenguaje
-- **NPM/Yarn** - Gestor de paquetes
-- **SCSS** - Estilos
-
-### DevOps
-- **Docker** - Containerización
-- **Git** - Control de versiones
-- **GitHub Actions** - CI/CD (opcional)
-
----
-
-## 🎯 Fases Implementadas
-
-| Fase | Descripción | Status |
-|------|-------------|--------|
-| 1 | Lectura de Excel | ✅ Completada |
-| 2 | Validación de datos | ✅ Completada |
-| 3 | Limpieza y ordenamiento | ✅ Completada |
-| 4 | Ejecución de asignaciones | ✅ **IMPLEMENTADA** |
-| 5+ | Mejoras futuras | 📋 Planificadas |
-
----
-
-## 🔌 Endpoints Principales
-
-### Asignaciones
-- `POST /api/asignaciones/validar-excel` - Valida y procesa Excel
-- `POST /api/asignaciones/ejecutar` - Ejecuta asignaciones validadas
-
-### Otros
-- `GET /api/alumnos` - Listar estudiantes
-- `GET /api/tutores` - Listar tutores
-- `GET /api/semestres` - Listar períodos académicos
-
-→ **Documentación completa:** [docs/api/](./docs/api/)
-
----
-
-## 👥 Contribución
-
-Para contribuir al proyecto:
-
-1. Lee [docs/guias/02-contribucion.md](./docs/guias/02-contribucion.md)
-2. Crea una rama para tu feature: `git checkout -b feature/nombre`
-3. Commit tus cambios: `git commit -m "feat: descripción"`
-4. Push a tu rama: `git push origin feature/nombre`
-5. Abre un Pull Request
-
-→ **Guía completa:** [docs/guias/](./docs/guias/)
-
----
-
-## 📝 Commit Style
-
-```
-feat:  Nueva feature
-fix:   Corrección de bug
-docs:  Documentación
-style: Formato/estilos
-refactor: Refactorización
-test:  Tests/testing
+npm run dev
 ```
 
----
+### Pruebas y cobertura
 
-## 🔒 Seguridad
+```bash
+cd backend
+./mvnw test              # el reporte de JaCoCo queda en target/site/jacoco
+```
 
-- Validación de entrada en todos los endpoints
-- Transacciones ACID garantizadas
-- Locking pesimista para concurrencia
-- Auditoría completa de operaciones
-- Sincronización de datos
+## Documentación
 
----
+Toda la documentación vive en [`docs/`](./docs):
 
-## 📊 Performance
-
-| Operación | Complejidad | Tiempo (150 alumnos) |
-|-----------|-------------|----------------------|
-| Validación | O(n) | ~500ms |
-| Asignación | O(n) | ~2500ms |
-| **Total** | **O(n)** | **~3000ms** |
-
----
-
-## 🆘 Soporte
-
-### Documentación
-- **General:** [docs/README.md](./docs/README.md)
-- **Asignaciones:** [docs/asignaciones/README.md](./docs/asignaciones/README.md)
-- **Troubleshooting:** [docs/asignaciones/24-troubleshooting.md](./docs/asignaciones/24-troubleshooting.md)
-
-### Backend
-- **README:** [backend/README.md](./backend/README.md)
-
-### Frontend
-- **README:** [frontend/README.md](./frontend/README.md)
-
----
-
-## 📅 Roadmap
-
-- [x] Fase 1: Lectura de Excel
-- [x] Fase 2: Validación de datos
-- [x] Fase 3: Limpieza y ordenamiento
-- [x] Fase 4: Ejecución de asignaciones
-- [ ] Fase 5: Cambio manual de tutor
-- [ ] Fase 6: Dashboard y reportes
-- [ ] Optimizaciones de performance
-
----
-
-## 📞 Contacto
-
-Para preguntas o problemas:
-
-1. Consulta la documentación en `/docs`
-2. Revisa problemas existentes en issues
-3. Crea un nuevo issue con detalles
-
----
-
-## 📄 Licencia
-
-© 2025 Universidad. Todos los derechos reservados.
-
----
-
-**Mantente actualizado:**
-- 🔔 [Ver cambios recientes](./docs/asignaciones/25-changelog.md)
-- 📝 [Ver historial completo](./docs/CHANGELOG.md)
-
-**Última actualización:** 19 de Noviembre, 2025
+- [`docs/api`](./docs/api) y [`docs/arquitectura`](./docs/arquitectura): endpoints y mapa de la arquitectura
+- [`docs/asignaciones`](./docs/asignaciones): diseño del módulo de asignación de tutores
+- [`docs/frontend`](./docs/frontend): componentes y servicios del frontend
+- [`docs/despliegue`](./docs/despliegue): Docker, Railway y Render + Vercel + Supabase
+- [`docs/pruebas`](./docs/pruebas): reportes de cobertura con JaCoCo
+- [`docs/historial`](./docs/historial): bitácora de fases, auditorías y decisiones del desarrollo
